@@ -54,7 +54,7 @@ func _refresh_inventory() -> void:
         inventory_label.text = "Inventory: empty"
         return
 
-    var parts: Array[String] = []
+    var parts := PackedStringArray()
     for item_id in items.keys():
         parts.append("%s ×%d" % [String(item_id), int(items[item_id])])
     inventory_label.text = "Inventory: %s" % ", ".join(parts)
