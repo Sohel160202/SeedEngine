@@ -10,6 +10,7 @@ signal interaction_attempted(interactable: SeedInteractable, succeeded: bool)
 @export var actor_path: NodePath = NodePath("..")
 @export_range(0.5, 20.0, 0.1) var interaction_distance: float = 3.0
 @export var input_action: StringName = &"seed_interact"
+@export var fallback_interact_key: Key = KEY_E
 @export_flags_3d_physics var collision_mask: int = 0xFFFFFFFF
 
 var _focused: SeedInteractable
@@ -26,7 +27,15 @@ func _process(_delta: float) -> void:
         interactable_cleared.emit()
 
 func _unhandled_input(event: InputEvent) -> void:
-    if event.is_action_pressed(input_action):
+    var requested := false
+
+    if InputMap.has_action(input_action) and event.is_action_pressed(input_action):
+        requested = true
+    elif event is InputEventKey:
+        var key_event := event as InputEventKey
+        requested = key_event.pressed and not key_event.echo and key_event.physical_keycode == fallback_interact_key
+
+    if requested:
         try_interact()
 
 func try_interact() -> bool:
