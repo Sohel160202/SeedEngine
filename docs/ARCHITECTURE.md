@@ -2,116 +2,187 @@
 
 ## Core principle
 
-Seed owns the **authoring model**. The underlying runtime owns low-level engine services.
+Seed owns the engine-facing concepts that make Seed a game engine:
 
-This separation keeps Seed focused on beginner-friendly creation while preserving the option to evolve the runtime later.
+- application lifecycle
+- world/scene ownership
+- entity/component model
+- project and scene formats
+- gameplay framework
+- runtime
+- editor / Seed Studio
+- asset identity and metadata
+- input/action model
+- scripting/logic model
+- subsystem interfaces
 
-## Layers
+Focused third-party libraries may implement low-level jobs, but they must sit **behind Seed-owned interfaces**.
 
-### 1. Seed Authoring Layer
-The beginner-facing product.
+## Architectural boundary
+
+```text
+Seed Studio
+    |
+    v
+Seed Project / Scene Data
+    |
+    v
+Seed Engine Core
+    |
+    +-- Scene / Entity / Components
+    +-- Gameplay Framework
+    +-- Asset System
+    +-- Input / Events
+    +-- Serialization
+    +-- Runtime Services
+    |
+    v
+Seed Subsystem Interfaces
+    |
+    +-- Platform backend
+    +-- Renderer backend
+    +-- Physics backend
+    +-- Audio backend
+    +-- Navigation backend
+```
+
+No gameplay component should know which graphics API, window library, physics library, or editor UI toolkit is being used.
+
+## 1. Seed Core
 
 Responsibilities:
-- Add Gameplay workflow
-- Inspector/property UX
-- Game templates
-- Seed Logic authoring
-- Validation and beginner-friendly errors
-- Project overview / Game Director
-- Build/export presets
 
-### 2. Seed Gameplay Framework
-Reusable runtime-neutral gameplay concepts.
+- engine startup/shutdown
+- service ownership
+- logging and diagnostics
+- frame lifecycle
+- timing
+- IDs and common types
+
+## 2. Seed Scene
+
+Seed uses entities composed from components.
+
+Initial requirements:
+
+- stable `EntityId`
+- entity names for authoring/debugging
+- create/destroy operations
+- typed component storage
+- add/get/remove/has component operations
+- scene ownership
+- eventual parent/child relationships
+- eventual `.seedscene` serialization
+
+The scene model is a Seed concept. It must not mirror another engine's node hierarchy.
+
+## 3. Seed Gameplay
+
+Gameplay features are higher-level components/systems designed for creators.
 
 Initial concepts:
+
+- Transform
 - Interactable
 - Health
-- Damageable
-- Pickup
 - Inventory
+- Pickup
 - Door
-- Lock / Key Requirement
 - Dialogue
 - Quest
 - Enemy
 - Saveable
 
-Every concept should have:
-- a small, explicit data model
-- editor configuration
-- runtime behavior
-- predictable events
-- serialization support where needed
-- validation
+The beginner should see `Door`, not a collection of low-level scripts needed to simulate a door.
 
-### 3. Runtime Adapter
-Maps Seed concepts to the host runtime.
+## 4. Seed Runtime
 
-Initial adapter target: Godot 4.x.
+The runtime executable loads a Seed project and runs the game.
 
-The adapter should handle:
-- nodes/scenes
+It must use the same engine library as Seed Studio.
+
+Long-term runtime responsibilities:
+
+- project boot
+- scene loading
+- simulation/update loop
+- rendering
 - physics
-- navigation
-- animation
 - audio
-- UI
 - input
-- persistence
-- packaging/export
+- save data
+- platform packaging
 
-Seed project metadata should avoid unnecessary dependence on host-specific node paths or implementation details.
+## 5. Seed Studio
 
-### 4. Advanced Extension Layer
-For creators who outgrow the beginner workflow.
+Seed Studio is our own editor application.
 
-Planned access levels:
+Planned surfaces:
+
+- viewport
+- hierarchy/world browser
+- inspector
+- asset browser
+- Add Gameplay
+- Game Director
 - Seed Logic
-- GDScript
-- GDExtension / C++
+- project settings
+- build/export
 
-## Seed object model
+Seed Studio edits Seed data. It does not author another engine's project files.
 
-A Seed-authored gameplay object consists conceptually of:
+## 6. Subsystem backends
+
+We will not waste years rewriting solved low-level libraries simply to claim purity.
+
+Acceptable examples include using focused libraries for:
+
+- window/input plumbing
+- Vulkan/Direct3D/OpenGL loading
+- physics
+- image/model decoding
+- audio codecs
+- editor GUI widgets
+
+The rule is that backends are replaceable and do not define Seed's public authoring model.
+
+## Dependency direction
+
+Dependencies point inward toward Seed abstractions:
 
 ```text
-SeedObject
-├─ Presentation
-│  ├─ model / sprite
-│  ├─ animation
-│  └─ audio
-├─ Gameplay Components
-│  ├─ Interactable
-│  ├─ Health
-│  └─ ...
-└─ Rules / Events
-   ├─ conditions
-   └─ actions
+Gameplay -> Scene -> Core
+Renderer backend -> Renderer interface -> Core
+Physics backend -> Physics interface -> Core
+Studio UI -> Engine/Editor APIs -> Core
 ```
 
-A runtime adapter may represent this differently internally, but the beginner-facing model should remain stable.
+Core must never depend on gameplay or editor code.
 
-## First prototype
+## File formats
 
-The first proof-of-concept should support one polished loop:
+Planned Seed-owned formats:
 
-1. Add a 3D object to a scene.
-2. Select it.
-3. Use Seed's **Add Gameplay** panel.
-4. Add `Door`.
-5. Set opening type, angle, duration, optional required key, and save-state behavior.
-6. Press Play.
-7. Interact with the door using Seed's player interaction system.
+- `.seedproject` — project manifest
+- `.seedscene` — scene/world data
+- `.seedasset` — optional imported-asset metadata
+- `.seedlogic` — future Seed Logic graphs/rules
 
-The second component should be `Health`, because it proves that Seed can attach generic reusable gameplay capability to arbitrary objects.
+The on-disk representation can evolve, but these formats belong to Seed and are versioned by Seed.
 
-## Rules for the codebase
+## Codebase rules
 
+- C++20 for the engine foundation.
 - Prefer composition over giant inheritance trees.
-- Beginner-facing terminology comes before engine terminology.
-- Runtime internals must not leak into beginner UI unless absolutely necessary.
-- Defaults must produce usable behavior immediately.
-- Advanced settings should be hidden behind deliberate disclosure.
-- Generated/configured systems must remain inspectable and debuggable.
-- No AI-generated opaque code as the primary authoring model.
-- Every Seed component must eventually be testable in isolation.
+- Runtime code must not depend on editor code.
+- Beginner terminology comes before implementation terminology.
+- Third-party APIs stay behind wrappers/interfaces.
+- Avoid global state where ownership can be explicit.
+- Components are data-first; systems own cross-entity behavior.
+- Defaults should produce useful behavior immediately.
+- Advanced internals remain inspectable and debuggable.
+- Every subsystem and gameplay component should become testable in isolation.
+
+## Historical note
+
+The first Seed experiment used Godot to test the `Add Gameplay` authoring idea. That prototype successfully taught us about the desired UX, but Seed is no longer architected as a Godot plugin or Godot-based engine layer. Git history preserves that experiment.
