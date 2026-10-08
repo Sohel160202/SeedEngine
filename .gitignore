@@ -1,12 +1,30 @@
-# Godot generated files
-.godot/
-
-# Export/build output
+# Build output
 build/
-exports/
+out/
+bin/
+lib/
 
-# OS/editor noise
-.DS_Store
-Thumbs.db
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+compile_commands.json
+
+# Compilers / IDEs
+*.obj
+*.o
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.so
+*.dylib
+.vs/
 .vscode/
 .idea/
+
+# OS noise
+.DS_Store
+Thumbs.db
