@@ -10,9 +10,9 @@ Seed is intended to make polished 3D games approachable without trapping users i
 
 ## Product direction
 
-Seed is not trying to build a renderer, physics engine, importer, audio stack, and platform layer from scratch in version one. The first product will use a proven open-source runtime foundation and focus our engineering on the part we want to reinvent: **game authoring**.
+Seed is not trying to build a renderer, physics engine, importer, audio stack, and platform layer from scratch in version one. The first product uses a proven open-source runtime foundation and focuses our engineering on the part we want to reinvent: **game authoring**.
 
-The current prototype direction is:
+Current prototype direction:
 
 - **Runtime foundation:** Godot 4.x
 - **Seed authoring layer:** custom editor tools and Seed-specific project metadata
@@ -24,7 +24,7 @@ This direction is intentionally replaceable. Seed-owned project data and gamepla
 
 ## The Seed mental model
 
-Seed organizes game creation around three ideas:
+Seed organizes game creation around three ideas.
 
 ### World
 What exists?
@@ -45,7 +45,7 @@ Quests, conditions, progression, events, victory/defeat, game state.
 
 A person with no programming experience should be able to create a small, presentable third-person 3D game without writing code.
 
-The first vertical slice should include:
+The first vertical slice will include:
 
 - Third-person player + camera
 - Interaction system
@@ -58,6 +58,48 @@ The first vertical slice should include:
 - Save/load
 - HUD and pause/settings UI
 - One complete sample game made entirely with Seed's beginner-facing workflow
+
+## What already works
+
+The repository now contains the first functional Seed gameplay slice:
+
+- `SeedInteractable` — reusable interaction entry point and prompt text
+- `SeedInventory` — item storage, add/remove/query API, inventory events
+- `SeedPickup` — converts a world object into a collectible item
+- `SeedDoor` — rotating/sliding doors with optional key requirements
+- `SeedHealth` — health, damage, healing, death, and related events
+- `SeedPlayerInteractor` — camera-based interaction targeting with prompt focus events
+- **Add Gameplay editor dock** — select an object and add Seed capabilities without attaching scripts manually
+- **First Seed demo** — collect a key and use it to open a locked door
+
+## Run the current prototype
+
+1. Install a current Godot 4.x editor.
+2. Clone or download this repository.
+3. Import/open the repository root as a Godot project using `project.godot`.
+4. Confirm the **Seed Engine** editor plugin is enabled under **Project → Project Settings → Plugins**.
+5. Run the project.
+6. In the **First Seed** demo:
+   - `WASD` — move
+   - `Mouse` — look
+   - `E` — interact
+   - collect the gold key
+   - approach the door and open it
+
+The editor plugin automatically creates Seed's default `seed_interact` input action when necessary. The runtime interaction component also has an `E` fallback for the prototype.
+
+## Add Gameplay workflow
+
+The first authoring workflow is deliberately simple:
+
+1. Select a scene object.
+2. Open the **Seed** dock.
+3. Click **Interaction**, **Inventory**, **Door**, **Health**, **Pickup**, or **Player Interaction**.
+4. Seed adds the required gameplay component as a child node.
+5. Configure the component through ordinary inspector properties.
+6. Press Play.
+
+`Door` and `Pickup` automatically ensure the selected object also has an interaction component.
 
 ## Progressive complexity
 
@@ -72,28 +114,55 @@ Seed should never punish users for becoming more advanced.
 
 ```text
 SeedEngine/
-├─ addons/seed_engine/     # Initial Seed editor/plugin prototype
+├─ addons/seed_engine/
+│  ├─ runtime/components/  # Reusable Seed gameplay components
+│  ├─ runtime/player/      # Player-facing Seed runtime systems
+│  ├─ plugin.cfg
+│  └─ seed_plugin.gd       # Seed Add Gameplay editor dock
 ├─ docs/                   # Product, UX, architecture, and engineering decisions
-├─ examples/               # Seed-built example projects/vertical slices
+├─ examples/first_seed/    # Current playable vertical-slice demo
+├─ project.godot           # Seed Engine development project
 └─ README.md
 ```
 
-## First milestone — Seed Prototype
+## First milestone — First Seed
 
-The first prototype is intentionally small. It should prove that the Seed workflow feels meaningfully simpler than a traditional game engine.
+The current milestone proves one complete beginner-readable gameplay loop:
 
-Our first interaction loop:
+```text
+Player
+  ↓
+looks at Key
+  ↓
+[E] Pick up Cabin Key
+  ↓
+SeedInventory receives CabinKey
+  ↓
+Player looks at locked Door
+  ↓
+SeedDoor checks SeedInventory
+  ↓
+Door opens
+```
 
-1. Select an object in a scene.
-2. Open **Add Gameplay**.
-3. Choose a gameplay concept such as **Door** or **Health**.
-4. Configure it using plain-language properties.
-5. Press Play and have the feature work immediately.
+This is intentionally small. The important part is that the same components can be authored through **Add Gameplay** rather than manually wiring bespoke scripts.
 
-If this loop feels great, we have the beginning of Seed Engine.
+## Next milestone
+
+The next Seed milestone is **First Adventure**:
+
+- reusable Seed Player preset
+- third-person camera/controller
+- interaction prompt system as a reusable engine feature rather than demo-only UI
+- item definitions instead of raw string IDs
+- beginner-friendly Door inspector UX
+- simple dialogue component
+- simple quest component
+- saveable component and save/load service
+- one short playable adventure built from those systems
 
 ## Status
 
-**Pre-alpha / foundation stage.**
+**Pre-alpha — first functional vertical slice implemented.**
 
-The architecture, interaction language, editor prototype, and first gameplay components are being established now.
+Seed is now beyond the concept-only stage: the repository contains a runnable development project, editor authoring tools, reusable gameplay components, and a small playable proof of the core workflow.
