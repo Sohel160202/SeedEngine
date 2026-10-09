@@ -1,5 +1,6 @@
 #pragma once
 
+#include "seed/math/Math.h"
 #include "seed/render/RenderResources.h"
 
 #include <string>
@@ -23,6 +24,8 @@ struct MeshComponent {
 
 struct MaterialComponent {
     ShaderHandle shader{};
+    TextureHandle base_color_texture{};
+    Vec4 base_color{1.0f, 1.0f, 1.0f, 1.0f};
     std::string asset_id{"builtin:seed_default"};
 };
 
