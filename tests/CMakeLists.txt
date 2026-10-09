@@ -15,3 +15,12 @@ target_link_libraries(SeedGameplayPersistenceTests PRIVATE SeedEngine)
 target_compile_features(SeedGameplayPersistenceTests PRIVATE cxx_std_20)
 
 add_test(NAME SeedGameplayPersistenceTests COMMAND SeedGameplayPersistenceTests)
+
+add_executable(SeedGameplayRuntimeTests
+    gameplay_runtime_tests.cpp
+)
+
+target_link_libraries(SeedGameplayRuntimeTests PRIVATE SeedEngine)
+target_compile_features(SeedGameplayRuntimeTests PRIVATE cxx_std_20)
+
+add_test(NAME SeedGameplayRuntimeTests COMMAND SeedGameplayRuntimeTests)
