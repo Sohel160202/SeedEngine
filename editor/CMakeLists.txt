@@ -8,7 +8,7 @@ add_library(SeedStudioUI STATIC
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-    ${imguizmo_SOURCE_DIR}/ImGuizmo.cpp
+    ${imguizmo_SOURCE_DIR}/src/ImGuizmo.cpp
 )
 
 target_include_directories(SeedStudioUI
@@ -16,7 +16,7 @@ target_include_directories(SeedStudioUI
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${imgui_SOURCE_DIR}
         ${imgui_SOURCE_DIR}/backends
-        ${imguizmo_SOURCE_DIR}
+        ${imguizmo_SOURCE_DIR}/src
 )
 
 target_link_libraries(SeedStudioUI
