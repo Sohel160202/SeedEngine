@@ -28,6 +28,7 @@ int main() {
     std::filesystem::create_directories(root);
 
     // 66 embedded bytes: 3 float3 positions, 3 float2 UVs, 3 uint16 indices.
+    // No NORMAL attribute is present so Seed must generate normals itself.
     const char* gltf = R"JSON({
   "asset": {"version": "2.0"},
   "buffers": [{
@@ -82,6 +83,11 @@ int main() {
     assert(nearly_equal(imported->vertices[1].texcoord[0], 1.0f));
     assert(nearly_equal(imported->vertices[2].texcoord[0], 0.5f));
     assert(nearly_equal(imported->vertices[2].texcoord[1], 1.0f));
+    assert(nearly_equal(imported->vertices[0].normal[0], 0.0f));
+    assert(nearly_equal(imported->vertices[0].normal[1], 0.0f));
+    assert(nearly_equal(imported->vertices[0].normal[2], 1.0f));
+    assert(nearly_equal(imported->vertices[1].normal[2], 1.0f));
+    assert(nearly_equal(imported->vertices[2].normal[2], 1.0f));
     assert(nearly_equal(imported->base_color.x, 0.25f));
     assert(nearly_equal(imported->base_color.y, 0.5f));
     assert(nearly_equal(imported->base_color.z, 0.75f));
