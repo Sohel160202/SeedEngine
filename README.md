@@ -16,14 +16,15 @@ Seed owns its core architecture:
 
 - **Language:** C++20
 - **Build system:** CMake
-- **Seed Core:** application lifecycle, frame loop, services
-- **Seed Scene:** entities and typed components
+- **Seed Core:** application lifecycle and frame loop
+- **Seed Scene:** entities, typed components and scene queries
 - **Seed Runtime:** runs Seed games
 - **Seed Studio:** our own editor and authoring environment
 - **Seed Gameplay:** beginner-facing reusable gameplay concepts
 - **Seed Input:** Seed-owned keyboard/mouse event model
 - **Seed Platform:** replaceable native platform abstraction
 - **Seed Renderer:** replaceable renderer abstraction and backend selection
+- **Seed Math:** vectors, matrices and 3D transform/camera math
 - **Seed project/scene formats:** will be owned by Seed
 
 Seed may use focused third-party libraries for low-level jobs. Those libraries do **not** define Seed's object model, project format, gameplay framework, editor, or runtime architecture.
@@ -35,6 +36,8 @@ Seed may use focused third-party libraries for low-level jobs. Those libraries d
 The earlier Godot prototype proved the `Add Gameplay` UX concept. It is no longer the active product architecture. Its history remains in Git so we can learn from it without carrying Godot into the engine.
 
 GLFW 3.5.1 is currently used only as a replaceable low-level desktop window/input backend behind Seed's `IPlatform` interface. GLFW types and key codes are translated at the backend boundary and are not exposed to Seed gameplay or project content.
+
+Dear ImGui is used only inside `SeedStudio` as an editor-widget drawing dependency. `SeedEngine` and `SeedRuntime` do not depend on ImGui, and Seed owns the editor layout, selection model, component editing and authoring workflows.
 
 See `docs/DEPENDENCIES.md` for the dependency policy.
 
@@ -53,11 +56,16 @@ See `docs/DEPENDENCIES.md` for the dependency policy.
 - entity creation/destruction
 - entity names
 - typed component storage
+- component queries
+- entity iteration for tooling
 - reusable gameplay component data
 
 Current components include:
 
 - `TransformComponent`
+- `CameraComponent`
+- `MeshComponent`
+- `MaterialComponent`
 - `InteractableComponent`
 - `DoorComponent`
 - `HealthComponent`
@@ -72,7 +80,6 @@ Current components include:
 - mouse movement and wheel events
 - resize / focus / quit events
 - resizable windows
-- Escape-to-close in Runtime and Studio
 
 ### Seed Renderer
 
@@ -80,17 +87,36 @@ Current components include:
 - renderer factory
 - first OpenGL backend
 - runtime OpenGL function loading
-- clear frame
+- shaders and shader error reporting
+- vertex/index buffers
+- indexed mesh drawing
+- model/view/projection matrices
+- depth testing
 - framebuffer resize handling
-- vsync
-- frame presentation
+- vsync and presentation
+- scene-driven `RenderSystem`
+
+### Seed Studio v0
+
+- native 3D editor window
+- Seed-styled top menu
+- **World** panel with entity selection
+- central **3D Viewport** area
+- **Inspector** panel
+- live Transform editing
+- Camera property editing
+- Mesh / Material inspection
+- **Assets** panel placeholder
+- editor fly camera: RMB + mouse, WASD, Q/E, Shift, mouse wheel
+- first scene-driven 3D Seed Cube
+- `+ Add Gameplay` entry point reserved for the beginner workflow
 
 ### Applications
 
 - `SeedRuntime`
 - `SeedStudio`
 
-Both are real standalone Seed executables linked to the same Seed Engine library.
+Both are standalone Seed executables linked to the same Seed Engine library.
 
 ## The Seed mental model
 
@@ -126,15 +152,9 @@ Seed should never punish a creator for becoming more advanced.
 SeedEngine/
 ├─ engine/                 # Seed Engine static library
 │  ├─ include/seed/
-│  │  ├─ core/
-│  │  ├─ gameplay/
-│  │  ├─ input/
-│  │  ├─ platform/
-│  │  ├─ render/
-│  │  └─ scene/
 │  └─ src/
 ├─ runtime/                # Seed Runtime executable
-├─ editor/                 # Seed Studio executable
+├─ editor/                 # Seed Studio + editor-only UI layer
 ├─ tests/                  # Core engine tests
 ├─ docs/                   # Architecture, dependency policy and roadmap
 ├─ CMakeLists.txt
@@ -147,7 +167,7 @@ Requirements:
 
 - CMake 3.24+
 - a C++20 compiler
-- Git access during the initial CMake configure so GLFW can be fetched
+- Git access during initial CMake configure so focused dependencies can be fetched
 
 On Ubuntu/Debian, building the current X11 backend also requires:
 
@@ -172,11 +192,15 @@ SeedStudio
 
 ## Current milestone
 
-Phase 0 (**Seed Core**) is complete and has compiled/tested successfully through GitHub Actions on Windows, Linux and macOS.
+Phase 0 (**Seed Core**) is complete.
 
-Phase 1 (**Platform Layer**) is implemented. The next manual verification is launching the native Studio/Runtime windows on a desktop machine.
+Phase 1 (**Platform Layer**) is complete for the first desktop backend and has been manually verified on Windows.
 
-Phase 2 (**Renderer Foundation**) has started. The first Seed OpenGL backend now owns clear-frame rendering and presentation. Next comes the first triangle, GPU buffers, shaders, camera matrices, and eventually rendering Seed Scene entities.
+Phase 2 (**Renderer Foundation**) now renders scene-driven 3D entities with perspective cameras, transforms, depth testing, GPU buffers and shaders.
+
+The first shell of Phase 4 (**Seed Studio**) has also been pulled forward so the engine can already be edited visually while persistence work is built. World selection and Inspector Transform changes mutate Seed Scene data live.
+
+The next major infrastructure milestone is Phase 3: **`.seedproject`, `.seedscene`, asset IDs, serialization and reopening the same world after restarting Seed Studio.**
 
 See `docs/ROADMAP.md` for the full path.
 
@@ -201,4 +225,4 @@ The v0.1 creator-facing vertical slice will contain:
 
 ## Status
 
-**Pre-alpha — independent engine foundation + native platform + renderer bootstrap.**
+**Pre-alpha — independent 3D engine + first Seed Studio visual editor shell.**
