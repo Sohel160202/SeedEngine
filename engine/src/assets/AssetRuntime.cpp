@@ -99,6 +99,8 @@ std::optional<ModelAssetResource> AssetRuntime::load_model(
     }
 
     resource.base_color = imported->base_color;
+    resource.metallic = imported->metallic;
+    resource.roughness = imported->roughness;
     if (imported->base_color_texture.has_value() && imported->base_color_texture->valid()) {
         const auto& texture = *imported->base_color_texture;
         resource.base_color_texture = m_renderer->create_texture({
@@ -141,8 +143,13 @@ bool AssetRuntime::bind_scene(Scene& scene, ShaderHandle material_shader, std::s
         if (auto* material = scene.get_component<MaterialComponent>(entity)) {
             material->shader = material_shader;
             material->asset_id = mesh.asset_id;
-            material->base_color = resource->base_color;
             material->base_color_texture = resource->base_color_texture;
+            if (material->use_asset_defaults) {
+                material->base_color = resource->base_color;
+                material->metallic = resource->metallic;
+                material->roughness = resource->roughness;
+                material->use_asset_defaults = false;
+            }
         }
     });
 
