@@ -1,4 +1,5 @@
 #include "StudioUI.h"
+#include "GameplayAuthoring.h"
 
 #include "seed/gameplay/Components.h"
 #include "seed/render/RenderComponents.h"
@@ -492,18 +493,24 @@ void StudioUI::draw_inspector(Scene& scene) {
             }
         }
 
-        ImGui::Spacing();
-        if (ImGui::Button("+ Add Gameplay", {-1.0f, 0.0f})) {
-            ImGui::OpenPopup("AddGameplayPopup");
-        }
+        if (!editor_only) {
+            m_scene_edited |= draw_gameplay_components(scene, m_selected_entity);
 
-        if (ImGui::BeginPopup("AddGameplayPopup")) {
-            ImGui::TextDisabled("Gameplay authoring is coming next.");
-            ImGui::Separator();
-            ImGui::MenuItem("Interactable", nullptr, false, false);
-            ImGui::MenuItem("Health", nullptr, false, false);
-            ImGui::MenuItem("Door / Lock", nullptr, false, false);
-            ImGui::EndPopup();
+            ImGui::Spacing();
+            if (ImGui::Button("+ Add Gameplay", {-1.0f, 0.0f})) {
+                ImGui::OpenPopup("AddGameplayPopup");
+            }
+
+            if (ImGui::BeginPopup("AddGameplayPopup")) {
+                if (draw_add_gameplay_popup(scene, m_selected_entity)) {
+                    m_scene_edited = true;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+        } else {
+            ImGui::Spacing();
+            ImGui::TextDisabled("Editor-only entities cannot receive gameplay components.");
         }
     }
     ImGui::End();
