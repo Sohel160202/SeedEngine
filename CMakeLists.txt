@@ -15,8 +15,6 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 
-# Keep Linux CI and the first Seed platform backend intentionally simple.
-# Wayland support can be enabled later behind the same IPlatform interface.
 if(UNIX AND NOT APPLE)
     set(GLFW_BUILD_WAYLAND OFF CACHE BOOL "" FORCE)
     set(GLFW_BUILD_X11 ON CACHE BOOL "" FORCE)
@@ -30,8 +28,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glfw)
 
-# Seed owns .seedproject/.seedscene schemas and serialization behavior.
-# nlohmann/json is only the low-level JSON parser/writer behind those formats.
 FetchContent_Declare(
     nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
@@ -40,9 +36,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
-# TinyGLTF is a focused import backend only. Seed owns asset IDs, imported
-# resource data, the renderer resource model, project persistence and editor UX.
-# Keep the stable v2 loader isolated behind Seed's AssetImporter interface.
 FetchContent_Declare(
     tinygltf
     GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
@@ -54,8 +47,6 @@ if(NOT tinygltf_POPULATED)
     FetchContent_Populate(tinygltf)
 endif()
 
-# Dear ImGui is an editor-only drawing dependency. Seed's scene, runtime,
-# renderer, gameplay model and public engine API do not depend on it.
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
@@ -65,6 +56,19 @@ FetchContent_Declare(
 FetchContent_GetProperties(imgui)
 if(NOT imgui_POPULATED)
     FetchContent_Populate(imgui)
+endif()
+
+# ImGuizmo is an editor-only manipulation helper. Seed owns selection,
+# hierarchy, transforms, snapping, undo/redo and scene persistence.
+FetchContent_Declare(
+    imguizmo
+    GIT_REPOSITORY https://github.com/CedricGuillemet/ImGuizmo.git
+    GIT_TAG master
+    GIT_SHALLOW TRUE
+)
+FetchContent_GetProperties(imguizmo)
+if(NOT imguizmo_POPULATED)
+    FetchContent_Populate(imguizmo)
 endif()
 
 add_subdirectory(engine)
