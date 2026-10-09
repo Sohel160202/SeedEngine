@@ -266,7 +266,7 @@ StudioUI::HistoryEntry StudioUI::capture_history(const Scene& scene) const {
 }
 
 void StudioUI::restore_history(Scene& scene,const HistoryEntry& entry) {
-    scene=entry.scene;m_selected_entity=entry.selected_persistent_id.empty()?InvalidEntity:scene.find_entity_by_persistent_id(entry.selected_persistent_id);m_history_baseline=capture_history(scene);m_has_history_baseline=true;m_history_structural_signature=structural_signature(scene);m_history_transaction_active=false;m_scene_edited=true;
+    scene=entry.scene;m_selected_entity=entry.selected_persistent_id.empty()?InvalidEntity:scene.find_entity_by_persistent_id(entry.selected_persistent_id);m_history_baseline=capture_history(scene);m_has_history_baseline=true;m_history_structural_signature=structural_signature(scene);m_history_transaction_active=true;m_scene_edited=true;
 }
 
 std::string StudioUI::structural_signature(const Scene& scene) const {
