@@ -465,6 +465,8 @@ std::optional<ImportedModelData> AssetImporter::import_static_model(
                 static_cast<float>(pbr.baseColorFactor[3]),
             };
         }
+        result.metallic = std::clamp(static_cast<float>(pbr.metallicFactor), 0.0f, 1.0f);
+        result.roughness = std::clamp(static_cast<float>(pbr.roughnessFactor), 0.04f, 1.0f);
 
         const int texture_index = pbr.baseColorTexture.index;
         if (texture_index >= 0 && static_cast<std::size_t>(texture_index) < model.textures.size()) {
