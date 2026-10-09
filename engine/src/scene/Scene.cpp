@@ -7,6 +7,26 @@
 
 namespace seed {
 
+Scene::Scene(const Scene& other) {
+    copy_from(other);
+}
+
+Scene& Scene::operator=(const Scene& other) {
+    if (this != &other) {
+        copy_from(other);
+    }
+    return *this;
+}
+
+void Scene::copy_from(const Scene& other) {
+    m_next_entity = other.m_next_entity;
+    m_entities = other.m_entities;
+    m_component_pools.clear();
+    for (const auto& [type, pool] : other.m_component_pools) {
+        m_component_pools.emplace(type, pool->clone());
+    }
+}
+
 EntityId Scene::create_entity(std::string name, std::string persistent_id) {
     if (persistent_id.empty()) {
         persistent_id = generate_persistent_id();
