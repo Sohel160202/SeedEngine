@@ -42,4 +42,15 @@ struct InventoryComponent {
     std::unordered_map<std::string, int> items;
 };
 
+// First Seed-native playable controller. It is currently used by Play Mode and
+// Seed Runtime; the creator-facing Player preset will expose these values later.
+struct PlayerControllerComponent {
+    float move_speed{4.0f};
+    float fast_multiplier{2.5f};
+    float look_sensitivity{0.12f};
+    float interaction_distance{4.0f};
+    float interaction_radius{1.25f};
+    bool enabled{true};
+};
+
 } // namespace seed
