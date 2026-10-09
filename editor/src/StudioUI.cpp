@@ -291,6 +291,14 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         if (ImGui::MenuItem("Cube")) {
             queue_action({.type = StudioActionType::CreateCube});
         }
+        ImGui::Separator();
+        if (ImGui::BeginMenu("Player")) {
+            if (ImGui::MenuItem("First Person")) {
+                queue_action({.type = StudioActionType::CreateFirstPersonPlayer});
+            }
+            ImGui::MenuItem("Third Person", nullptr, false, false);
+            ImGui::EndMenu();
+        }
         ImGui::EndMenu();
     }
 
@@ -564,6 +572,16 @@ void StudioUI::draw_assets_panel(const StudioDocumentInfo& document) {
             if (!document.gameplay_prompt.empty()) {
                 ImGui::Text("Interaction: %s", document.gameplay_prompt.c_str());
             }
+
+            ImGui::SeparatorText("Player Inventory");
+            if (document.gameplay_inventory.empty()) {
+                ImGui::TextDisabled("Empty");
+            } else {
+                for (const auto& [item_id, quantity] : document.gameplay_inventory) {
+                    ImGui::Text("%s  x%d", item_id.c_str(), quantity);
+                }
+            }
+
             ImGui::TextDisabled("F5 Stop   RMB Look   WASD Move   Space/Q Up/Down   Shift Fast   E Interact");
         } else {
             ImGui::TextUnformatted("Seed Cube Mesh");
