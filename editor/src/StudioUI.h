@@ -4,6 +4,8 @@
 
 #include <array>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace seed {
 class Scene;
@@ -38,6 +40,7 @@ struct StudioDocumentInfo {
     std::string status_message;
     std::string gameplay_prompt;
     std::string gameplay_status;
+    std::vector<std::pair<std::string, int>> gameplay_inventory;
     bool dirty{true};
     bool has_project{false};
     bool playing{false};
