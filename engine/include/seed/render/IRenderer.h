@@ -43,10 +43,15 @@ public:
     virtual MeshHandle create_mesh(const MeshDesc& desc) = 0;
     virtual void destroy_mesh(MeshHandle mesh) = 0;
 
+    virtual TextureHandle create_texture(const TextureDesc& desc) = 0;
+    virtual void destroy_texture(TextureHandle texture) = 0;
+
     virtual void begin_frame() = 0;
     virtual void draw_mesh(
         MeshHandle mesh,
         ShaderHandle shader,
+        TextureHandle texture,
+        const Vec4& base_color,
         const Mat4& model,
         const Mat4& view_projection
     ) = 0;
