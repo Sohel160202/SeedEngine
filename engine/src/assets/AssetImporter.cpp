@@ -242,6 +242,37 @@ bool read_indices(
     return true;
 }
 
+void generate_missing_normals(ImportedModelData& model) {
+    std::vector<Vec3> accumulated(model.vertices.size());
+    for (std::size_t i = 0; i + 2 < model.indices.size(); i += 3) {
+        const std::uint32_t i0 = model.indices[i];
+        const std::uint32_t i1 = model.indices[i + 1];
+        const std::uint32_t i2 = model.indices[i + 2];
+        if (i0 >= model.vertices.size() || i1 >= model.vertices.size() || i2 >= model.vertices.size()) {
+            continue;
+        }
+
+        const auto& p0a = model.vertices[i0].position;
+        const auto& p1a = model.vertices[i1].position;
+        const auto& p2a = model.vertices[i2].position;
+        const Vec3 p0{p0a[0], p0a[1], p0a[2]};
+        const Vec3 p1{p1a[0], p1a[1], p1a[2]};
+        const Vec3 p2{p2a[0], p2a[1], p2a[2]};
+        const Vec3 face = cross(p1 - p0, p2 - p0);
+        accumulated[i0] += face;
+        accumulated[i1] += face;
+        accumulated[i2] += face;
+    }
+
+    for (std::size_t i = 0; i < model.vertices.size(); ++i) {
+        Vec3 normal = normalize(accumulated[i]);
+        if (length(normal) <= 0.000001f) {
+            normal = {0.0f, 1.0f, 0.0f};
+        }
+        model.vertices[i].normal = {normal.x, normal.y, normal.z};
+    }
+}
+
 std::optional<ImportedTextureData> convert_image(const tinygltf::Image& image, std::string* error) {
     if (image.width <= 0 || image.height <= 0 || image.image.empty()) {
         return std::nullopt;
@@ -386,6 +417,13 @@ std::optional<ImportedModelData> AssetImporter::import_static_model(
         }
     }
 
+    std::vector<std::array<float, 4>> normals;
+    if (const auto found = primitive->attributes.find("NORMAL"); found != primitive->attributes.end()) {
+        if (!read_attribute(model, found->second, 3, normals, error)) {
+            return std::nullopt;
+        }
+    }
+
     ImportedModelData result;
     result.name = source_mesh->name.empty() ? source_file.stem().string() : source_mesh->name;
     result.vertices.resize(positions.size());
@@ -401,10 +439,18 @@ std::optional<ImportedModelData> AssetImporter::import_static_model(
         if (i < texcoords.size()) {
             vertex.texcoord = {texcoords[i][0], texcoords[i][1]};
         }
+        if (i < normals.size()) {
+            const Vec3 normal = normalize({normals[i][0], normals[i][1], normals[i][2]});
+            vertex.normal = {normal.x, normal.y, normal.z};
+        }
     }
 
     if (!read_indices(model, primitive->indices, result.indices, result.vertices.size(), error)) {
         return std::nullopt;
+    }
+
+    if (normals.empty()) {
+        generate_missing_normals(result);
     }
 
     if (primitive->material >= 0 &&
