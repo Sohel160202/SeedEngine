@@ -53,7 +53,8 @@ public:
         TextureHandle texture,
         const Vec4& base_color,
         const Mat4& model,
-        const Mat4& view_projection
+        const Mat4& view_projection,
+        const SceneLighting& lighting
     ) = 0;
     virtual void end_frame() = 0;
 
