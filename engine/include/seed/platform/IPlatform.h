@@ -21,6 +21,7 @@ struct PlatformEvent {
     PlatformEventType type{PlatformEventType::None};
     std::int32_t a{0};
     std::int32_t b{0};
+    std::int32_t c{0};
     float x{0.0f};
     float y{0.0f};
 };
@@ -37,8 +38,10 @@ public:
     virtual ~IPlatform() = default;
 
     virtual bool initialize(const PlatformConfig& config) = 0;
+    virtual void pump_events() = 0;
     virtual bool poll_event(PlatformEvent& event) = 0;
-    virtual void* native_window_handle() const = 0;
+    virtual bool should_close() const = 0;
+    virtual void* window_handle() const = 0;
     virtual double time_seconds() const = 0;
     virtual void shutdown() = 0;
 };
