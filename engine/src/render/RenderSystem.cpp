@@ -67,7 +67,14 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
                 transform.rotation_degrees,
                 transform.scale
             );
-            renderer.draw_mesh(mesh.mesh, material.shader, model, view_projection);
+            renderer.draw_mesh(
+                mesh.mesh,
+                material.shader,
+                material.base_color_texture,
+                material.base_color,
+                model,
+                view_projection
+            );
         }
     );
 
