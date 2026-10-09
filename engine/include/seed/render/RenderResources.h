@@ -11,14 +11,14 @@ struct ShaderHandle {
     std::uint32_t value{0};
 
     constexpr explicit operator bool() const noexcept { return value != 0; }
-    constexpr auto operator<=>(const ShaderHandle&) const = default;
+    constexpr bool operator==(const ShaderHandle&) const = default;
 };
 
 struct MeshHandle {
     std::uint32_t value{0};
 
     constexpr explicit operator bool() const noexcept { return value != 0; }
-    constexpr auto operator<=>(const MeshHandle&) const = default;
+    constexpr bool operator==(const MeshHandle&) const = default;
 };
 
 // First Seed vertex format. The renderer API owns this definition rather than
