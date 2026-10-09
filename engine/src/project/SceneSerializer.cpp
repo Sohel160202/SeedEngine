@@ -56,6 +56,11 @@ bool SceneSerializer::save(
         nlohmann::json entities = nlohmann::json::array();
 
         scene.for_each_entity([&](EntityId entity, const std::string& name) {
+            if (const auto* camera = scene.get_component<CameraComponent>(entity);
+                camera != nullptr && camera->editor_only) {
+                return;
+            }
+
             nlohmann::json components = nlohmann::json::object();
 
             if (const auto* transform = scene.get_component<TransformComponent>(entity)) {
@@ -193,6 +198,7 @@ bool SceneSerializer::load(
                 camera.far_plane = value.value("far_plane", 1000.0f);
                 camera.enabled = value.value("enabled", true);
                 camera.primary = value.value("primary", true);
+                camera.editor_only = false;
                 loaded_scene.add_component<CameraComponent>(entity, camera);
             }
 
