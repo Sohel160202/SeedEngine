@@ -2,6 +2,8 @@
 
 #include "seed/render/RenderResources.h"
 
+#include <string>
+
 namespace seed {
 
 struct CameraComponent {
@@ -15,10 +17,12 @@ struct CameraComponent {
 struct MeshComponent {
     MeshHandle mesh{};
     bool visible{true};
+    std::string asset_id{"builtin:cube"};
 };
 
 struct MaterialComponent {
     ShaderHandle shader{};
+    std::string asset_id{"builtin:seed_default"};
 };
 
 } // namespace seed
