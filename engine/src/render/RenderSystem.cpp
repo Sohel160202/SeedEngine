@@ -7,19 +7,30 @@
 
 namespace seed {
 
-bool RenderSystem::render(Scene& scene, IRenderer& renderer) {
+bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_entity) {
     TransformComponent* camera_transform = nullptr;
     CameraComponent* camera = nullptr;
 
-    scene.for_each<TransformComponent, CameraComponent>(
-        [&](EntityId, TransformComponent& transform, CameraComponent& candidate) {
-            if (camera != nullptr || !candidate.enabled || !candidate.primary) {
-                return;
-            }
-            camera_transform = &transform;
-            camera = &candidate;
+    if (camera_entity != InvalidEntity && scene.is_alive(camera_entity)) {
+        camera_transform = scene.get_component<TransformComponent>(camera_entity);
+        camera = scene.get_component<CameraComponent>(camera_entity);
+        if (camera != nullptr && !camera->enabled) {
+            camera = nullptr;
+            camera_transform = nullptr;
         }
-    );
+    }
+
+    if (camera == nullptr || camera_transform == nullptr) {
+        scene.for_each<TransformComponent, CameraComponent>(
+            [&](EntityId, TransformComponent& transform, CameraComponent& candidate) {
+                if (camera != nullptr || !candidate.enabled || !candidate.primary) {
+                    return;
+                }
+                camera_transform = &transform;
+                camera = &candidate;
+            }
+        );
+    }
 
     if (camera == nullptr || camera_transform == nullptr) {
         return false;
