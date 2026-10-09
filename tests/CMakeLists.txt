@@ -1,53 +1,48 @@
 add_executable(SeedCoreTests
     scene_tests.cpp
 )
-
 target_link_libraries(SeedCoreTests PRIVATE SeedEngine)
 target_compile_features(SeedCoreTests PRIVATE cxx_std_20)
-
 add_test(NAME SeedCoreTests COMMAND SeedCoreTests)
 
 add_executable(SeedGameplayPersistenceTests
     gameplay_persistence_tests.cpp
 )
-
 target_link_libraries(SeedGameplayPersistenceTests PRIVATE SeedEngine)
 target_compile_features(SeedGameplayPersistenceTests PRIVATE cxx_std_20)
-
 add_test(NAME SeedGameplayPersistenceTests COMMAND SeedGameplayPersistenceTests)
 
 add_executable(SeedGameplayRuntimeTests
     gameplay_runtime_tests.cpp
 )
-
 target_link_libraries(SeedGameplayRuntimeTests PRIVATE SeedEngine)
 target_compile_features(SeedGameplayRuntimeTests PRIVATE cxx_std_20)
-
 add_test(NAME SeedGameplayRuntimeTests COMMAND SeedGameplayRuntimeTests)
 
 add_executable(SeedAssetImportTests
     asset_import_tests.cpp
 )
-
 target_link_libraries(SeedAssetImportTests PRIVATE SeedEngine)
 target_compile_features(SeedAssetImportTests PRIVATE cxx_std_20)
-
 add_test(NAME SeedAssetImportTests COMMAND SeedAssetImportTests)
 
 add_executable(SeedLightingPersistenceTests
     lighting_persistence_tests.cpp
 )
-
 target_link_libraries(SeedLightingPersistenceTests PRIVATE SeedEngine)
 target_compile_features(SeedLightingPersistenceTests PRIVATE cxx_std_20)
-
 add_test(NAME SeedLightingPersistenceTests COMMAND SeedLightingPersistenceTests)
 
 add_executable(SeedRenderPersistenceTests
     render_persistence_tests.cpp
 )
-
 target_link_libraries(SeedRenderPersistenceTests PRIVATE SeedEngine)
 target_compile_features(SeedRenderPersistenceTests PRIVATE cxx_std_20)
-
 add_test(NAME SeedRenderPersistenceTests COMMAND SeedRenderPersistenceTests)
+
+add_executable(SeedHierarchyTests
+    hierarchy_tests.cpp
+)
+target_link_libraries(SeedHierarchyTests PRIVATE SeedEngine)
+target_compile_features(SeedHierarchyTests PRIVATE cxx_std_20)
+add_test(NAME SeedHierarchyTests COMMAND SeedHierarchyTests)
