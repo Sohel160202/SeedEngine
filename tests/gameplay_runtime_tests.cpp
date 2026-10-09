@@ -1,5 +1,6 @@
 #include "seed/gameplay/Components.h"
 #include "seed/gameplay/GameplayRuntime.h"
+#include "seed/physics/PhysicsComponents.h"
 #include "seed/scene/Scene.h"
 
 #include <cassert>
@@ -69,12 +70,16 @@ seed::EntityId add_pickup(
     return pickup_entity;
 }
 
-seed::PlatformEvent interact_event() {
+seed::PlatformEvent key_event(seed::KeyCode key, seed::ButtonState state = seed::ButtonState::Pressed) {
     seed::PlatformEvent event;
     event.type = seed::PlatformEventType::Key;
-    event.key = seed::KeyCode::E;
-    event.button_state = seed::ButtonState::Pressed;
+    event.key = key;
+    event.button_state = state;
     return event;
+}
+
+seed::PlatformEvent interact_event() {
+    return key_event(seed::KeyCode::E);
 }
 
 } // namespace
@@ -105,7 +110,6 @@ int main() {
         assert(play_transform->rotation_degrees.y > 40.0f);
         assert(play_transform->rotation_degrees.y < 50.0f);
 
-        // The editor scene is a deep clone source and must remain unchanged.
         original_transform = edit_scene.get_component<seed::TransformComponent>(edit_door);
         assert(original_transform != nullptr);
         assert(nearly_equal(original_transform->rotation_degrees.y, 0.0f));
@@ -145,7 +149,6 @@ int main() {
         assert(transform->rotation_degrees.y > 89.0f);
     }
 
-    // Complete beginner-facing loop: collect key -> inventory -> consuming locked door.
     {
         seed::Scene scene;
         const auto pickup = add_pickup(scene, "VaultKey", "Vault Key", 1, -1.0f);
@@ -180,6 +183,64 @@ int main() {
         assert(door_transform != nullptr);
         assert(door_transform->rotation_degrees.y > 89.0f);
         assert(!inventory->items.contains("VaultKey"));
+    }
+
+    // Seed Physics v0: gravity/grounding, jump, and wall blocking.
+    {
+        seed::Scene scene;
+
+        const auto floor = scene.create_entity("Floor");
+        auto& floor_transform = scene.add_component<seed::TransformComponent>(floor);
+        floor_transform.position = {0.0f, -0.25f, 0.0f};
+        seed::BoxColliderComponent floor_collider;
+        floor_collider.half_extents = {5.0f, 0.25f, 5.0f};
+        scene.add_component<seed::BoxColliderComponent>(floor, floor_collider);
+
+        const auto wall = scene.create_entity("Wall");
+        auto& wall_transform = scene.add_component<seed::TransformComponent>(wall);
+        wall_transform.position = {0.0f, 1.0f, -2.0f};
+        seed::BoxColliderComponent wall_collider;
+        wall_collider.half_extents = {2.0f, 1.0f, 0.25f};
+        scene.add_component<seed::BoxColliderComponent>(wall, wall_collider);
+
+        const auto player = add_player(scene);
+        auto* player_transform = scene.get_component<seed::TransformComponent>(player);
+        assert(player_transform != nullptr);
+        player_transform->position = {0.0f, 2.6f, 0.0f};
+        scene.add_component<seed::CharacterBodyComponent>(player);
+
+        seed::GameplayRuntime runtime;
+        assert(runtime.start(scene, player));
+
+        for (int i = 0; i < 50; ++i) {
+            runtime.update(scene, 0.05);
+        }
+
+        player_transform = scene.get_component<seed::TransformComponent>(player);
+        assert(player_transform != nullptr);
+        assert(nearly_equal(player_transform->position.y, 1.65f, 0.02f));
+        assert(runtime.player_grounded());
+
+        runtime.handle_event(key_event(seed::KeyCode::Space));
+        runtime.update(scene, 0.1);
+        assert(player_transform->position.y > 1.9f);
+        assert(!runtime.player_grounded());
+
+        for (int i = 0; i < 50; ++i) {
+            runtime.update(scene, 0.05);
+        }
+        assert(nearly_equal(player_transform->position.y, 1.65f, 0.02f));
+        assert(runtime.player_grounded());
+
+        runtime.handle_event(key_event(seed::KeyCode::W));
+        runtime.update(scene, 1.0);
+        runtime.handle_event(key_event(seed::KeyCode::W, seed::ButtonState::Released));
+
+        // Wall front face is z=-1.75; character radius is 0.35, so the eye
+        // should stop around z=-1.40 instead of passing through.
+        assert(player_transform->position.z > -1.45f);
+        assert(player_transform->position.z < -1.30f);
+        assert(runtime.player_grounded());
     }
 
     std::cout << "SeedGameplayRuntimeTests passed.\n";
