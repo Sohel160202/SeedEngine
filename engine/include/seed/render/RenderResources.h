@@ -21,11 +21,20 @@ struct MeshHandle {
     constexpr bool operator==(const MeshHandle&) const = default;
 };
 
-// First Seed vertex format. The renderer API owns this definition rather than
-// exposing backend-specific vertex-array or buffer concepts to engine users.
+struct TextureHandle {
+    std::uint32_t value{0};
+
+    constexpr explicit operator bool() const noexcept { return value != 0; }
+    constexpr bool operator==(const TextureHandle&) const = default;
+};
+
+// Seed's first general-purpose static mesh vertex. Existing built-in geometry
+// can omit texcoord and keep using vertex color; imported glTF meshes populate
+// both so materials can use base-color textures.
 struct VertexPositionColor {
     std::array<float, 3> position{};
     std::array<float, 3> color{1.0f, 1.0f, 1.0f};
+    std::array<float, 2> texcoord{};
 };
 
 struct ShaderDesc {
@@ -36,6 +45,12 @@ struct ShaderDesc {
 struct MeshDesc {
     std::span<const VertexPositionColor> vertices;
     std::span<const std::uint32_t> indices;
+};
+
+struct TextureDesc {
+    std::uint32_t width{0};
+    std::uint32_t height{0};
+    std::span<const std::uint8_t> rgba8_pixels;
 };
 
 } // namespace seed
