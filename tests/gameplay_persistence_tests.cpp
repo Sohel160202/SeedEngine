@@ -1,5 +1,6 @@
 #include "seed/gameplay/Components.h"
 #include "seed/project/SceneSerializer.h"
+#include "seed/render/RenderComponents.h"
 #include "seed/scene/Scene.h"
 
 #include <cassert>
@@ -53,20 +54,48 @@ int main() {
     pickup.destroy_on_pickup = true;
     scene.add_component<seed::PickupComponent>(pickup_entity, pickup);
 
+    const auto player_entity = scene.create_entity("Player");
+    const std::string player_persistent_id = scene.entity_persistent_id(player_entity);
+    auto& player_transform = scene.add_component<seed::TransformComponent>(player_entity);
+    player_transform.position = {1.0f, 1.7f, 3.0f};
+
+    seed::CameraComponent player_camera;
+    player_camera.primary = true;
+    player_camera.enabled = true;
+    player_camera.editor_only = false;
+    player_camera.field_of_view_degrees = 72.0f;
+    scene.add_component<seed::CameraComponent>(player_entity, player_camera);
+
+    seed::PlayerControllerComponent player_controller;
+    player_controller.move_speed = 5.5f;
+    player_controller.fast_multiplier = 3.0f;
+    player_controller.look_sensitivity = 0.15f;
+    player_controller.interaction_distance = 5.0f;
+    player_controller.interaction_radius = 1.5f;
+    player_controller.enabled = true;
+    scene.add_component<seed::PlayerControllerComponent>(player_entity, player_controller);
+
+    seed::InventoryComponent player_inventory;
+    player_inventory.items["StarterCoin"] = 3;
+    scene.add_component<seed::InventoryComponent>(player_entity, player_inventory);
+
     std::string error;
     assert(seed::SceneSerializer::save(scene, scene_file, &error));
 
     seed::Scene loaded;
     assert(seed::SceneSerializer::load(loaded, scene_file, &error));
-    assert(loaded.entity_count() == 2);
+    assert(loaded.entity_count() == 3);
 
     seed::EntityId loaded_door_entity = seed::InvalidEntity;
     seed::EntityId loaded_pickup_entity = seed::InvalidEntity;
+    seed::EntityId loaded_player_entity = seed::InvalidEntity;
     loaded.for_each_entity([&](seed::EntityId candidate, const std::string& name) {
         if (name == "Vault Door") {
             loaded_door_entity = candidate;
         } else if (name == "Vault Key") {
             loaded_pickup_entity = candidate;
+        } else if (name == "Player") {
+            loaded_player_entity = candidate;
         }
     });
 
@@ -101,6 +130,33 @@ int main() {
     assert(loaded_pickup->display_name == "Vault Key");
     assert(loaded_pickup->quantity == 2);
     assert(loaded_pickup->destroy_on_pickup);
+
+    assert(loaded_player_entity != seed::InvalidEntity);
+    assert(loaded.entity_persistent_id(loaded_player_entity) == player_persistent_id);
+
+    const auto* loaded_player_camera = loaded.get_component<seed::CameraComponent>(loaded_player_entity);
+    const auto* loaded_player_controller = loaded.get_component<seed::PlayerControllerComponent>(loaded_player_entity);
+    const auto* loaded_player_inventory = loaded.get_component<seed::InventoryComponent>(loaded_player_entity);
+    const auto* loaded_player_transform = loaded.get_component<seed::TransformComponent>(loaded_player_entity);
+
+    assert(loaded_player_camera != nullptr);
+    assert(loaded_player_camera->primary);
+    assert(loaded_player_camera->enabled);
+    assert(!loaded_player_camera->editor_only);
+    assert(nearly_equal(loaded_player_camera->field_of_view_degrees, 72.0f));
+
+    assert(loaded_player_controller != nullptr);
+    assert(nearly_equal(loaded_player_controller->move_speed, 5.5f));
+    assert(nearly_equal(loaded_player_controller->fast_multiplier, 3.0f));
+    assert(nearly_equal(loaded_player_controller->look_sensitivity, 0.15f));
+    assert(nearly_equal(loaded_player_controller->interaction_distance, 5.0f));
+    assert(nearly_equal(loaded_player_controller->interaction_radius, 1.5f));
+    assert(loaded_player_controller->enabled);
+
+    assert(loaded_player_inventory != nullptr);
+    assert(loaded_player_inventory->items.at("StarterCoin") == 3);
+    assert(loaded_player_transform != nullptr);
+    assert(nearly_equal(loaded_player_transform->position.y, 1.7f));
 
     std::filesystem::remove_all(test_root);
     std::cout << "SeedGameplayPersistenceTests passed.\n";
