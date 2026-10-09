@@ -40,6 +40,7 @@ private:
     void update_doors(Scene& scene, double delta_seconds);
     void apply_door_transform(Scene& scene, EntityId entity, const DoorRuntimeState& state);
     bool player_has_item(const Scene& scene, const std::string& item_id) const;
+    bool add_player_item(Scene& scene, const std::string& item_id, int quantity);
     bool consume_player_item(Scene& scene, const std::string& item_id);
 
     bool m_active{false};
