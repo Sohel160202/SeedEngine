@@ -131,6 +131,10 @@ bool SceneSerializer::save(
                     {"base_color", vec4_to_json(material->base_color)},
                     {"metallic", material->metallic},
                     {"roughness", material->roughness},
+                    {"normal_scale", material->normal_scale},
+                    {"use_base_color_texture", material->use_base_color_texture},
+                    {"use_metallic_roughness_texture", material->use_metallic_roughness_texture},
+                    {"use_normal_texture", material->use_normal_texture},
                 };
             }
 
@@ -326,6 +330,10 @@ bool SceneSerializer::load(
                 material.base_color = vec4_from_json(value.value("base_color", nlohmann::json::array()), {1.0f, 1.0f, 1.0f, 1.0f});
                 material.metallic = value.value("metallic", 0.0f);
                 material.roughness = value.value("roughness", 0.65f);
+                material.normal_scale = value.value("normal_scale", 1.0f);
+                material.use_base_color_texture = value.value("use_base_color_texture", true);
+                material.use_metallic_roughness_texture = value.value("use_metallic_roughness_texture", true);
+                material.use_normal_texture = value.value("use_normal_texture", true);
                 loaded_scene.add_component<MaterialComponent>(entity, material);
             }
 
