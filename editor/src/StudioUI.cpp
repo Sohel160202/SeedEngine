@@ -117,6 +117,7 @@ bool StudioUI::initialize(void* window_handle) {
     copy_text(m_project_name_buffer, "My Seed Game");
     copy_text(m_project_folder_buffer, "SeedProjects");
     copy_text(m_project_file_buffer, "SeedProjects/My_Seed_Game.seedproject");
+    copy_text(m_import_model_file_buffer, "");
 
     m_initialized = true;
     return true;
@@ -268,6 +269,12 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
             copy_text(m_project_name_buffer, document.project_name == "Untitled" ? "My Seed Game" : document.project_name);
             m_show_save_as_dialog = true;
         }
+        ImGui::Separator();
+        ImGui::BeginDisabled(!document.has_project);
+        if (ImGui::MenuItem("Import 3D Model...")) {
+            m_show_import_model_dialog = true;
+        }
+        ImGui::EndDisabled();
         ImGui::EndMenu();
     }
 
@@ -416,6 +423,32 @@ void StudioUI::draw_project_dialogs() {
         }
         ImGui::End();
     }
+
+    if (m_show_import_model_dialog) {
+        center_next_dialog();
+        if (ImGui::Begin("Import 3D Model", &m_show_import_model_dialog, dialog_flags)) {
+            ImGui::TextUnformatted("Import a static glTF 2.0 model into this Seed project");
+            ImGui::Separator();
+            ImGui::SetNextItemWidth(430.0f);
+            ImGui::InputText("Model File", m_import_model_file_buffer.data(), m_import_model_file_buffer.size());
+            ImGui::TextDisabled("Seed import v0: .glb / .gltf, first triangle primitive, base-color texture.");
+            ImGui::TextDisabled("The source and relative .gltf dependencies are copied into Assets/Imported/.");
+            ImGui::Spacing();
+
+            if (ImGui::Button("Import", {110.0f, 0.0f}) && m_import_model_file_buffer[0] != '\0') {
+                queue_action({
+                    .type = StudioActionType::ImportModel,
+                    .path = m_import_model_file_buffer.data(),
+                });
+                m_show_import_model_dialog = false;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", {110.0f, 0.0f})) {
+                m_show_import_model_dialog = false;
+            }
+        }
+        ImGui::End();
+    }
 }
 
 void StudioUI::draw_world_panel(Scene& scene) {
@@ -516,15 +549,25 @@ void StudioUI::draw_inspector(Scene& scene, const StudioDocumentInfo& document) 
         if (auto* mesh = scene.get_component<MeshComponent>(m_selected_entity)) {
             if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen)) {
                 m_scene_edited |= ImGui::Checkbox("Visible", &mesh->visible);
-                ImGui::Text("Asset: %s", mesh->asset_id.c_str());
+                ImGui::TextWrapped("Asset: %s", mesh->asset_id.c_str());
                 ImGui::TextDisabled("Runtime Mesh #%u", mesh->mesh.value);
             }
         }
 
         if (auto* material = scene.get_component<MaterialComponent>(m_selected_entity)) {
             if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::Text("Asset: %s", material->asset_id.c_str());
+                ImGui::TextWrapped("Asset: %s", material->asset_id.c_str());
+                ImGui::Text("Base Color: %.2f  %.2f  %.2f  %.2f",
+                    material->base_color.x,
+                    material->base_color.y,
+                    material->base_color.z,
+                    material->base_color.w);
                 ImGui::TextDisabled("Runtime Shader #%u", material->shader.value);
+                if (material->base_color_texture) {
+                    ImGui::TextDisabled("Runtime Texture #%u", material->base_color_texture.value);
+                } else {
+                    ImGui::TextDisabled("Base Color Texture: None");
+                }
             }
         }
 
@@ -582,15 +625,31 @@ void StudioUI::draw_assets_panel(const StudioDocumentInfo& document) {
                 }
             }
 
-            ImGui::TextDisabled("F5 Stop   RMB Look   WASD Move   Space/Q Up/Down   Shift Fast   E Interact");
+            ImGui::TextDisabled("F5 Stop   RMB Look   WASD Walk   Space Jump   Shift Sprint   E Interact");
         } else {
+            ImGui::BeginDisabled(!document.has_project);
+            if (ImGui::Button("+ Import 3D Model...")) {
+                m_show_import_model_dialog = true;
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::TextDisabled(document.has_project
+                ? "Static .glb / .gltf"
+                : "Save the project before importing assets");
+
             ImGui::TextUnformatted("Seed Cube Mesh");
             ImGui::SameLine(180.0f);
             ImGui::TextDisabled("builtin:cube");
             ImGui::TextUnformatted("Default Seed Material");
             ImGui::SameLine(180.0f);
             ImGui::TextDisabled("builtin:seed_default");
-            ImGui::Spacing();
+
+            for (const auto& asset_id : document.project_assets) {
+                ImGui::TextUnformatted("Imported Model");
+                ImGui::SameLine(180.0f);
+                ImGui::TextDisabled("%s", asset_id.c_str());
+            }
+
             if (!document.status_message.empty()) {
                 ImGui::TextWrapped("%s", document.status_message.c_str());
             } else if (!document.has_project) {
@@ -628,7 +687,7 @@ void StudioUI::draw_viewport_frame(const StudioDocumentInfo& document) {
     );
 
     const char* controls = document.playing
-        ? "RMB Look   WASD Move   Space/Q Up/Down   Shift Fast   E Interact   F5 Stop"
+        ? "RMB Look   WASD Walk   Space Jump   Shift Sprint   E Interact   F5 Stop"
         : "RMB Look   WASD Move   Q/E Up/Down   Shift Fast   Wheel Speed";
     const ImVec2 text_size = ImGui::CalcTextSize(controls);
     const ImVec2 controls_pos{
