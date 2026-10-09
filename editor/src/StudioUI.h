@@ -61,7 +61,7 @@ public:
 private:
     void queue_action(StudioAction action);
     void draw_main_menu(const StudioDocumentInfo& document);
-    void draw_project_popups();
+    void draw_project_dialogs();
     void draw_world_panel(Scene& scene);
     void draw_inspector(Scene& scene);
     void draw_assets_panel(const StudioDocumentInfo& document);
@@ -71,6 +71,9 @@ private:
     StudioAction m_pending_action{};
     bool m_scene_edited{false};
     bool m_initialized{false};
+    bool m_show_new_project_dialog{false};
+    bool m_show_open_project_dialog{false};
+    bool m_show_save_as_dialog{false};
 
     std::array<char, 128> m_project_name_buffer{};
     std::array<char, 512> m_project_folder_buffer{};
