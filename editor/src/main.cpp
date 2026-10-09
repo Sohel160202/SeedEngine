@@ -1,3 +1,5 @@
+#include "StudioUI.h"
+
 #include "seed/core/Engine.h"
 #include "seed/gameplay/Components.h"
 #include "seed/render/RenderComponents.h"
@@ -88,6 +90,16 @@ void set_key_state(CameraInputState& input, seed::KeyCode key, bool down) {
     }
 }
 
+void clear_movement_input(CameraInputState& input) {
+    input.forward = false;
+    input.backward = false;
+    input.left = false;
+    input.right = false;
+    input.down = false;
+    input.up = false;
+    input.fast = false;
+}
+
 void update_camera_movement(
     seed::TransformComponent& transform,
     const CameraInputState& input,
@@ -128,8 +140,8 @@ int main(int argc, char** argv) {
     }
 
     auto* renderer = engine.renderer();
-    if (renderer == nullptr) {
-        std::cerr << "[SeedStudio] Renderer unavailable.\n";
+    if (renderer == nullptr || engine.platform() == nullptr) {
+        std::cerr << "[SeedStudio] Renderer or platform unavailable.\n";
         engine.shutdown();
         return 2;
     }
@@ -187,31 +199,50 @@ int main(int argc, char** argv) {
     scene.add_component<seed::MeshComponent>(cube_entity, cube_mesh, true);
     scene.add_component<seed::MaterialComponent>(cube_entity, mesh_shader);
 
+    seed::studio::StudioUI studio_ui;
+    if (!studio_ui.initialize(engine.platform()->window_handle())) {
+        std::cerr << "[SeedStudio] Failed to initialize the Seed Studio UI layer.\n";
+        renderer->destroy_mesh(cube_mesh);
+        renderer->destroy_shader(mesh_shader);
+        engine.shutdown();
+        return 4;
+    }
+    studio_ui.select_entity(cube_entity);
+
     CameraInputState camera_input{};
 
     std::cout << "[SeedStudio] Native editor window active.\n";
-    std::cout << "[SeedStudio] First Seed scene-driven 3D cube ready.\n";
-    std::cout << "[SeedStudio] RMB + mouse look | WASD move | Q/E down/up | Shift faster | wheel speed | Escape close.\n";
+    std::cout << "[SeedStudio] Seed Studio v0 shell active: World + Viewport + Inspector + Assets.\n";
+    std::cout << "[SeedStudio] Select entities and edit Transform values live.\n";
 
     while (engine.tick()) {
+        studio_ui.begin_frame();
+
+        const bool ui_wants_mouse = studio_ui.wants_mouse();
+        const bool ui_wants_keyboard = studio_ui.wants_keyboard();
+
         for (const auto& event : engine.frame_events()) {
             if (event.type == seed::PlatformEventType::Key) {
-                const bool key_down = event.button_state != seed::ButtonState::Released;
-                set_key_state(camera_input, event.key, key_down);
-
                 if (event.key == seed::KeyCode::Escape &&
                     event.button_state == seed::ButtonState::Pressed) {
                     engine.request_exit();
                 }
+
+                if (!ui_wants_keyboard) {
+                    const bool key_down = event.button_state != seed::ButtonState::Released;
+                    set_key_state(camera_input, event.key, key_down);
+                }
             }
 
             if (event.type == seed::PlatformEventType::MouseButton &&
-                event.mouse_button == seed::MouseButton::Right) {
+                event.mouse_button == seed::MouseButton::Right &&
+                !ui_wants_mouse) {
                 camera_input.looking = event.button_state != seed::ButtonState::Released;
                 camera_input.has_mouse_position = false;
             }
 
-            if (event.type == seed::PlatformEventType::MouseMove && camera_input.looking) {
+            if (event.type == seed::PlatformEventType::MouseMove &&
+                camera_input.looking && !ui_wants_mouse) {
                 if (camera_input.has_mouse_position) {
                     constexpr float look_sensitivity = 0.12f;
                     const float delta_x = event.x - camera_input.last_mouse_x;
@@ -229,22 +260,32 @@ int main(int argc, char** argv) {
                 camera_input.has_mouse_position = true;
             }
 
-            if (event.type == seed::PlatformEventType::MouseWheel) {
+            if (event.type == seed::PlatformEventType::MouseWheel && !ui_wants_mouse) {
                 camera_input.move_speed = std::clamp(
                     camera_input.move_speed + event.y * 0.45f,
                     0.5f,
                     20.0f
                 );
             }
+
+            if (event.type == seed::PlatformEventType::WindowFocusChanged && !event.focused) {
+                clear_movement_input(camera_input);
+                camera_input.looking = false;
+            }
         }
 
+        if (ui_wants_keyboard) {
+            clear_movement_input(camera_input);
+        }
         update_camera_movement(camera_transform, camera_input, engine.delta_seconds());
 
-        // Keep a subtle rotation running so transform changes are visible even before interaction.
-        cube_transform.rotation_degrees.y += static_cast<float>(engine.delta_seconds()) * 18.0f;
+        // Editor widgets mutate Seed Scene data directly. The renderer sees the
+        // updated components later in this same frame.
+        studio_ui.draw(scene);
 
         engine.begin_frame();
         seed::RenderSystem::render(scene, *renderer);
+        studio_ui.render();
         engine.end_frame();
 
         if (frame_limit > 0 && engine.frame_index() >= frame_limit) {
@@ -252,6 +293,7 @@ int main(int argc, char** argv) {
         }
     }
 
+    studio_ui.shutdown();
     renderer->destroy_mesh(cube_mesh);
     renderer->destroy_shader(mesh_shader);
 
