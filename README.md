@@ -8,29 +8,89 @@ The goal is simple:
 
 **A new creator should think about the game they want to make, not the engine plumbing required to make it.**
 
-Seed should make polished 3D games approachable without trapping users in a toy tool. Beginners work with game concepts such as **Player**, **Door**, **Enemy**, **Inventory**, **Quest**, and **Dialogue**. Advanced users can progressively access deeper logic, scripting, native systems, rendering, and engine extensions.
+Seed should make polished 3D games approachable without trapping users in a toy tool. Beginners work with concepts such as **Player**, **Door**, **Enemy**, **Inventory**, **Quest**, and **Dialogue**. Advanced users can progressively access deeper logic, scripting, native systems, rendering, and engine extensions.
 
 ## Direction
 
-Seed now owns its core architecture:
+Seed owns its core architecture:
 
 - **Language:** C++20
 - **Build system:** CMake
-- **Seed Core:** application lifecycle, services, diagnostics
-- **Seed Scene:** entities, components, scene ownership, serialization
+- **Seed Core:** application lifecycle, frame loop, services
+- **Seed Scene:** entities and typed components
 - **Seed Runtime:** runs Seed games
 - **Seed Studio:** our own editor and authoring environment
 - **Seed Gameplay:** beginner-facing reusable gameplay concepts
-- **Seed project/scene formats:** owned by Seed
-- **Rendering, platform, physics and audio:** accessed through Seed-owned abstractions
+- **Seed Input:** Seed-owned keyboard/mouse event model
+- **Seed Platform:** replaceable native platform abstraction
+- **Seed Renderer:** replaceable renderer abstraction and backend selection
+- **Seed project/scene formats:** will be owned by Seed
 
-Seed may use focused third-party libraries for low-level jobs such as window creation, graphics API loading, physics, model decoding, image decoding, audio codecs, and UI rendering. Those libraries do **not** define Seed's object model, project format, gameplay framework, editor, or runtime architecture.
+Seed may use focused third-party libraries for low-level jobs. Those libraries do **not** define Seed's object model, project format, gameplay framework, editor, or runtime architecture.
 
 ## Important architecture rule
 
 **Seed is not built on another game engine.**
 
 The earlier Godot prototype proved the `Add Gameplay` UX concept. It is no longer the active product architecture. Its history remains in Git so we can learn from it without carrying Godot into the engine.
+
+GLFW 3.5.1 is currently used only as a replaceable low-level desktop window/input backend behind Seed's `IPlatform` interface. GLFW types and key codes are translated at the backend boundary and are not exposed to Seed gameplay or project content.
+
+See `docs/DEPENDENCIES.md` for the dependency policy.
+
+## What exists now
+
+### Seed Core
+
+- standalone C++20 `SeedEngine` library
+- engine lifecycle
+- frame timing / frame index
+- headless mode
+- automated tests
+
+### Seed Scene
+
+- entity creation/destruction
+- entity names
+- typed component storage
+- reusable gameplay component data
+
+Current components include:
+
+- `TransformComponent`
+- `InteractableComponent`
+- `DoorComponent`
+- `HealthComponent`
+- `InventoryComponent`
+
+### Seed Platform
+
+- native application windows
+- Seed-owned keyboard codes
+- Seed-owned mouse button codes
+- key/button state translation
+- mouse movement and wheel events
+- resize / focus / quit events
+- resizable windows
+- Escape-to-close in Runtime and Studio
+
+### Seed Renderer
+
+- `IRenderer`
+- renderer factory
+- first OpenGL backend
+- runtime OpenGL function loading
+- clear frame
+- framebuffer resize handling
+- vsync
+- frame presentation
+
+### Applications
+
+- `SeedRuntime`
+- `SeedStudio`
+
+Both are real standalone Seed executables linked to the same Seed Engine library.
 
 ## The Seed mental model
 
@@ -66,29 +126,20 @@ Seed should never punish a creator for becoming more advanced.
 SeedEngine/
 ├─ engine/                 # Seed Engine static library
 │  ├─ include/seed/
+│  │  ├─ core/
+│  │  ├─ gameplay/
+│  │  ├─ input/
+│  │  ├─ platform/
+│  │  ├─ render/
+│  │  └─ scene/
 │  └─ src/
-├─ runtime/                # Seed game runtime executable
+├─ runtime/                # Seed Runtime executable
 ├─ editor/                 # Seed Studio executable
 ├─ tests/                  # Core engine tests
-├─ docs/                   # Architecture and roadmap
+├─ docs/                   # Architecture, dependency policy and roadmap
 ├─ CMakeLists.txt
 └─ README.md
 ```
-
-## Current milestone — Seed Core
-
-The first independent milestone is deliberately low-level and small:
-
-- compile Seed as a standalone C++ engine library
-- create and destroy Seed entities
-- attach typed Seed components
-- maintain a Seed scene
-- boot a Seed runtime executable
-- boot a Seed Studio executable
-- prove both applications use the same Seed Engine library
-- keep all of this independent of another game engine
-
-After that we add the first platform/window layer, renderer abstraction, math library, asset system, scene serialization, and the first visible Seed Studio viewport.
 
 ## Build
 
@@ -96,11 +147,20 @@ Requirements:
 
 - CMake 3.24+
 - a C++20 compiler
+- Git access during the initial CMake configure so GLFW can be fetched
+
+On Ubuntu/Debian, building the current X11 backend also requires:
+
+```bash
+sudo apt install xorg-dev
+```
+
+Build Seed:
 
 ```bash
 cmake -S . -B build
-cmake --build build
-ctest --test-dir build
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
 
 Current executables:
@@ -109,6 +169,16 @@ Current executables:
 SeedRuntime
 SeedStudio
 ```
+
+## Current milestone
+
+Phase 0 (**Seed Core**) is complete and has compiled/tested successfully through GitHub Actions on Windows, Linux and macOS.
+
+Phase 1 (**Platform Layer**) is implemented. The next manual verification is launching the native Studio/Runtime windows on a desktop machine.
+
+Phase 2 (**Renderer Foundation**) has started. The first Seed OpenGL backend now owns clear-frame rendering and presentation. Next comes the first triangle, GPU buffers, shaders, camera matrices, and eventually rendering Seed Scene entities.
+
+See `docs/ROADMAP.md` for the full path.
 
 ## v0.1 product target
 
@@ -131,6 +201,4 @@ The v0.1 creator-facing vertical slice will contain:
 
 ## Status
 
-**Pre-alpha — independent engine foundation.**
-
-The project has pivoted away from the earlier Godot-based authoring proof-of-concept. Active development now targets a standalone C++ Seed Engine, Seed Runtime and Seed Studio.
+**Pre-alpha — independent engine foundation + native platform + renderer bootstrap.**
