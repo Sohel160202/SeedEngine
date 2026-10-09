@@ -21,12 +21,22 @@ constexpr unsigned int GlElementArrayBuffer = 0x8893;
 constexpr unsigned int GlStaticDraw = 0x88E4;
 constexpr unsigned int GlFloat = 0x1406;
 constexpr unsigned int GlUnsignedInt = 0x1405;
+constexpr unsigned int GlUnsignedByte = 0x1401;
 constexpr unsigned int GlTriangles = 0x0004;
 constexpr unsigned int GlVertexShader = 0x8B31;
 constexpr unsigned int GlFragmentShader = 0x8B30;
 constexpr unsigned int GlCompileStatus = 0x8B81;
 constexpr unsigned int GlLinkStatus = 0x8B82;
 constexpr unsigned int GlInfoLogLength = 0x8B84;
+constexpr unsigned int GlTexture2D = 0x0DE1;
+constexpr unsigned int GlTexture0 = 0x84C0;
+constexpr unsigned int GlRgba = 0x1908;
+constexpr unsigned int GlTextureMinFilter = 0x2801;
+constexpr unsigned int GlTextureMagFilter = 0x2800;
+constexpr unsigned int GlTextureWrapS = 0x2802;
+constexpr unsigned int GlTextureWrapT = 0x2803;
+constexpr int GlLinear = 0x2601;
+constexpr int GlRepeat = 0x2901;
 constexpr unsigned char GlFalse = 0;
 
 using GlClearColorFn = void (*)(float, float, float, float);
@@ -57,12 +67,23 @@ using GlDeleteProgramFn = void (*)(unsigned int);
 using GlUseProgramFn = void (*)(unsigned int);
 using GlGetUniformLocationFn = int (*)(unsigned int, const char*);
 using GlUniformMatrix4fvFn = void (*)(int, int, unsigned char, const float*);
+using GlUniform1iFn = void (*)(int, int);
+using GlUniform4fFn = void (*)(int, float, float, float, float);
 using GlDrawElementsFn = void (*)(unsigned int, int, unsigned int, const void*);
+using GlGenTexturesFn = void (*)(int, unsigned int*);
+using GlBindTextureFn = void (*)(unsigned int, unsigned int);
+using GlTexImage2DFn = void (*)(unsigned int, int, int, int, int, int, unsigned int, unsigned int, const void*);
+using GlTexParameteriFn = void (*)(unsigned int, unsigned int, int);
+using GlDeleteTexturesFn = void (*)(int, const unsigned int*);
+using GlActiveTextureFn = void (*)(unsigned int);
 
 struct OpenGLShaderResource {
     unsigned int program{0};
     int model_location{-1};
     int view_projection_location{-1};
+    int base_color_location{-1};
+    int texture_location{-1};
+    int use_texture_location{-1};
 };
 
 struct OpenGLMeshResource {
@@ -70,6 +91,10 @@ struct OpenGLMeshResource {
     unsigned int vertex_buffer{0};
     unsigned int index_buffer{0};
     int index_count{0};
+};
+
+struct OpenGLTextureResource {
+    unsigned int texture{0};
 };
 
 class OpenGLRenderer final : public IRenderer {
@@ -156,6 +181,9 @@ public:
         resource.program = program;
         resource.model_location = m_get_uniform_location(program, "uModel");
         resource.view_projection_location = m_get_uniform_location(program, "uViewProjection");
+        resource.base_color_location = m_get_uniform_location(program, "uBaseColor");
+        resource.texture_location = m_get_uniform_location(program, "uBaseTexture");
+        resource.use_texture_location = m_get_uniform_location(program, "uUseTexture");
 
         const ShaderHandle handle{m_next_shader_id++};
         m_shaders.emplace(handle.value, resource);
@@ -228,6 +256,16 @@ public:
             reinterpret_cast<const void*>(offsetof(VertexPositionColor, color))
         );
 
+        m_enable_vertex_attrib_array(2);
+        m_vertex_attrib_pointer(
+            2,
+            2,
+            GlFloat,
+            GlFalse,
+            static_cast<int>(sizeof(VertexPositionColor)),
+            reinterpret_cast<const void*>(offsetof(VertexPositionColor, texcoord))
+        );
+
         m_bind_vertex_array(0);
         m_bind_buffer(GlArrayBuffer, 0);
 
@@ -249,6 +287,56 @@ public:
         m_meshes.erase(found);
     }
 
+    TextureHandle create_texture(const TextureDesc& desc) override {
+        const std::size_t expected_size = static_cast<std::size_t>(desc.width) *
+            static_cast<std::size_t>(desc.height) * 4u;
+        if (!m_window || desc.width == 0 || desc.height == 0 ||
+            desc.rgba8_pixels.size() < expected_size) {
+            return {};
+        }
+
+        glfwMakeContextCurrent(m_window);
+
+        OpenGLTextureResource resource{};
+        m_gen_textures(1, &resource.texture);
+        m_bind_texture(GlTexture2D, resource.texture);
+        m_tex_parameter_i(GlTexture2D, GlTextureMinFilter, GlLinear);
+        m_tex_parameter_i(GlTexture2D, GlTextureMagFilter, GlLinear);
+        m_tex_parameter_i(GlTexture2D, GlTextureWrapS, GlRepeat);
+        m_tex_parameter_i(GlTexture2D, GlTextureWrapT, GlRepeat);
+        m_tex_image_2d(
+            GlTexture2D,
+            0,
+            static_cast<int>(GlRgba),
+            static_cast<int>(desc.width),
+            static_cast<int>(desc.height),
+            0,
+            GlRgba,
+            GlUnsignedByte,
+            desc.rgba8_pixels.data()
+        );
+        m_bind_texture(GlTexture2D, 0);
+
+        const TextureHandle handle{m_next_texture_id++};
+        m_textures.emplace(handle.value, resource);
+        return handle;
+    }
+
+    void destroy_texture(TextureHandle texture) override {
+        const auto found = m_textures.find(texture.value);
+        if (found == m_textures.end()) {
+            return;
+        }
+
+        if (m_window) {
+            glfwMakeContextCurrent(m_window);
+        }
+        if (found->second.texture != 0 && m_delete_textures) {
+            m_delete_textures(1, &found->second.texture);
+        }
+        m_textures.erase(found);
+    }
+
     void begin_frame() override {
         if (!m_window || !m_clear_color || !m_clear) {
             return;
@@ -267,6 +355,8 @@ public:
     void draw_mesh(
         MeshHandle mesh,
         ShaderHandle shader,
+        TextureHandle texture,
+        const Vec4& base_color,
         const Mat4& model,
         const Mat4& view_projection
     ) override {
@@ -290,10 +380,36 @@ public:
                 view_projection.data()
             );
         }
+        if (shader_resource.base_color_location >= 0) {
+            m_uniform4f(
+                shader_resource.base_color_location,
+                base_color.x,
+                base_color.y,
+                base_color.z,
+                base_color.w
+            );
+        }
+
+        const auto texture_found = m_textures.find(texture.value);
+        const bool use_texture = texture && texture_found != m_textures.end();
+        if (shader_resource.use_texture_location >= 0) {
+            m_uniform1i(shader_resource.use_texture_location, use_texture ? 1 : 0);
+        }
+        if (use_texture) {
+            m_active_texture(GlTexture0);
+            m_bind_texture(GlTexture2D, texture_found->second.texture);
+            if (shader_resource.texture_location >= 0) {
+                m_uniform1i(shader_resource.texture_location, 0);
+            }
+        }
 
         m_bind_vertex_array(mesh_found->second.vertex_array);
         m_draw_elements(GlTriangles, mesh_found->second.index_count, GlUnsignedInt, nullptr);
         m_bind_vertex_array(0);
+
+        if (use_texture) {
+            m_bind_texture(GlTexture2D, 0);
+        }
         m_use_program(0);
     }
 
@@ -311,6 +427,12 @@ public:
         if (m_window) {
             glfwMakeContextCurrent(m_window);
 
+            for (const auto& [id, resource] : m_textures) {
+                (void)id;
+                if (resource.texture != 0 && m_delete_textures) {
+                    m_delete_textures(1, &resource.texture);
+                }
+            }
             for (const auto& [id, resource] : m_meshes) {
                 (void)id;
                 destroy_mesh_resource(resource);
@@ -323,6 +445,7 @@ public:
             }
         }
 
+        m_textures.clear();
         m_meshes.clear();
         m_shaders.clear();
 
@@ -373,7 +496,15 @@ private:
         m_use_program = load<GlUseProgramFn>("glUseProgram");
         m_get_uniform_location = load<GlGetUniformLocationFn>("glGetUniformLocation");
         m_uniform_matrix4fv = load<GlUniformMatrix4fvFn>("glUniformMatrix4fv");
+        m_uniform1i = load<GlUniform1iFn>("glUniform1i");
+        m_uniform4f = load<GlUniform4fFn>("glUniform4f");
         m_draw_elements = load<GlDrawElementsFn>("glDrawElements");
+        m_gen_textures = load<GlGenTexturesFn>("glGenTextures");
+        m_bind_texture = load<GlBindTextureFn>("glBindTexture");
+        m_tex_image_2d = load<GlTexImage2DFn>("glTexImage2D");
+        m_tex_parameter_i = load<GlTexParameteriFn>("glTexParameteri");
+        m_delete_textures = load<GlDeleteTexturesFn>("glDeleteTextures");
+        m_active_texture = load<GlActiveTextureFn>("glActiveTexture");
 
         return m_clear_color && m_clear && m_viewport && m_enable &&
             m_gen_vertex_arrays && m_bind_vertex_array && m_delete_vertex_arrays &&
@@ -383,7 +514,10 @@ private:
             m_get_shader_iv && m_get_shader_info_log && m_delete_shader &&
             m_create_program && m_attach_shader && m_link_program &&
             m_get_program_iv && m_get_program_info_log && m_delete_program &&
-            m_use_program && m_get_uniform_location && m_uniform_matrix4fv && m_draw_elements;
+            m_use_program && m_get_uniform_location && m_uniform_matrix4fv &&
+            m_uniform1i && m_uniform4f && m_draw_elements &&
+            m_gen_textures && m_bind_texture && m_tex_image_2d &&
+            m_tex_parameter_i && m_delete_textures && m_active_texture;
     }
 
     unsigned int compile_shader(unsigned int type, std::string_view source, const char* label) {
@@ -459,15 +593,25 @@ private:
         m_use_program = nullptr;
         m_get_uniform_location = nullptr;
         m_uniform_matrix4fv = nullptr;
+        m_uniform1i = nullptr;
+        m_uniform4f = nullptr;
         m_draw_elements = nullptr;
+        m_gen_textures = nullptr;
+        m_bind_texture = nullptr;
+        m_tex_image_2d = nullptr;
+        m_tex_parameter_i = nullptr;
+        m_delete_textures = nullptr;
+        m_active_texture = nullptr;
     }
 
     GLFWwindow* m_window{nullptr};
     RendererConfig m_config{};
     std::unordered_map<std::uint32_t, OpenGLShaderResource> m_shaders;
     std::unordered_map<std::uint32_t, OpenGLMeshResource> m_meshes;
+    std::unordered_map<std::uint32_t, OpenGLTextureResource> m_textures;
     std::uint32_t m_next_shader_id{1};
     std::uint32_t m_next_mesh_id{1};
+    std::uint32_t m_next_texture_id{1};
 
     GlClearColorFn m_clear_color{nullptr};
     GlClearFn m_clear{nullptr};
@@ -497,7 +641,15 @@ private:
     GlUseProgramFn m_use_program{nullptr};
     GlGetUniformLocationFn m_get_uniform_location{nullptr};
     GlUniformMatrix4fvFn m_uniform_matrix4fv{nullptr};
+    GlUniform1iFn m_uniform1i{nullptr};
+    GlUniform4fFn m_uniform4f{nullptr};
     GlDrawElementsFn m_draw_elements{nullptr};
+    GlGenTexturesFn m_gen_textures{nullptr};
+    GlBindTextureFn m_bind_texture{nullptr};
+    GlTexImage2DFn m_tex_image_2d{nullptr};
+    GlTexParameteriFn m_tex_parameter_i{nullptr};
+    GlDeleteTexturesFn m_delete_textures{nullptr};
+    GlActiveTextureFn m_active_texture{nullptr};
 };
 
 } // namespace
