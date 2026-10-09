@@ -1,6 +1,7 @@
 #include "GameplayAuthoring.h"
 
 #include "seed/gameplay/Components.h"
+#include "seed/render/RenderComponents.h"
 #include "seed/scene/Scene.h"
 
 #include <imgui.h>
@@ -43,6 +44,14 @@ bool remove_component_button(const char* label) {
     return ImGui::SmallButton(label);
 }
 
+void make_primary_game_camera(Scene& scene, EntityId entity) {
+    scene.for_each<CameraComponent>([&](EntityId candidate, CameraComponent& camera) {
+        if (!camera.editor_only) {
+            camera.primary = candidate == entity;
+        }
+    });
+}
+
 } // namespace
 
 bool draw_gameplay_components(Scene& scene, EntityId entity) {
@@ -51,6 +60,65 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
     }
 
     bool changed = false;
+
+    if (auto* player = scene.get_component<PlayerControllerComponent>(entity)) {
+        ImGui::PushID("SeedPlayer");
+        if (ImGui::CollapsingHeader("Player — First Person", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("A ready-to-play first-person Seed player. Camera and Inventory are managed as dependencies.");
+
+            changed |= ImGui::Checkbox("Enabled", &player->enabled);
+            if (ImGui::DragFloat("Move Speed", &player->move_speed, 0.1f, 0.1f, 100.0f, "%.1f m/s")) {
+                player->move_speed = std::max(0.1f, player->move_speed);
+                changed = true;
+            }
+            if (ImGui::DragFloat("Sprint Multiplier", &player->fast_multiplier, 0.05f, 1.0f, 10.0f, "%.2fx")) {
+                player->fast_multiplier = std::max(1.0f, player->fast_multiplier);
+                changed = true;
+            }
+            if (ImGui::DragFloat("Look Sensitivity", &player->look_sensitivity, 0.005f, 0.01f, 2.0f, "%.3f")) {
+                player->look_sensitivity = std::max(0.01f, player->look_sensitivity);
+                changed = true;
+            }
+
+            ImGui::SeparatorText("Interaction");
+            if (ImGui::DragFloat("Distance", &player->interaction_distance, 0.1f, 0.25f, 50.0f, "%.1f m")) {
+                player->interaction_distance = std::max(0.25f, player->interaction_distance);
+                changed = true;
+            }
+            if (ImGui::DragFloat("Aim Radius", &player->interaction_radius, 0.05f, 0.05f, 10.0f, "%.2f m")) {
+                player->interaction_radius = std::max(0.05f, player->interaction_radius);
+                changed = true;
+            }
+
+            if (!scene.has_component<CameraComponent>(entity)) {
+                ImGui::TextWrapped("This Player is missing its game Camera.");
+                if (ImGui::Button("Fix: Add First-Person Camera")) {
+                    CameraComponent camera;
+                    camera.primary = true;
+                    camera.enabled = true;
+                    camera.editor_only = false;
+                    camera.field_of_view_degrees = 65.0f;
+                    scene.add_component<CameraComponent>(entity, camera);
+                    make_primary_game_camera(scene, entity);
+                    changed = true;
+                }
+            }
+
+            if (!scene.has_component<InventoryComponent>(entity)) {
+                ImGui::TextWrapped("This Player is missing Inventory, so pickups cannot be stored.");
+                if (ImGui::Button("Fix: Add Inventory")) {
+                    scene.add_component<InventoryComponent>(entity);
+                    changed = true;
+                }
+            }
+
+            if (remove_component_button("Remove Player Controller")) {
+                scene.remove_component<PlayerControllerComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
 
     if (auto* interactable = scene.get_component<InteractableComponent>(entity)) {
         ImGui::PushID("SeedInteractable");
@@ -111,7 +179,7 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
     if (auto* inventory = scene.get_component<InventoryComponent>(entity)) {
         ImGui::PushID("SeedInventory");
         if (ImGui::CollapsingHeader("Inventory", ImGuiTreeNodeFlags_DefaultOpen)) {
-            component_description("Stores item IDs and quantities. Player presets will use this automatically.");
+            component_description("Stores item IDs and quantities. Player presets use this automatically.");
 
             std::vector<std::string> item_ids;
             item_ids.reserve(inventory->items.size());
@@ -274,11 +342,46 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     ImGui::TextDisabled("Seed adds the underlying components for you.");
     ImGui::Separator();
 
+    const bool has_player = scene.has_component<PlayerControllerComponent>(entity);
     const bool has_interactable = scene.has_component<InteractableComponent>(entity);
     const bool has_pickup = scene.has_component<PickupComponent>(entity);
     const bool has_inventory = scene.has_component<InventoryComponent>(entity);
     const bool has_health = scene.has_component<HealthComponent>(entity);
     const bool has_door = scene.has_component<DoorComponent>(entity);
+
+    ImGui::BeginDisabled(has_player);
+    if (ImGui::MenuItem(has_player ? "Player — First Person [Added]" : "Player — First Person")) {
+        if (!scene.has_component<TransformComponent>(entity)) {
+            scene.add_component<TransformComponent>(entity);
+        }
+
+        if (!scene.has_component<CameraComponent>(entity)) {
+            CameraComponent camera;
+            camera.primary = true;
+            camera.enabled = true;
+            camera.editor_only = false;
+            camera.field_of_view_degrees = 65.0f;
+            scene.add_component<CameraComponent>(entity, camera);
+        } else {
+            auto* camera = scene.get_component<CameraComponent>(entity);
+            camera->primary = true;
+            camera->enabled = true;
+            camera->editor_only = false;
+        }
+        make_primary_game_camera(scene, entity);
+
+        if (!scene.has_component<InventoryComponent>(entity)) {
+            scene.add_component<InventoryComponent>(entity);
+        }
+        scene.add_component<PlayerControllerComponent>(entity);
+        changed = true;
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("Create a playable first-person entity. Camera + Inventory are added automatically.");
+    }
+
+    ImGui::Separator();
 
     ImGui::BeginDisabled(has_interactable);
     if (ImGui::MenuItem(has_interactable ? "Interactable   [Added]" : "Interactable")) {
@@ -343,7 +446,7 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     }
 
     ImGui::Separator();
-    ImGui::TextDisabled("Next: Player, Enemy, Dialogue, Quest");
+    ImGui::TextDisabled("Next: Enemy, Dialogue, Quest");
     return changed;
 }
 
