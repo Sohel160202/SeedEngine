@@ -25,6 +25,7 @@ enum class StudioActionType {
     CreateCube,
     CreateDirectionalLight,
     CreateAmbientLight,
+    CreateSky,
     CreateFirstPersonPlayer,
     DuplicateSelected,
     DeleteSelected,
