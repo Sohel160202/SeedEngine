@@ -64,6 +64,26 @@ public:
         return pool != nullptr && pool->data.erase(entity) > 0;
     }
 
+    template <typename... Components, typename Function>
+    void for_each(Function&& function) {
+        for (auto& [entity, name] : m_entities) {
+            (void)name;
+            if ((has_component<Components>(entity) && ...)) {
+                function(entity, *get_component<Components>(entity)...);
+            }
+        }
+    }
+
+    template <typename... Components, typename Function>
+    void for_each(Function&& function) const {
+        for (const auto& [entity, name] : m_entities) {
+            (void)name;
+            if ((has_component<Components>(entity) && ...)) {
+                function(entity, *get_component<Components>(entity)...);
+            }
+        }
+    }
+
 private:
     struct IComponentPool {
         virtual ~IComponentPool() = default;
