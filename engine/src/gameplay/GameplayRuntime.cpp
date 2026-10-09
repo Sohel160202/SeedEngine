@@ -249,6 +249,11 @@ void GameplayRuntime::refresh_interaction_target(Scene& scene) {
 
     m_interaction_prompt = "[E] " + interactable->prompt;
 
+    const auto* pickup = scene.get_component<PickupComponent>(m_interaction_target);
+    if (pickup != nullptr && pickup->quantity > 1) {
+        m_interaction_prompt += "  x" + std::to_string(pickup->quantity);
+    }
+
     const auto* door = scene.get_component<DoorComponent>(m_interaction_target);
     if (door != nullptr && !door->required_item.empty() && !player_has_item(scene, door->required_item)) {
         m_interaction_prompt += "  (Requires " + door->required_item + ")";
@@ -264,6 +269,42 @@ void GameplayRuntime::perform_interaction(Scene& scene) {
     auto* interactable = scene.get_component<InteractableComponent>(m_interaction_target);
     if (interactable == nullptr || !interactable->enabled) {
         m_status_message = "This object is not interactable.";
+        return;
+    }
+
+    if (auto* pickup = scene.get_component<PickupComponent>(m_interaction_target)) {
+        const std::string item_id = pickup->item_id;
+        const std::string display_name = pickup->display_name.empty() ? item_id : pickup->display_name;
+        const int quantity = std::max(1, pickup->quantity);
+        const bool destroy_on_pickup = pickup->destroy_on_pickup;
+        const EntityId pickup_entity = m_interaction_target;
+
+        if (item_id.empty()) {
+            m_status_message = "Pickup needs an Item ID.";
+            return;
+        }
+        if (!add_player_item(scene, item_id, quantity)) {
+            m_status_message = "Could not add " + display_name + " to Inventory.";
+            return;
+        }
+
+        m_status_message = "Picked up " + display_name;
+        if (quantity > 1) {
+            m_status_message += " x" + std::to_string(quantity);
+        }
+        m_status_message += ".";
+
+        if (destroy_on_pickup) {
+            m_doors.erase(pickup_entity);
+            scene.destroy_entity(pickup_entity);
+        } else {
+            interactable = scene.get_component<InteractableComponent>(pickup_entity);
+            if (interactable != nullptr) {
+                interactable->enabled = false;
+            }
+        }
+
+        m_interaction_target = InvalidEntity;
         return;
     }
 
@@ -363,6 +404,20 @@ bool GameplayRuntime::player_has_item(const Scene& scene, const std::string& ite
 
     const auto it = inventory->items.find(item_id);
     return it != inventory->items.end() && it->second > 0;
+}
+
+bool GameplayRuntime::add_player_item(Scene& scene, const std::string& item_id, int quantity) {
+    if (item_id.empty() || quantity <= 0 || !scene.is_alive(m_player_entity)) {
+        return false;
+    }
+
+    auto* inventory = scene.get_component<InventoryComponent>(m_player_entity);
+    if (inventory == nullptr) {
+        inventory = &scene.add_component<InventoryComponent>(m_player_entity);
+    }
+
+    inventory->items[item_id] += quantity;
+    return true;
 }
 
 bool GameplayRuntime::consume_player_item(Scene& scene, const std::string& item_id) {
