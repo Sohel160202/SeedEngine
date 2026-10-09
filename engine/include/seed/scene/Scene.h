@@ -13,6 +13,13 @@ namespace seed {
 
 class Scene {
 public:
+    Scene() = default;
+    Scene(const Scene& other);
+    Scene& operator=(const Scene& other);
+    Scene(Scene&&) noexcept = default;
+    Scene& operator=(Scene&&) noexcept = default;
+    ~Scene() = default;
+
     EntityId create_entity(std::string name = "Entity", std::string persistent_id = {});
     bool destroy_entity(EntityId entity);
     bool is_alive(EntityId entity) const;
@@ -109,6 +116,7 @@ private:
     struct IComponentPool {
         virtual ~IComponentPool() = default;
         virtual void erase(EntityId entity) = 0;
+        virtual std::unique_ptr<IComponentPool> clone() const = 0;
     };
 
     template <typename T>
@@ -117,6 +125,10 @@ private:
 
         void erase(EntityId entity) override {
             data.erase(entity);
+        }
+
+        std::unique_ptr<IComponentPool> clone() const override {
+            return std::make_unique<ComponentPool<T>>(*this);
         }
     };
 
@@ -150,6 +162,7 @@ private:
     }
 
     void ensure_alive(EntityId entity) const;
+    void copy_from(const Scene& other);
     static std::string generate_persistent_id();
 
     EntityId m_next_entity{1};
