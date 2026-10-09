@@ -22,6 +22,20 @@ public:
 
     std::size_t entity_count() const noexcept { return m_entities.size(); }
 
+    template <typename Function>
+    void for_each_entity(Function&& function) {
+        for (auto& [entity, name] : m_entities) {
+            function(entity, name);
+        }
+    }
+
+    template <typename Function>
+    void for_each_entity(Function&& function) const {
+        for (const auto& [entity, name] : m_entities) {
+            function(entity, name);
+        }
+    }
+
     template <typename T, typename... Args>
     T& add_component(EntityId entity, Args&&... args) {
         ensure_alive(entity);
