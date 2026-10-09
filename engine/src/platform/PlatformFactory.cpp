@@ -1,5 +1,6 @@
 #include "seed/platform/PlatformFactory.h"
 
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 #include <cstdint>
@@ -156,11 +157,24 @@ public:
         }
 
         m_glfw_initialized = true;
-
-        // Seed owns rendering separately. The platform creates a window with no
-        // graphics API context so rendering remains a replaceable Seed subsystem.
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        glfwDefaultWindowHints();
         glfwWindowHint(GLFW_RESIZABLE, config.resizable ? GLFW_TRUE : GLFW_FALSE);
+
+        switch (config.graphics_api) {
+        case PlatformGraphicsApi::OpenGL:
+            glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#ifdef __APPLE__
+            glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+#endif
+            break;
+        case PlatformGraphicsApi::None:
+        default:
+            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+            break;
+        }
 
         m_window = glfwCreateWindow(
             static_cast<int>(config.width),
