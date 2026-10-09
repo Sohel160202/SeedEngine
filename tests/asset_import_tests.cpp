@@ -46,7 +46,11 @@ int main() {
     {"bufferView": 2, "componentType": 5123, "count": 3, "type": "SCALAR"}
   ],
   "materials": [{
-    "pbrMetallicRoughness": {"baseColorFactor": [0.25, 0.5, 0.75, 1.0]}
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.25, 0.5, 0.75, 1.0],
+      "metallicFactor": 0.65,
+      "roughnessFactor": 0.22
+    }
   }],
   "meshes": [{
     "name": "Seed Test Triangle",
@@ -67,9 +71,7 @@ int main() {
     assert(seed::AssetImporter::supports_static_model(source));
     std::string error;
     const auto imported = seed::AssetImporter::import_static_model(source, &error);
-    if (!imported.has_value()) {
-        std::cerr << error << '\n';
-    }
+    if (!imported.has_value()) std::cerr << error << '\n';
     assert(imported.has_value());
     assert(imported->name == "Seed Test Triangle");
     assert(imported->vertices.size() == 3);
@@ -91,6 +93,8 @@ int main() {
     assert(nearly_equal(imported->base_color.x, 0.25f));
     assert(nearly_equal(imported->base_color.y, 0.5f));
     assert(nearly_equal(imported->base_color.z, 0.75f));
+    assert(nearly_equal(imported->metallic, 0.65f));
+    assert(nearly_equal(imported->roughness, 0.22f));
     assert(!imported->base_color_texture.has_value());
     assert(imported->external_files.empty());
 
@@ -113,6 +117,8 @@ int main() {
 
     seed::MaterialComponent material;
     material.asset_id = asset_id;
+    material.metallic = imported->metallic;
+    material.roughness = imported->roughness;
     scene.add_component<seed::MaterialComponent>(entity, material);
 
     assert(seed::SceneSerializer::save(scene, scene_file, &error));
@@ -122,9 +128,7 @@ int main() {
     assert(loaded.entity_count() == 1);
 
     seed::EntityId loaded_entity = seed::InvalidEntity;
-    loaded.for_each_entity([&](seed::EntityId candidate, const std::string&) {
-        loaded_entity = candidate;
-    });
+    loaded.for_each_entity([&](seed::EntityId candidate, const std::string&) { loaded_entity = candidate; });
     assert(loaded_entity != seed::InvalidEntity);
     const auto* loaded_mesh = loaded.get_component<seed::MeshComponent>(loaded_entity);
     const auto* loaded_material = loaded.get_component<seed::MaterialComponent>(loaded_entity);
@@ -132,6 +136,8 @@ int main() {
     assert(loaded_material != nullptr);
     assert(loaded_mesh->asset_id == asset_id);
     assert(loaded_material->asset_id == asset_id);
+    assert(nearly_equal(loaded_material->metallic, 0.65f));
+    assert(nearly_equal(loaded_material->roughness, 0.22f));
 
     std::filesystem::remove_all(root);
     std::cout << "SeedAssetImportTests passed.\n";
