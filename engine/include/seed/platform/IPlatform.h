@@ -7,6 +7,11 @@
 
 namespace seed {
 
+enum class PlatformGraphicsApi {
+    None,
+    OpenGL
+};
+
 enum class PlatformEventType {
     None,
     QuitRequested,
@@ -37,6 +42,7 @@ struct PlatformConfig {
     std::uint32_t width{1280};
     std::uint32_t height{720};
     bool resizable{true};
+    PlatformGraphicsApi graphics_api{PlatformGraphicsApi::None};
 };
 
 class IPlatform {
