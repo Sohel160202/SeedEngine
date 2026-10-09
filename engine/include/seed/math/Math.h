@@ -174,6 +174,28 @@ inline Mat4 perspective_matrix(float fov_y_degrees, float aspect, float near_pla
     return result;
 }
 
+inline Mat4 orthographic_matrix(
+    float left,
+    float right,
+    float bottom,
+    float top,
+    float near_plane,
+    float far_plane
+) noexcept {
+    Mat4 result = Mat4::identity();
+    const float width = std::max(right - left, 0.0001f);
+    const float height = std::max(top - bottom, 0.0001f);
+    const float depth = std::max(far_plane - near_plane, 0.0001f);
+
+    result.values[0] = 2.0f / width;
+    result.values[5] = 2.0f / height;
+    result.values[10] = -2.0f / depth;
+    result.values[12] = -(right + left) / width;
+    result.values[13] = -(top + bottom) / height;
+    result.values[14] = -(far_plane + near_plane) / depth;
+    return result;
+}
+
 inline Mat4 look_at_matrix(const Vec3& eye, const Vec3& target, const Vec3& up) noexcept {
     const Vec3 forward = normalize(target - eye);
     const Vec3 right = normalize(cross(forward, up));
