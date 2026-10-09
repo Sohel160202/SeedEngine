@@ -1,5 +1,7 @@
 #pragma once
 
+#include "seed/math/Math.h"
+
 #include <array>
 #include <cstdint>
 #include <span>
@@ -28,13 +30,22 @@ struct TextureHandle {
     constexpr bool operator==(const TextureHandle&) const = default;
 };
 
-// Seed's first general-purpose static mesh vertex. Existing built-in geometry
-// can omit texcoord and keep using vertex color; imported glTF meshes populate
-// both so materials can use base-color textures.
+// Seed's first general-purpose static mesh vertex. The historical name is kept
+// for source compatibility while the layout grows with normals + UVs.
 struct VertexPositionColor {
     std::array<float, 3> position{};
     std::array<float, 3> color{1.0f, 1.0f, 1.0f};
     std::array<float, 2> texcoord{};
+    std::array<float, 3> normal{0.0f, 1.0f, 0.0f};
+};
+
+struct SceneLighting {
+    Vec3 directional_direction{0.0f, -1.0f, 0.0f};
+    Vec3 directional_color{1.0f, 1.0f, 1.0f};
+    float directional_intensity{0.0f};
+
+    Vec3 ambient_color{1.0f, 1.0f, 1.0f};
+    float ambient_intensity{0.18f};
 };
 
 struct ShaderDesc {
