@@ -30,6 +30,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glfw)
 
+# Seed owns .seedproject/.seedscene schemas and serialization behavior.
+# nlohmann/json is only the low-level JSON parser/writer behind those formats.
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 # Dear ImGui is an editor-only drawing dependency. Seed's scene, runtime,
 # renderer, gameplay model and public engine API do not depend on it.
 FetchContent_Declare(
