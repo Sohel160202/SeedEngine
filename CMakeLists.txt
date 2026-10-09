@@ -40,6 +40,20 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
+# TinyGLTF is a focused import backend only. Seed owns asset IDs, imported
+# resource data, the renderer resource model, project persistence and editor UX.
+# Keep the stable v2 loader isolated behind Seed's AssetImporter interface.
+FetchContent_Declare(
+    tinygltf
+    GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
+    GIT_TAG v2.9.7
+    GIT_SHALLOW TRUE
+)
+FetchContent_GetProperties(tinygltf)
+if(NOT tinygltf_POPULATED)
+    FetchContent_Populate(tinygltf)
+endif()
+
 # Dear ImGui is an editor-only drawing dependency. Seed's scene, runtime,
 # renderer, gameplay model and public engine API do not depend on it.
 FetchContent_Declare(
