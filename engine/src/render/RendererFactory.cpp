@@ -122,6 +122,10 @@ struct OpenGLShaderResource {
     int directional_intensity_location{-1};
     int ambient_color_location{-1};
     int ambient_intensity_location{-1};
+    int environment_zenith_color_location{-1};
+    int environment_horizon_color_location{-1};
+    int environment_intensity_location{-1};
+    int environment_enabled_location{-1};
     int light_view_projection_location{-1};
     int shadow_map_location{-1};
     int receive_shadows_location{-1};
@@ -174,7 +178,7 @@ public:
             static_cast<std::uint32_t>(framebuffer_height > 0 ? framebuffer_height : 1)
         );
 
-        std::cout << "[SeedRenderer] OpenGL backend initialized with PBR maps, sky + directional shadows.\n";
+        std::cout << "[SeedRenderer] OpenGL backend initialized with PBR maps, sky IBL + directional shadows.\n";
         return true;
     }
 
@@ -219,6 +223,10 @@ public:
         resource.directional_intensity_location = m_get_uniform_location(program, "uDirectionalIntensity");
         resource.ambient_color_location = m_get_uniform_location(program, "uAmbientColor");
         resource.ambient_intensity_location = m_get_uniform_location(program, "uAmbientIntensity");
+        resource.environment_zenith_color_location = m_get_uniform_location(program, "uEnvironmentZenithColor");
+        resource.environment_horizon_color_location = m_get_uniform_location(program, "uEnvironmentHorizonColor");
+        resource.environment_intensity_location = m_get_uniform_location(program, "uEnvironmentIntensity");
+        resource.environment_enabled_location = m_get_uniform_location(program, "uEnvironmentEnabled");
         resource.light_view_projection_location = m_get_uniform_location(program, "uLightViewProjection");
         resource.shadow_map_location = m_get_uniform_location(program, "uShadowMap");
         resource.receive_shadows_location = m_get_uniform_location(program, "uReceiveShadows");
@@ -389,6 +397,10 @@ public:
         if (resource.directional_intensity_location >= 0) m_uniform1f(resource.directional_intensity_location, lighting.directional_intensity);
         if (resource.ambient_color_location >= 0) m_uniform3f(resource.ambient_color_location, lighting.ambient_color.x, lighting.ambient_color.y, lighting.ambient_color.z);
         if (resource.ambient_intensity_location >= 0) m_uniform1f(resource.ambient_intensity_location, lighting.ambient_intensity);
+        if (resource.environment_zenith_color_location >= 0) m_uniform3f(resource.environment_zenith_color_location, lighting.environment_zenith_color.x, lighting.environment_zenith_color.y, lighting.environment_zenith_color.z);
+        if (resource.environment_horizon_color_location >= 0) m_uniform3f(resource.environment_horizon_color_location, lighting.environment_horizon_color.x, lighting.environment_horizon_color.y, lighting.environment_horizon_color.z);
+        if (resource.environment_intensity_location >= 0) m_uniform1f(resource.environment_intensity_location, lighting.environment_intensity);
+        if (resource.environment_enabled_location >= 0) m_uniform1i(resource.environment_enabled_location, lighting.environment_enabled ? 1 : 0);
 
         const auto* base_texture = find_texture(textures.base_color);
         const auto* metallic_roughness_texture = find_texture(textures.metallic_roughness);
