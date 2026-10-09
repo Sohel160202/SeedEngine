@@ -1,15 +1,11 @@
 #pragma once
 
+#include "seed/math/Math.h"
+
 #include <string>
 #include <unordered_map>
 
 namespace seed {
-
-struct Vec3 {
-    float x{0.0f};
-    float y{0.0f};
-    float z{0.0f};
-};
 
 struct TransformComponent {
     Vec3 position{};
