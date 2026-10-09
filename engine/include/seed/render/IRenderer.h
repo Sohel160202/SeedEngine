@@ -56,7 +56,7 @@ public:
     virtual void draw_mesh(
         MeshHandle mesh,
         ShaderHandle shader,
-        TextureHandle texture,
+        const MaterialTextures& textures,
         const Vec4& base_color,
         const MaterialSurface& surface,
         bool receive_shadows,
