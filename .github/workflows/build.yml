@@ -19,6 +19,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Linux window-system headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xorg-dev
+
       - name: Configure
         run: cmake -S . -B build -DSEED_BUILD_TESTS=ON
 
