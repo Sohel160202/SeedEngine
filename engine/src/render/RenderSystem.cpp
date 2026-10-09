@@ -129,11 +129,16 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
             renderer.draw_mesh(
                 mesh.mesh,
                 material.shader,
-                material.base_color_texture,
+                MaterialTextures{
+                    .base_color = material.use_base_color_texture ? material.base_color_texture : TextureHandle{},
+                    .metallic_roughness = material.use_metallic_roughness_texture ? material.metallic_roughness_texture : TextureHandle{},
+                    .normal = material.use_normal_texture ? material.normal_texture : TextureHandle{},
+                },
                 material.base_color,
                 MaterialSurface{
                     .metallic = std::clamp(material.metallic, 0.0f, 1.0f),
                     .roughness = std::clamp(material.roughness, 0.04f, 1.0f),
+                    .normal_scale = std::clamp(material.normal_scale, 0.0f, 4.0f),
                 },
                 mesh.receive_shadows,
                 model,
