@@ -21,7 +21,7 @@ jobs:
 
       - name: Install Linux window-system headers
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y xorg-dev
+        run: sudo apt-get update && sudo apt-get install -y xorg-dev xvfb xauth libgl1-mesa-dri
 
       - name: Configure
         run: cmake -S . -B build -DSEED_BUILD_TESTS=ON
@@ -31,6 +31,12 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Smoke test Seed window and renderer
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run -a build/editor/SeedStudio --frames=3
+          xvfb-run -a build/runtime/SeedRuntime --frames=3
 
       - name: Upload Windows Seed binaries
         if: runner.os == 'Windows'
