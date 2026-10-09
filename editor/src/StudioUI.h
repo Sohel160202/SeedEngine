@@ -11,26 +11,10 @@
 namespace seed::studio {
 
 enum class StudioActionType {
-    None,
-    NewProject,
-    OpenProject,
-    Save,
-    SaveAs,
-    NewScene,
-    ImportModel,
-    CreateEmptyEntity,
-    CreateCube,
-    CreateDirectionalLight,
-    CreateAmbientLight,
-    CreateSky,
-    CreateFirstPersonPlayer,
-    DuplicateSelected,
-    DeleteSelected,
-    FocusSelected,
-    Undo,
-    Redo,
-    Play,
-    Stop
+    None, NewProject, OpenProject, Save, SaveAs, NewScene, ImportModel,
+    CreateEmptyEntity, CreateCube, CreateDirectionalLight, CreateAmbientLight,
+    CreateSky, CreateFirstPersonPlayer, DuplicateSelected, DeleteSelected,
+    FocusSelected, Undo, Redo, Play, Stop
 };
 
 struct StudioAction {
@@ -61,7 +45,8 @@ public:
     bool initialize(void* window_handle);
     void shutdown();
     void begin_frame();
-    void draw(Scene& scene, const StudioDocumentInfo& document, EntityId viewport_camera = InvalidEntity);
+    void draw(Scene& scene, const StudioDocumentInfo& document);
+    void draw(Scene& scene, const StudioDocumentInfo& document, EntityId viewport_camera);
     void render();
 
     void select_entity(EntityId entity) noexcept { m_selected_entity = entity; }
@@ -75,10 +60,7 @@ public:
     ~StudioUI();
 
 private:
-    struct HistoryEntry {
-        Scene scene;
-        std::string selected_persistent_id;
-    };
+    struct HistoryEntry { Scene scene; std::string selected_persistent_id; };
 
     void queue_action(StudioAction action);
     void draw_main_menu(const StudioDocumentInfo& document);
@@ -122,10 +104,10 @@ private:
     std::string m_history_document_key;
     std::string m_history_structural_signature;
 
-    std::array<char, 128> m_project_name_buffer{};
-    std::array<char, 512> m_project_folder_buffer{};
-    std::array<char, 512> m_project_file_buffer{};
-    std::array<char, 512> m_import_model_file_buffer{};
+    std::array<char,128> m_project_name_buffer{};
+    std::array<char,512> m_project_folder_buffer{};
+    std::array<char,512> m_project_file_buffer{};
+    std::array<char,512> m_import_model_file_buffer{};
 };
 
 } // namespace seed::studio
