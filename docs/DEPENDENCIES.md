@@ -6,7 +6,7 @@ The rule is simple:
 
 > A dependency may implement a backend. It must not define Seed's public game model.
 
-## Current dependency
+## Current dependencies
 
 ### GLFW 3.5.1
 
@@ -23,8 +23,46 @@ Boundary:
 - Seed code outside the platform backend does not include GLFW headers.
 - GLFW key and mouse codes are translated immediately to Seed-owned `KeyCode`, `MouseButton`, and `ButtonState` values.
 - Seed scenes, entities, gameplay components, editor concepts and project formats contain no GLFW types.
-- Rendering is not owned by GLFW. The current window is created with `GLFW_NO_API` while the Seed renderer is developed separately.
+- Rendering is owned by Seed's `IRenderer`; GLFW only supplies the native window/context integration used by the current OpenGL backend.
 - Replacing GLFW should require a new `IPlatform` implementation, not changes to Seed gameplay or project content.
+
+### nlohmann/json
+
+Purpose:
+
+- low-level JSON parsing and writing for Seed project/scene files
+
+Boundary:
+
+- Seed owns the `.seedproject` and `.seedscene` schemas, versioning and serialization semantics.
+- No public Seed gameplay/editor concept depends on nlohmann/json types.
+- Replacing the JSON implementation must not require creators to rebuild gameplay content.
+
+### Dear ImGui
+
+Purpose:
+
+- immediate-mode drawing/input backend for the current Seed Studio editor UI
+
+Boundary:
+
+- ImGui is linked only into Seed Studio's UI layer.
+- `SeedEngine` and `SeedRuntime` do not expose ImGui as part of their public gameplay model.
+- Seed owns Studio layout, selection, Inspector behavior, authoring concepts and workflow.
+
+### TinyGLTF 2.9.7
+
+Purpose:
+
+- parsing `.gltf` and `.glb` source files
+- decoding glTF image data used during import
+
+Boundary:
+
+- TinyGLTF types are confined to `AssetImporter.cpp` and never appear in Seed's public asset API.
+- `AssetImporter` converts source files into Seed-owned `ImportedModelData`, vertices, indices and texture pixels.
+- Seed owns persistent `model:` asset IDs, the project `Assets/` layout, GPU resource caching, `MeshComponent`, `MaterialComponent`, renderer handles and Studio import UX.
+- Replacing TinyGLTF must not invalidate `.seedproject` / `.seedscene` content or change beginner-facing terminology.
 
 ## Allowed dependency categories
 
@@ -50,7 +88,7 @@ The following are not delegated to another game engine:
 - gameplay framework
 - input abstraction
 - renderer abstraction
-- asset database
+- asset database and persistent asset IDs
 - project and scene formats
 - Seed Studio
 - Seed Logic
