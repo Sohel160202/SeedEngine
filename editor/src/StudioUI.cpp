@@ -347,7 +347,7 @@ void StudioUI::draw_project_dialogs() {
             ImGui::Separator();
             ImGui::SetNextItemWidth(430.0f);
             ImGui::InputText("Model File", m_import_model_file_buffer.data(), m_import_model_file_buffer.size());
-            ImGui::TextDisabled("Seed import v0: first triangle primitive, base color, normals, metallic + roughness factors.");
+            ImGui::TextDisabled("Seed import v1: first triangle primitive + Base Color, Metallic/Roughness and Normal maps.");
             ImGui::TextDisabled("The source and relative .gltf dependencies are copied into Assets/Imported/.");
             ImGui::Spacing();
             if (ImGui::Button("Import", {110.0f, 0.0f}) && m_import_model_file_buffer[0] != '\0') {
@@ -487,18 +487,45 @@ void StudioUI::draw_inspector(Scene& scene, const StudioDocumentInfo& document) 
             if (ImGui::CollapsingHeader("Material — PBR", ImGuiTreeNodeFlags_DefaultOpen)) {
                 ImGui::TextWrapped("Asset: %s", material->asset_id.c_str());
                 bool changed = false;
+
+                ImGui::SeparatorText("Surface");
                 changed |= ImGui::ColorEdit4("Base Color", &material->base_color.x);
                 changed |= ImGui::SliderFloat("Metallic", &material->metallic, 0.0f, 1.0f, "%.2f");
                 changed |= ImGui::SliderFloat("Roughness", &material->roughness, 0.04f, 1.0f, "%.2f");
+                ImGui::TextDisabled("Metallic 0 = dielectric   1 = metal");
+                ImGui::TextDisabled("Lower roughness = sharper reflections");
+
+                ImGui::SeparatorText("Texture Maps");
+                if (material->base_color_texture) {
+                    changed |= ImGui::Checkbox("Use Base Color Map", &material->use_base_color_texture);
+                    ImGui::TextDisabled("Base Color Map  Runtime Texture #%u", material->base_color_texture.value);
+                } else {
+                    ImGui::TextDisabled("Base Color Map: None");
+                }
+
+                if (material->metallic_roughness_texture) {
+                    changed |= ImGui::Checkbox("Use Metallic/Roughness Map", &material->use_metallic_roughness_texture);
+                    ImGui::TextDisabled("M/R Map  Runtime Texture #%u", material->metallic_roughness_texture.value);
+                    ImGui::TextDisabled("glTF packed map: G = Roughness, B = Metallic");
+                } else {
+                    ImGui::TextDisabled("Metallic/Roughness Map: None");
+                }
+
+                if (material->normal_texture) {
+                    changed |= ImGui::Checkbox("Use Normal Map", &material->use_normal_texture);
+                    ImGui::BeginDisabled(!material->use_normal_texture);
+                    changed |= ImGui::SliderFloat("Normal Strength", &material->normal_scale, 0.0f, 4.0f, "%.2f");
+                    ImGui::EndDisabled();
+                    ImGui::TextDisabled("Normal Map  Runtime Texture #%u", material->normal_texture.value);
+                } else {
+                    ImGui::TextDisabled("Normal Map: None");
+                }
+
                 if (changed) {
                     material->use_asset_defaults = false;
                     m_scene_edited = true;
                 }
-                ImGui::TextDisabled("0 Metallic = dielectric   1 = metal");
-                ImGui::TextDisabled("Low Roughness = sharp highlight");
                 ImGui::TextDisabled("Runtime Shader #%u", material->shader.value);
-                if (material->base_color_texture) ImGui::TextDisabled("Runtime Texture #%u", material->base_color_texture.value);
-                else ImGui::TextDisabled("Base Color Texture: None");
             }
         }
 
