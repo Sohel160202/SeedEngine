@@ -93,6 +93,10 @@ uniform vec3 uDirectionalColor;
 uniform float uDirectionalIntensity;
 uniform vec3 uAmbientColor;
 uniform float uAmbientIntensity;
+uniform vec3 uEnvironmentZenithColor;
+uniform vec3 uEnvironmentHorizonColor;
+uniform float uEnvironmentIntensity;
+uniform int uEnvironmentEnabled;
 uniform sampler2D uShadowMap;
 uniform int uReceiveShadows;
 uniform int uShadowsEnabled;
@@ -121,6 +125,40 @@ float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
 
 vec3 fresnelSchlick(float cosTheta, vec3 f0) {
     return f0 + (1.0 - f0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 f0, float roughness) {
+    vec3 grazing = max(vec3(1.0 - roughness), f0);
+    return f0 + (grazing - f0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+vec3 sampleSeedEnvironment(vec3 direction) {
+    if (uEnvironmentEnabled == 0) return vec3(0.0);
+    vec3 D = normalize(direction);
+    float up = clamp(D.y, 0.0, 1.0);
+    float down = clamp(-D.y, 0.0, 1.0);
+    vec3 upper = mix(uEnvironmentHorizonColor, uEnvironmentZenithColor, pow(up, 0.65));
+    vec3 ground = uEnvironmentHorizonColor * 0.18;
+    vec3 lower = mix(uEnvironmentHorizonColor, ground, pow(down, 0.80));
+    vec3 color = D.y >= 0.0 ? upper : lower;
+    return color * max(uEnvironmentIntensity, 0.0);
+}
+
+vec3 seedDiffuseIrradiance(vec3 normal) {
+    vec3 N = normalize(normal);
+    vec3 horizonDirection = normalize(vec3(N.x + 0.001, 0.001, N.z));
+    vec3 primary = sampleSeedEnvironment(N);
+    vec3 overhead = sampleSeedEnvironment(vec3(0.0, 1.0, 0.0));
+    vec3 horizon = sampleSeedEnvironment(horizonDirection);
+    return primary * 0.55 + overhead * 0.20 + horizon * 0.25;
+}
+
+vec2 environmentBRDFApprox(float nDotV, float roughness) {
+    vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
+    vec4 c1 = vec4(1.0, 0.0425, 1.04, -0.04);
+    vec4 r = roughness * c0 + c1;
+    float a004 = min(r.x * r.x, exp2(-9.28 * nDotV)) * r.x + r.y;
+    return vec2(-1.04, 1.04) * a004 + r.zw;
 }
 
 vec3 materialNormal() {
@@ -202,7 +240,36 @@ void main() {
     vec3 direct = (kD * albedo / PI + specular) * radiance * nDotL * shadow;
     vec3 ambient = uAmbientColor * max(uAmbientIntensity, 0.0) * albedo * mix(1.0, 0.45, metallic);
 
-    vec3 color = max(ambient + direct, vec3(0.0));
+    vec3 environment = vec3(0.0);
+    if (uEnvironmentEnabled != 0 && uEnvironmentIntensity > 0.0) {
+        float nDotV = max(dot(N, V), 0.0);
+        vec3 environmentFresnel = fresnelSchlickRoughness(nDotV, f0, roughness);
+        vec3 environmentKD = (vec3(1.0) - environmentFresnel) * (1.0 - metallic);
+
+        vec3 irradiance = seedDiffuseIrradiance(N);
+        vec3 diffuseIBL = irradiance * albedo * environmentKD;
+
+        vec3 R = reflect(-V, N);
+        vec3 sharpReflection = sampleSeedEnvironment(R);
+        vec3 averageEnvironment = (
+            uEnvironmentZenithColor +
+            uEnvironmentHorizonColor +
+            uEnvironmentHorizonColor * 0.18
+        ) * (max(uEnvironmentIntensity, 0.0) / 3.0);
+        vec3 prefilteredReflection = mix(
+            sharpReflection,
+            averageEnvironment,
+            clamp(roughness * roughness, 0.0, 1.0)
+        );
+        vec2 environmentBRDF = environmentBRDFApprox(nDotV, roughness);
+        vec3 specularIBL = prefilteredReflection * (f0 * environmentBRDF.x + environmentBRDF.y);
+
+        // Conservative v0 strengths keep existing Seed scenes balanced while
+        // still making metals and roughness respond clearly to the environment.
+        environment = diffuseIBL * 0.35 + specularIBL * 0.85;
+    }
+
+    vec3 color = max(ambient + direct + environment, vec3(0.0));
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0 / 2.2));
     FragColor = vec4(color, alpha);
@@ -661,7 +728,7 @@ int main(int argc, char** argv) {
         workspace.status_message = authored ? "Play Mode started with the authored First-Person Player." : "Play Mode started with a temporary Player. Create > Player > First Person to author one.";
     };
 
-    std::cout << "[SeedStudio] PBR materials + texture maps + sky + directional shadows active.\n";
+    std::cout << "[SeedStudio] PBR texture maps + sky-driven environment lighting + directional shadows active.\n";
 
     while (engine.tick()) {
         studio_ui.begin_frame();
