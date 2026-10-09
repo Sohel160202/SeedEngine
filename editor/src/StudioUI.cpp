@@ -71,6 +71,16 @@ void copy_text(auto& destination, const std::string& value) {
     std::snprintf(destination.data(), destination.size(), "%s", value.c_str());
 }
 
+void center_next_dialog() {
+    const ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(
+        {io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+        ImGuiCond_Appearing,
+        {0.5f, 0.5f}
+    );
+    ImGui::SetNextWindowSize({560.0f, 0.0f}, ImGuiCond_Appearing);
+}
+
 } // namespace
 
 bool StudioUI::initialize(void* window_handle) {
@@ -143,7 +153,7 @@ void StudioUI::draw(Scene& scene, const StudioDocumentInfo& document) {
     }
 
     draw_main_menu(document);
-    draw_project_popups();
+    draw_project_dialogs();
     draw_world_panel(scene);
     draw_inspector(scene);
     draw_assets_panel(document);
@@ -151,19 +161,27 @@ void StudioUI::draw(Scene& scene, const StudioDocumentInfo& document) {
 
     const ImGuiIO& io = ImGui::GetIO();
     if (!io.WantTextInput) {
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
+        if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
+            copy_text(m_project_name_buffer, document.project_name == "Untitled" ? "My Seed Game" : document.project_name);
+            m_show_save_as_dialog = true;
+        } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
             if (document.has_project) {
                 queue_action({.type = StudioActionType::Save});
             } else {
                 copy_text(m_project_name_buffer, document.project_name == "Untitled" ? "My Seed Game" : document.project_name);
-                ImGui::OpenPopup("Save Seed Project As");
+                m_show_save_as_dialog = true;
             }
         }
 
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) {
+            m_show_open_project_dialog = true;
+        }
+        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) {
+            queue_action({.type = StudioActionType::NewScene});
+        }
         if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D, false) && m_selected_entity != InvalidEntity) {
             queue_action({.type = StudioActionType::DuplicateSelected});
         }
-
         if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) && m_selected_entity != InvalidEntity) {
             queue_action({.type = StudioActionType::DeleteSelected});
         }
@@ -220,10 +238,10 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
     if (ImGui::BeginMenu("File")) {
         if (ImGui::MenuItem("New Project...")) {
             copy_text(m_project_name_buffer, "My Seed Game");
-            ImGui::OpenPopup("New Seed Project");
+            m_show_new_project_dialog = true;
         }
         if (ImGui::MenuItem("Open Project...", "Ctrl+O")) {
-            ImGui::OpenPopup("Open Seed Project");
+            m_show_open_project_dialog = true;
         }
         ImGui::Separator();
         if (ImGui::MenuItem("New Scene", "Ctrl+N")) {
@@ -234,12 +252,12 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
                 queue_action({.type = StudioActionType::Save});
             } else {
                 copy_text(m_project_name_buffer, document.project_name == "Untitled" ? "My Seed Game" : document.project_name);
-                ImGui::OpenPopup("Save Seed Project As");
+                m_show_save_as_dialog = true;
             }
         }
         if (ImGui::MenuItem("Save As...", "Ctrl+Shift+S")) {
             copy_text(m_project_name_buffer, document.project_name == "Untitled" ? "My Seed Game" : document.project_name);
-            ImGui::OpenPopup("Save Seed Project As");
+            m_show_save_as_dialog = true;
         }
         ImGui::EndMenu();
     }
@@ -284,70 +302,88 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
     ImGui::EndMainMenuBar();
 }
 
-void StudioUI::draw_project_popups() {
-    if (ImGui::BeginPopupModal("New Seed Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted("Create a Seed project");
-        ImGui::Separator();
-        ImGui::InputText("Project Name", m_project_name_buffer.data(), m_project_name_buffer.size());
-        ImGui::InputText("Project Folder", m_project_folder_buffer.data(), m_project_folder_buffer.size());
-        ImGui::TextDisabled("Creates <name>.seedproject and Scenes/Main.seedscene");
-        ImGui::Spacing();
+void StudioUI::draw_project_dialogs() {
+    const ImGuiWindowFlags dialog_flags = ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_AlwaysAutoResize;
 
-        if (ImGui::Button("Create", {110.0f, 0.0f})) {
-            queue_action({
-                .type = StudioActionType::NewProject,
-                .path = m_project_folder_buffer.data(),
-                .project_name = m_project_name_buffer.data(),
-            });
-            ImGui::CloseCurrentPopup();
+    if (m_show_new_project_dialog) {
+        center_next_dialog();
+        if (ImGui::Begin("New Seed Project", &m_show_new_project_dialog, dialog_flags)) {
+            ImGui::TextUnformatted("Create a Seed project");
+            ImGui::Separator();
+            ImGui::SetNextItemWidth(360.0f);
+            ImGui::InputText("Project Name", m_project_name_buffer.data(), m_project_name_buffer.size());
+            ImGui::SetNextItemWidth(360.0f);
+            ImGui::InputText("Project Folder", m_project_folder_buffer.data(), m_project_folder_buffer.size());
+            ImGui::TextDisabled("Creates <name>.seedproject and Scenes/Main.seedscene");
+            ImGui::Spacing();
+
+            if (ImGui::Button("Create", {110.0f, 0.0f})) {
+                queue_action({
+                    .type = StudioActionType::NewProject,
+                    .path = m_project_folder_buffer.data(),
+                    .project_name = m_project_name_buffer.data(),
+                });
+                m_show_new_project_dialog = false;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", {110.0f, 0.0f})) {
+                m_show_new_project_dialog = false;
+            }
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", {110.0f, 0.0f})) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
+        ImGui::End();
     }
 
-    if (ImGui::BeginPopupModal("Open Seed Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted("Open an existing .seedproject file");
-        ImGui::Separator();
-        ImGui::InputText("Project File", m_project_file_buffer.data(), m_project_file_buffer.size());
-        ImGui::Spacing();
+    if (m_show_open_project_dialog) {
+        center_next_dialog();
+        if (ImGui::Begin("Open Seed Project", &m_show_open_project_dialog, dialog_flags)) {
+            ImGui::TextUnformatted("Open an existing .seedproject file");
+            ImGui::Separator();
+            ImGui::SetNextItemWidth(410.0f);
+            ImGui::InputText("Project File", m_project_file_buffer.data(), m_project_file_buffer.size());
+            ImGui::Spacing();
 
-        if (ImGui::Button("Open", {110.0f, 0.0f})) {
-            queue_action({
-                .type = StudioActionType::OpenProject,
-                .path = m_project_file_buffer.data(),
-            });
-            ImGui::CloseCurrentPopup();
+            if (ImGui::Button("Open", {110.0f, 0.0f})) {
+                queue_action({
+                    .type = StudioActionType::OpenProject,
+                    .path = m_project_file_buffer.data(),
+                });
+                m_show_open_project_dialog = false;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", {110.0f, 0.0f})) {
+                m_show_open_project_dialog = false;
+            }
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", {110.0f, 0.0f})) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
+        ImGui::End();
     }
 
-    if (ImGui::BeginPopupModal("Save Seed Project As", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted("Save the current scene as a Seed project");
-        ImGui::Separator();
-        ImGui::InputText("Project Name", m_project_name_buffer.data(), m_project_name_buffer.size());
-        ImGui::InputText("Project Folder", m_project_folder_buffer.data(), m_project_folder_buffer.size());
-        ImGui::Spacing();
+    if (m_show_save_as_dialog) {
+        center_next_dialog();
+        if (ImGui::Begin("Save Seed Project As", &m_show_save_as_dialog, dialog_flags)) {
+            ImGui::TextUnformatted("Save the current scene as a Seed project");
+            ImGui::Separator();
+            ImGui::SetNextItemWidth(360.0f);
+            ImGui::InputText("Project Name", m_project_name_buffer.data(), m_project_name_buffer.size());
+            ImGui::SetNextItemWidth(360.0f);
+            ImGui::InputText("Project Folder", m_project_folder_buffer.data(), m_project_folder_buffer.size());
+            ImGui::Spacing();
 
-        if (ImGui::Button("Save", {110.0f, 0.0f})) {
-            queue_action({
-                .type = StudioActionType::SaveAs,
-                .path = m_project_folder_buffer.data(),
-                .project_name = m_project_name_buffer.data(),
-            });
-            ImGui::CloseCurrentPopup();
+            if (ImGui::Button("Save", {110.0f, 0.0f})) {
+                queue_action({
+                    .type = StudioActionType::SaveAs,
+                    .path = m_project_folder_buffer.data(),
+                    .project_name = m_project_name_buffer.data(),
+                });
+                m_show_save_as_dialog = false;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel", {110.0f, 0.0f})) {
+                m_show_save_as_dialog = false;
+            }
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", {110.0f, 0.0f})) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
+        ImGui::End();
     }
 }
 
@@ -409,21 +445,35 @@ void StudioUI::draw_inspector(Scene& scene) {
         ImGui::TextDisabled("Persistent %.8s...", persistent_id.c_str());
         ImGui::Separator();
 
+        const auto* selected_camera = scene.get_component<CameraComponent>(m_selected_entity);
+        const bool editor_only = selected_camera != nullptr && selected_camera->editor_only;
+
         if (auto* transform = scene.get_component<TransformComponent>(m_selected_entity)) {
             if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
-                m_scene_edited |= ImGui::DragFloat3("Position", &transform->position.x, 0.05f);
-                m_scene_edited |= ImGui::DragFloat3("Rotation", &transform->rotation_degrees.x, 0.5f);
-                m_scene_edited |= ImGui::DragFloat3("Scale", &transform->scale.x, 0.02f, 0.01f, 100.0f);
+                bool changed = false;
+                changed |= ImGui::DragFloat3("Position", &transform->position.x, 0.05f);
+                changed |= ImGui::DragFloat3("Rotation", &transform->rotation_degrees.x, 0.5f);
+                changed |= ImGui::DragFloat3("Scale", &transform->scale.x, 0.02f, 0.01f, 100.0f);
+                if (changed && !editor_only) {
+                    m_scene_edited = true;
+                }
             }
         }
 
         if (auto* camera = scene.get_component<CameraComponent>(m_selected_entity)) {
             if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
-                m_scene_edited |= ImGui::Checkbox("Primary", &camera->primary);
-                m_scene_edited |= ImGui::Checkbox("Enabled", &camera->enabled);
-                m_scene_edited |= ImGui::DragFloat("Field of View", &camera->field_of_view_degrees, 0.25f, 20.0f, 150.0f, "%.1f deg");
-                m_scene_edited |= ImGui::DragFloat("Near Plane", &camera->near_plane, 0.01f, 0.01f, 10.0f, "%.2f");
-                m_scene_edited |= ImGui::DragFloat("Far Plane", &camera->far_plane, 1.0f, 10.0f, 10000.0f, "%.0f");
+                bool changed = false;
+                if (camera->editor_only) {
+                    ImGui::TextDisabled("Seed Studio viewport camera — not saved in .seedscene");
+                }
+                changed |= ImGui::Checkbox("Primary", &camera->primary);
+                changed |= ImGui::Checkbox("Enabled", &camera->enabled);
+                changed |= ImGui::DragFloat("Field of View", &camera->field_of_view_degrees, 0.25f, 20.0f, 150.0f, "%.1f deg");
+                changed |= ImGui::DragFloat("Near Plane", &camera->near_plane, 0.01f, 0.01f, 10.0f, "%.2f");
+                changed |= ImGui::DragFloat("Far Plane", &camera->far_plane, 1.0f, 10.0f, 10000.0f, "%.0f");
+                if (changed && !camera->editor_only) {
+                    m_scene_edited = true;
+                }
             }
         }
 
