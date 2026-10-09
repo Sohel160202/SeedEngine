@@ -1,5 +1,6 @@
 #include "seed/assets/AssetImporter.h"
 #include "seed/assets/AssetRuntime.h"
+#include "seed/gameplay/Components.h"
 #include "seed/project/SceneSerializer.h"
 #include "seed/render/RenderComponents.h"
 #include "seed/scene/Scene.h"
