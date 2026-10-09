@@ -26,10 +26,22 @@ struct MeshComponent {
 
 struct MaterialComponent {
     ShaderHandle shader{};
+
+    // Runtime GPU handles. The persistent source remains asset_id + the
+    // creator-facing switches/factors below.
     TextureHandle base_color_texture{};
+    TextureHandle metallic_roughness_texture{};
+    TextureHandle normal_texture{};
+
     Vec4 base_color{1.0f, 1.0f, 1.0f, 1.0f};
     float metallic{0.0f};
     float roughness{0.65f};
+    float normal_scale{1.0f};
+
+    bool use_base_color_texture{true};
+    bool use_metallic_roughness_texture{true};
+    bool use_normal_texture{true};
+
     std::string asset_id{"builtin:seed_default"};
 
     // Old Seed scenes only stored the material asset ID. AssetRuntime uses this
