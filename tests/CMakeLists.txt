@@ -42,3 +42,12 @@ target_link_libraries(SeedLightingPersistenceTests PRIVATE SeedEngine)
 target_compile_features(SeedLightingPersistenceTests PRIVATE cxx_std_20)
 
 add_test(NAME SeedLightingPersistenceTests COMMAND SeedLightingPersistenceTests)
+
+add_executable(SeedRenderPersistenceTests
+    render_persistence_tests.cpp
+)
+
+target_link_libraries(SeedRenderPersistenceTests PRIVATE SeedEngine)
+target_compile_features(SeedRenderPersistenceTests PRIVATE cxx_std_20)
+
+add_test(NAME SeedRenderPersistenceTests COMMAND SeedRenderPersistenceTests)
