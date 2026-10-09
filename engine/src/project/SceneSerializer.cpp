@@ -1,6 +1,7 @@
 #include "seed/project/SceneSerializer.h"
 
 #include "seed/gameplay/Components.h"
+#include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
 #include "seed/scene/Scene.h"
 
@@ -92,6 +93,27 @@ bool SceneSerializer::save(
             if (const auto* material = scene.get_component<MaterialComponent>(entity)) {
                 components["Material"] = {
                     {"asset", material->asset_id},
+                };
+            }
+
+            if (const auto* collider = scene.get_component<BoxColliderComponent>(entity)) {
+                components["BoxCollider"] = {
+                    {"half_extents", vec3_to_json(collider->half_extents)},
+                    {"offset", vec3_to_json(collider->offset)},
+                    {"enabled", collider->enabled},
+                    {"solid", collider->solid},
+                };
+            }
+
+            if (const auto* character = scene.get_component<CharacterBodyComponent>(entity)) {
+                components["CharacterBody"] = {
+                    {"radius", character->radius},
+                    {"height", character->height},
+                    {"eye_height", character->eye_height},
+                    {"gravity", character->gravity},
+                    {"jump_speed", character->jump_speed},
+                    {"max_fall_speed", character->max_fall_speed},
+                    {"enabled", character->enabled},
                 };
             }
 
@@ -236,6 +258,29 @@ bool SceneSerializer::load(
                 MaterialComponent material;
                 material.asset_id = value.value("asset", std::string{"builtin:seed_default"});
                 loaded_scene.add_component<MaterialComponent>(entity, material);
+            }
+
+            if (components.contains("BoxCollider")) {
+                const auto& value = components.at("BoxCollider");
+                BoxColliderComponent collider;
+                collider.half_extents = vec3_from_json(value.value("half_extents", nlohmann::json::array()), {0.75f, 0.75f, 0.75f});
+                collider.offset = vec3_from_json(value.value("offset", nlohmann::json::array()), {});
+                collider.enabled = value.value("enabled", true);
+                collider.solid = value.value("solid", true);
+                loaded_scene.add_component<BoxColliderComponent>(entity, collider);
+            }
+
+            if (components.contains("CharacterBody")) {
+                const auto& value = components.at("CharacterBody");
+                CharacterBodyComponent character;
+                character.radius = value.value("radius", 0.35f);
+                character.height = value.value("height", 1.8f);
+                character.eye_height = value.value("eye_height", 1.65f);
+                character.gravity = value.value("gravity", 18.0f);
+                character.jump_speed = value.value("jump_speed", 6.5f);
+                character.max_fall_speed = value.value("max_fall_speed", 30.0f);
+                character.enabled = value.value("enabled", true);
+                loaded_scene.add_component<CharacterBodyComponent>(entity, character);
             }
 
             if (components.contains("Interactable")) {
