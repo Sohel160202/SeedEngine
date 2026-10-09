@@ -29,4 +29,16 @@ struct MaterialComponent {
     std::string asset_id{"builtin:seed_default"};
 };
 
+struct DirectionalLightComponent {
+    Vec3 color{1.0f, 0.96f, 0.88f};
+    float intensity{1.0f};
+    bool enabled{true};
+};
+
+struct AmbientLightComponent {
+    Vec3 color{0.72f, 0.82f, 1.0f};
+    float intensity{0.22f};
+    bool enabled{true};
+};
+
 } // namespace seed
