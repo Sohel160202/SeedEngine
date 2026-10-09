@@ -1,15 +1,12 @@
 #pragma once
 
 #include "seed/core/Types.h"
+#include "seed/scene/Scene.h"
 
 #include <array>
 #include <string>
 #include <utility>
 #include <vector>
-
-namespace seed {
-class Scene;
-}
 
 namespace seed::studio {
 
@@ -57,18 +54,12 @@ struct StudioDocumentInfo {
     bool can_redo{false};
 };
 
-enum class GizmoTool {
-    Select,
-    Move,
-    Rotate,
-    Scale
-};
+enum class GizmoTool { Select, Move, Rotate, Scale };
 
 class StudioUI {
 public:
     bool initialize(void* window_handle);
     void shutdown();
-
     void begin_frame();
     void draw(Scene& scene, const StudioDocumentInfo& document, EntityId viewport_camera = InvalidEntity);
     void render();
@@ -79,13 +70,16 @@ public:
     StudioAction take_action();
     bool consume_scene_edited() noexcept;
     bool scene_edit_active() const noexcept;
-
     bool wants_mouse() const noexcept;
     bool wants_keyboard() const noexcept;
-
     ~StudioUI();
 
 private:
+    struct HistoryEntry {
+        Scene scene;
+        std::string selected_persistent_id;
+    };
+
     void queue_action(StudioAction action);
     void draw_main_menu(const StudioDocumentInfo& document);
     void draw_project_dialogs();
@@ -94,6 +88,14 @@ private:
     void draw_assets_panel(const StudioDocumentInfo& document);
     void draw_viewport_frame(Scene& scene, const StudioDocumentInfo& document, EntityId viewport_camera);
     void draw_viewport_toolbar(const StudioDocumentInfo& document);
+    void begin_history_frame(Scene& scene, const StudioDocumentInfo& document);
+    void finish_history_frame(Scene& scene);
+    void undo(Scene& scene);
+    void redo(Scene& scene);
+    void focus_selected(Scene& scene, EntityId viewport_camera);
+    HistoryEntry capture_history(const Scene& scene) const;
+    void restore_history(Scene& scene, const HistoryEntry& entry);
+    std::string structural_signature(const Scene& scene) const;
 
     EntityId m_selected_entity{InvalidEntity};
     StudioAction m_pending_action{};
@@ -103,6 +105,7 @@ private:
     bool m_show_open_project_dialog{false};
     bool m_show_save_as_dialog{false};
     bool m_show_import_model_dialog{false};
+    bool m_last_document_playing{false};
 
     GizmoTool m_gizmo_tool{GizmoTool::Move};
     bool m_local_space{false};
@@ -110,6 +113,14 @@ private:
     float m_move_snap{0.5f};
     float m_rotate_snap{15.0f};
     float m_scale_snap{0.1f};
+
+    std::vector<HistoryEntry> m_undo_stack;
+    std::vector<HistoryEntry> m_redo_stack;
+    HistoryEntry m_history_baseline{};
+    bool m_has_history_baseline{false};
+    bool m_history_transaction_active{false};
+    std::string m_history_document_key;
+    std::string m_history_structural_signature;
 
     std::array<char, 128> m_project_name_buffer{};
     std::array<char, 512> m_project_folder_buffer{};
