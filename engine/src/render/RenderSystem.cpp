@@ -53,6 +53,32 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
     );
     const Mat4 view_projection = projection * view;
 
+    SceneLighting lighting;
+    bool found_directional = false;
+    scene.for_each<TransformComponent, DirectionalLightComponent>(
+        [&](EntityId, TransformComponent& transform, DirectionalLightComponent& light) {
+            if (found_directional || !light.enabled) {
+                return;
+            }
+            lighting.directional_direction = forward_from_euler(transform.rotation_degrees);
+            lighting.directional_color = light.color;
+            lighting.directional_intensity = light.intensity;
+            found_directional = true;
+        }
+    );
+
+    bool found_ambient = false;
+    scene.for_each<AmbientLightComponent>(
+        [&](EntityId, AmbientLightComponent& light) {
+            if (found_ambient || !light.enabled) {
+                return;
+            }
+            lighting.ambient_color = light.color;
+            lighting.ambient_intensity = light.intensity;
+            found_ambient = true;
+        }
+    );
+
     scene.for_each<TransformComponent, MeshComponent, MaterialComponent>(
         [&](EntityId,
             TransformComponent& transform,
@@ -73,7 +99,8 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
                 material.base_color_texture,
                 material.base_color,
                 model,
-                view_projection
+                view_projection,
+                lighting
             );
         }
     );
