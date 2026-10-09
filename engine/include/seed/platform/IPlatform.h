@@ -1,5 +1,7 @@
 #pragma once
 
+#include "seed/input/InputCodes.h"
+
 #include <cstdint>
 #include <string>
 
@@ -19,9 +21,13 @@ enum class PlatformEventType {
 
 struct PlatformEvent {
     PlatformEventType type{PlatformEventType::None};
-    std::int32_t a{0};
-    std::int32_t b{0};
-    std::int32_t c{0};
+    KeyCode key{KeyCode::Unknown};
+    MouseButton mouse_button{MouseButton::Unknown};
+    ButtonState button_state{ButtonState::Released};
+    std::uint8_t modifiers{ModifierNone};
+    std::int32_t width{0};
+    std::int32_t height{0};
+    bool focused{false};
     float x{0.0f};
     float y{0.0f};
 };
