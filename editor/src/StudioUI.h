@@ -20,6 +20,7 @@ enum class StudioActionType {
     Save,
     SaveAs,
     NewScene,
+    ImportModel,
     CreateEmptyEntity,
     CreateCube,
     CreateFirstPersonPlayer,
@@ -42,6 +43,7 @@ struct StudioDocumentInfo {
     std::string gameplay_prompt;
     std::string gameplay_status;
     std::vector<std::pair<std::string, int>> gameplay_inventory;
+    std::vector<std::string> project_assets;
     bool dirty{true};
     bool has_project{false};
     bool playing{false};
@@ -83,10 +85,12 @@ private:
     bool m_show_new_project_dialog{false};
     bool m_show_open_project_dialog{false};
     bool m_show_save_as_dialog{false};
+    bool m_show_import_model_dialog{false};
 
     std::array<char, 128> m_project_name_buffer{};
     std::array<char, 512> m_project_folder_buffer{};
     std::array<char, 512> m_project_file_buffer{};
+    std::array<char, 512> m_import_model_file_buffer{};
 };
 
 } // namespace seed::studio
