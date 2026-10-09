@@ -84,6 +84,14 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
         sky.horizon_color = component.horizon_color;
         sky.intensity = component.intensity;
         sky.enabled = true;
+
+        // Environment Lighting v0 intentionally uses the exact same authored
+        // Sky as its source. There is no separate probe or duplicated setup for
+        // beginners: change the Sky and PBR materials react to that world.
+        lighting.environment_zenith_color = component.zenith_color;
+        lighting.environment_horizon_color = component.horizon_color;
+        lighting.environment_intensity = std::max(component.intensity, 0.0f);
+        lighting.environment_enabled = true;
     });
     renderer.draw_sky(sky);
 
