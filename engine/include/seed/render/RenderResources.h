@@ -39,6 +39,11 @@ struct VertexPositionColor {
     std::array<float, 3> normal{0.0f, 1.0f, 0.0f};
 };
 
+struct MaterialSurface {
+    float metallic{0.0f};
+    float roughness{0.65f};
+};
+
 struct SceneLighting {
     Vec3 directional_direction{0.0f, -1.0f, 0.0f};
     Vec3 directional_color{1.0f, 1.0f, 1.0f};
@@ -46,6 +51,17 @@ struct SceneLighting {
 
     Vec3 ambient_color{1.0f, 1.0f, 1.0f};
     float ambient_intensity{0.18f};
+
+    Vec3 camera_position{};
+    Mat4 light_view_projection{Mat4::identity()};
+    bool shadows_enabled{false};
+};
+
+struct SkySettings {
+    Vec3 zenith_color{0.08f, 0.20f, 0.42f};
+    Vec3 horizon_color{0.62f, 0.76f, 0.92f};
+    float intensity{1.0f};
+    bool enabled{false};
 };
 
 struct ShaderDesc {
