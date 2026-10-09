@@ -31,3 +31,25 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Upload Windows Seed binaries
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: SeedEngine-Windows
+          path: |
+            build/editor/Release/SeedStudio.exe
+            build/runtime/Release/SeedRuntime.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Unix Seed binaries
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: SeedEngine-${{ runner.os }}
+          path: |
+            build/editor/SeedStudio
+            build/runtime/SeedRuntime
+          if-no-files-found: error
+          retention-days: 14
