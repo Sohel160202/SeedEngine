@@ -5,6 +5,7 @@
 #include "seed/render/RenderComponents.h"
 #include "seed/scene/Scene.h"
 
+#include <string_view>
 #include <system_error>
 
 namespace seed {
