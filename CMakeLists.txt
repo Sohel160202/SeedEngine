@@ -30,6 +30,19 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glfw)
 
+# Dear ImGui is an editor-only drawing dependency. Seed's scene, runtime,
+# renderer, gameplay model and public engine API do not depend on it.
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.91.9b
+    GIT_SHALLOW TRUE
+)
+FetchContent_GetProperties(imgui)
+if(NOT imgui_POPULATED)
+    FetchContent_Populate(imgui)
+endif()
+
 add_subdirectory(engine)
 add_subdirectory(runtime)
 add_subdirectory(editor)
