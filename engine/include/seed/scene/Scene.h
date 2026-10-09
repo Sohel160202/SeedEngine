@@ -13,26 +13,28 @@ namespace seed {
 
 class Scene {
 public:
-    EntityId create_entity(std::string name = "Entity");
+    EntityId create_entity(std::string name = "Entity", std::string persistent_id = {});
     bool destroy_entity(EntityId entity);
     bool is_alive(EntityId entity) const;
+    void clear();
 
     const std::string& entity_name(EntityId entity) const;
     void set_entity_name(EntityId entity, std::string name);
+    const std::string& entity_persistent_id(EntityId entity) const;
 
     std::size_t entity_count() const noexcept { return m_entities.size(); }
 
     template <typename Function>
     void for_each_entity(Function&& function) {
-        for (auto& [entity, name] : m_entities) {
-            function(entity, name);
+        for (auto& [entity, record] : m_entities) {
+            function(entity, record.name);
         }
     }
 
     template <typename Function>
     void for_each_entity(Function&& function) const {
-        for (const auto& [entity, name] : m_entities) {
-            function(entity, name);
+        for (const auto& [entity, record] : m_entities) {
+            function(entity, record.name);
         }
     }
 
@@ -80,8 +82,8 @@ public:
 
     template <typename... Components, typename Function>
     void for_each(Function&& function) {
-        for (auto& [entity, name] : m_entities) {
-            (void)name;
+        for (auto& [entity, record] : m_entities) {
+            (void)record;
             if ((has_component<Components>(entity) && ...)) {
                 function(entity, *get_component<Components>(entity)...);
             }
@@ -90,8 +92,8 @@ public:
 
     template <typename... Components, typename Function>
     void for_each(Function&& function) const {
-        for (const auto& [entity, name] : m_entities) {
-            (void)name;
+        for (const auto& [entity, record] : m_entities) {
+            (void)record;
             if ((has_component<Components>(entity) && ...)) {
                 function(entity, *get_component<Components>(entity)...);
             }
@@ -99,6 +101,11 @@ public:
     }
 
 private:
+    struct EntityRecord {
+        std::string name;
+        std::string persistent_id;
+    };
+
     struct IComponentPool {
         virtual ~IComponentPool() = default;
         virtual void erase(EntityId entity) = 0;
@@ -143,9 +150,10 @@ private:
     }
 
     void ensure_alive(EntityId entity) const;
+    static std::string generate_persistent_id();
 
     EntityId m_next_entity{1};
-    std::unordered_map<EntityId, std::string> m_entities;
+    std::unordered_map<EntityId, EntityRecord> m_entities;
     std::unordered_map<std::type_index, std::unique_ptr<IComponentPool>> m_component_pools;
 };
 
