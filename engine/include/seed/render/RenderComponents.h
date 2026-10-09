@@ -12,6 +12,7 @@ struct CameraComponent {
     float far_plane{1000.0f};
     bool enabled{true};
     bool primary{true};
+    bool editor_only{false};
 };
 
 struct MeshComponent {
