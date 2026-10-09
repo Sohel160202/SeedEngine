@@ -83,6 +83,22 @@ bool SceneSerializer::save(
                 };
             }
 
+            if (const auto* light = scene.get_component<DirectionalLightComponent>(entity)) {
+                components["DirectionalLight"] = {
+                    {"color", vec3_to_json(light->color)},
+                    {"intensity", light->intensity},
+                    {"enabled", light->enabled},
+                };
+            }
+
+            if (const auto* light = scene.get_component<AmbientLightComponent>(entity)) {
+                components["AmbientLight"] = {
+                    {"color", vec3_to_json(light->color)},
+                    {"intensity", light->intensity},
+                    {"enabled", light->enabled},
+                };
+            }
+
             if (const auto* mesh = scene.get_component<MeshComponent>(entity)) {
                 components["Mesh"] = {
                     {"asset", mesh->asset_id},
@@ -243,6 +259,24 @@ bool SceneSerializer::load(
                 camera.primary = value.value("primary", true);
                 camera.editor_only = false;
                 loaded_scene.add_component<CameraComponent>(entity, camera);
+            }
+
+            if (components.contains("DirectionalLight")) {
+                const auto& value = components.at("DirectionalLight");
+                DirectionalLightComponent light;
+                light.color = vec3_from_json(value.value("color", nlohmann::json::array()), {1.0f, 0.96f, 0.88f});
+                light.intensity = value.value("intensity", 1.0f);
+                light.enabled = value.value("enabled", true);
+                loaded_scene.add_component<DirectionalLightComponent>(entity, light);
+            }
+
+            if (components.contains("AmbientLight")) {
+                const auto& value = components.at("AmbientLight");
+                AmbientLightComponent light;
+                light.color = vec3_from_json(value.value("color", nlohmann::json::array()), {0.72f, 0.82f, 1.0f});
+                light.intensity = value.value("intensity", 0.22f);
+                light.enabled = value.value("enabled", true);
+                loaded_scene.add_component<AmbientLightComponent>(entity, light);
             }
 
             if (components.contains("Mesh")) {
