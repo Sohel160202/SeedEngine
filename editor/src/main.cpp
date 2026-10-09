@@ -3,6 +3,7 @@
 #include "seed/core/Engine.h"
 #include "seed/gameplay/Components.h"
 #include "seed/gameplay/GameplayRuntime.h"
+#include "seed/physics/PhysicsComponents.h"
 #include "seed/project/ProjectSerializer.h"
 #include "seed/project/SceneSerializer.h"
 #include "seed/render/RenderComponents.h"
@@ -192,7 +193,8 @@ void make_primary_game_camera(seed::Scene& scene, seed::EntityId player_entity) 
 seed::EntityId create_first_person_player(
     seed::Scene& scene,
     seed::EntityId source_camera,
-    std::string name = "Player"
+    std::string name = "Player",
+    bool add_character_physics = true
 ) {
     seed::TransformComponent spawn_transform;
     if (const auto* source = scene.get_component<seed::TransformComponent>(source_camera)) {
@@ -202,6 +204,9 @@ seed::EntityId create_first_person_player(
         spawn_transform.rotation_degrees = {0.0f, 0.0f, 0.0f};
     }
     spawn_transform.scale = {1.0f, 1.0f, 1.0f};
+    if (add_character_physics) {
+        spawn_transform.position.y = std::max(spawn_transform.position.y, 1.65f);
+    }
 
     const auto player = scene.create_entity(std::move(name));
     scene.add_component<seed::TransformComponent>(player, spawn_transform);
@@ -214,6 +219,9 @@ seed::EntityId create_first_person_player(
     scene.add_component<seed::CameraComponent>(player, camera);
     scene.add_component<seed::PlayerControllerComponent>(player);
     scene.add_component<seed::InventoryComponent>(player);
+    if (add_character_physics) {
+        scene.add_component<seed::CharacterBodyComponent>(player);
+    }
     make_primary_game_camera(scene, player);
     return player;
 }
@@ -243,7 +251,7 @@ seed::EntityId find_authored_player(seed::Scene& scene) {
 }
 
 seed::EntityId create_temporary_play_player(seed::Scene& scene, seed::EntityId source_camera) {
-    return create_first_person_player(scene, source_camera, "Play Player");
+    return create_first_person_player(scene, source_camera, "Play Player", false);
 }
 
 seed::EntityId create_cube(
@@ -332,6 +340,12 @@ seed::EntityId duplicate_entity(seed::Scene& scene, seed::EntityId source) {
     }
     if (const auto* value = scene.get_component<seed::MaterialComponent>(source)) {
         scene.add_component<seed::MaterialComponent>(copy, *value);
+    }
+    if (const auto* value = scene.get_component<seed::BoxColliderComponent>(source)) {
+        scene.add_component<seed::BoxColliderComponent>(copy, *value);
+    }
+    if (const auto* value = scene.get_component<seed::CharacterBodyComponent>(source)) {
+        scene.add_component<seed::CharacterBodyComponent>(copy, *value);
     }
     if (const auto* value = scene.get_component<seed::InteractableComponent>(source)) {
         scene.add_component<seed::InteractableComponent>(copy, *value);
@@ -777,10 +791,10 @@ int main(int argc, char** argv) {
                 break;
             }
             case seed::studio::StudioActionType::CreateFirstPersonPlayer: {
-                const auto entity = create_first_person_player(scene, editor_camera, "Player");
+                const auto entity = create_first_person_player(scene, editor_camera, "Player", true);
                 studio_ui.select_entity(entity);
                 workspace.dirty = true;
-                workspace.status_message = "Created First-Person Player with Camera + Controller + Inventory.";
+                workspace.status_message = "Created First-Person Player with Camera + Controller + Inventory + Character Body.";
                 break;
             }
             case seed::studio::StudioActionType::DuplicateSelected: {
