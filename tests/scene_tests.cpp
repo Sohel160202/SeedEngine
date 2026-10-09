@@ -118,6 +118,13 @@ int main() {
         assert(loaded_project->startup_scene.generic_string() == "Scenes/Main.seedscene");
 
         seed::Scene scene;
+
+        const auto editor_camera = scene.create_entity("Editor Camera");
+        scene.add_component<seed::TransformComponent>(editor_camera);
+        seed::CameraComponent editor_camera_component;
+        editor_camera_component.editor_only = true;
+        scene.add_component<seed::CameraComponent>(editor_camera, editor_camera_component);
+
         const auto cube = scene.create_entity("Saved Cube");
         const std::string original_persistent_id = scene.entity_persistent_id(cube);
 
@@ -135,6 +142,7 @@ int main() {
         scene.add_component<seed::MaterialComponent>(cube, material);
 
         scene.add_component<seed::HealthComponent>(cube, 150.0f, 125.0f, false);
+        assert(scene.entity_count() == 2);
 
         assert(seed::SceneSerializer::save(scene, scene_file, &error));
 
@@ -144,6 +152,7 @@ int main() {
 
         seed::EntityId loaded_cube = seed::InvalidEntity;
         loaded_scene.for_each_entity([&](seed::EntityId entity, const std::string& name) {
+            assert(name != "Editor Camera");
             if (name == "Saved Cube") {
                 loaded_cube = entity;
             }
