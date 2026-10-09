@@ -9,6 +9,7 @@
 #include <array>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 namespace seed::studio {
 namespace {
@@ -60,6 +61,111 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
 
             if (remove_component_button("Remove Interactable")) {
                 scene.remove_component<InteractableComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
+    if (auto* pickup = scene.get_component<PickupComponent>(entity)) {
+        ImGui::PushID("SeedPickup");
+        if (ImGui::CollapsingHeader("Pickup", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("Turns this object into an item the player can collect into Inventory.");
+
+            changed |= edit_string("Item ID", pickup->item_id);
+
+            const std::string old_display_name = pickup->display_name;
+            if (edit_string("Display Name", pickup->display_name)) {
+                if (auto* interactable = scene.get_component<InteractableComponent>(entity)) {
+                    const std::string old_default_prompt = "Pick Up " + old_display_name;
+                    if (interactable->prompt == old_default_prompt) {
+                        interactable->prompt = "Pick Up " + pickup->display_name;
+                    }
+                }
+                changed = true;
+            }
+
+            if (ImGui::DragInt("Quantity", &pickup->quantity, 1.0f, 1, 9999)) {
+                pickup->quantity = std::max(1, pickup->quantity);
+                changed = true;
+            }
+            changed |= ImGui::Checkbox("Destroy on Pickup", &pickup->destroy_on_pickup);
+
+            if (!scene.has_component<InteractableComponent>(entity)) {
+                ImGui::Spacing();
+                ImGui::TextWrapped("This pickup is missing Interactable, so the player cannot collect it.");
+                if (ImGui::Button("Fix: Add Interactable")) {
+                    scene.add_component<InteractableComponent>(entity, "Pick Up " + pickup->display_name, true);
+                    changed = true;
+                }
+            }
+
+            if (remove_component_button("Remove Pickup")) {
+                scene.remove_component<PickupComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
+    if (auto* inventory = scene.get_component<InventoryComponent>(entity)) {
+        ImGui::PushID("SeedInventory");
+        if (ImGui::CollapsingHeader("Inventory", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("Stores item IDs and quantities. Player presets will use this automatically.");
+
+            std::vector<std::string> item_ids;
+            item_ids.reserve(inventory->items.size());
+            for (const auto& [item_id, quantity] : inventory->items) {
+                (void)quantity;
+                item_ids.push_back(item_id);
+            }
+            std::sort(item_ids.begin(), item_ids.end());
+
+            std::string remove_item;
+            for (const auto& item_id : item_ids) {
+                auto it = inventory->items.find(item_id);
+                if (it == inventory->items.end()) {
+                    continue;
+                }
+
+                ImGui::PushID(item_id.c_str());
+                ImGui::TextUnformatted(item_id.c_str());
+                ImGui::SameLine(150.0f);
+                ImGui::SetNextItemWidth(75.0f);
+                if (ImGui::DragInt("##Quantity", &it->second, 1.0f, 0, 9999)) {
+                    it->second = std::max(0, it->second);
+                    changed = true;
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Remove")) {
+                    remove_item = item_id;
+                }
+                ImGui::PopID();
+            }
+
+            if (!remove_item.empty()) {
+                inventory->items.erase(remove_item);
+                changed = true;
+            }
+
+            static std::array<char, 128> new_item_id{};
+            static int new_item_quantity = 1;
+            ImGui::SeparatorText("Add Starter Item");
+            ImGui::SetNextItemWidth(145.0f);
+            ImGui::InputText("Item ID##Inventory", new_item_id.data(), new_item_id.size());
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(60.0f);
+            ImGui::DragInt("Qty##Inventory", &new_item_quantity, 1.0f, 1, 9999);
+            ImGui::SameLine();
+            if (ImGui::Button("Add##Inventory") && new_item_id[0] != '\0') {
+                inventory->items[std::string{new_item_id.data()}] += std::max(1, new_item_quantity);
+                new_item_id.fill('\0');
+                new_item_quantity = 1;
+                changed = true;
+            }
+
+            if (remove_component_button("Remove Inventory")) {
+                scene.remove_component<InventoryComponent>(entity);
                 changed = true;
             }
         }
@@ -169,6 +275,8 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     ImGui::Separator();
 
     const bool has_interactable = scene.has_component<InteractableComponent>(entity);
+    const bool has_pickup = scene.has_component<PickupComponent>(entity);
+    const bool has_inventory = scene.has_component<InventoryComponent>(entity);
     const bool has_health = scene.has_component<HealthComponent>(entity);
     const bool has_door = scene.has_component<DoorComponent>(entity);
 
@@ -180,6 +288,32 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         ImGui::SetTooltip("Give this object an interaction prompt.");
+    }
+
+    ImGui::BeginDisabled(has_pickup);
+    if (ImGui::MenuItem(has_pickup ? "Pickup         [Added]" : "Pickup")) {
+        if (!scene.has_component<TransformComponent>(entity)) {
+            scene.add_component<TransformComponent>(entity);
+        }
+        if (!scene.has_component<InteractableComponent>(entity)) {
+            scene.add_component<InteractableComponent>(entity, "Pick Up Item", true);
+        }
+        scene.add_component<PickupComponent>(entity);
+        changed = true;
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("Make this object collectible. Transform + Interactable are added automatically.");
+    }
+
+    ImGui::BeginDisabled(has_inventory);
+    if (ImGui::MenuItem(has_inventory ? "Inventory      [Added]" : "Inventory")) {
+        scene.add_component<InventoryComponent>(entity);
+        changed = true;
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("Give this entity a persistent collection of item IDs and quantities.");
     }
 
     ImGui::BeginDisabled(has_health);
@@ -209,7 +343,7 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     }
 
     ImGui::Separator();
-    ImGui::TextDisabled("Next: Pickup, Inventory, Player, Enemy");
+    ImGui::TextDisabled("Next: Player, Enemy, Dialogue, Quest");
     return changed;
 }
 
