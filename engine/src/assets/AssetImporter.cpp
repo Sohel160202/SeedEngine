@@ -160,7 +160,7 @@ bool read_attribute(
     const tinygltf::BufferView* view = nullptr;
     const unsigned char* base = accessor_base(model, accessor, &view);
     if (base == nullptr || view == nullptr) {
-        set_error(error, "Sparse or missing glTF attribute buffers are not supported in Seed import v0.");
+        set_error(error, "Sparse or missing glTF attribute buffers are not supported in Seed import v1.");
         return false;
     }
 
@@ -216,7 +216,7 @@ bool read_indices(
     const tinygltf::BufferView* view = nullptr;
     const unsigned char* base = accessor_base(model, accessor, &view);
     if (base == nullptr || view == nullptr) {
-        set_error(error, "Sparse or missing glTF index buffers are not supported in Seed import v0.");
+        set_error(error, "Sparse or missing glTF index buffers are not supported in Seed import v1.");
         return false;
     }
 
@@ -235,7 +235,7 @@ bool read_indices(
             indices[i] = read_unaligned<std::uint32_t>(element);
             break;
         default:
-            set_error(error, "Seed import v0 supports unsigned byte/short/int glTF indices.");
+            set_error(error, "Seed import v1 supports unsigned byte/short/int glTF indices.");
             return false;
         }
     }
@@ -278,7 +278,7 @@ std::optional<ImportedTextureData> convert_image(const tinygltf::Image& image, s
         return std::nullopt;
     }
     if (image.bits != 8) {
-        set_error(error, "Seed import v0 currently supports 8-bit base-color textures.");
+        set_error(error, "Seed import v1 currently supports 8-bit PBR textures.");
         return std::nullopt;
     }
 
@@ -324,6 +324,27 @@ std::optional<ImportedTextureData> convert_image(const tinygltf::Image& image, s
     return result;
 }
 
+std::optional<ImportedTextureData> convert_texture(
+    const tinygltf::Model& model,
+    int texture_index,
+    std::string* error
+) {
+    if (texture_index < 0) {
+        return std::nullopt;
+    }
+    if (static_cast<std::size_t>(texture_index) >= model.textures.size()) {
+        set_error(error, "glTF material references an invalid texture.");
+        return std::nullopt;
+    }
+
+    const auto& texture = model.textures[static_cast<std::size_t>(texture_index)];
+    if (texture.source < 0 || static_cast<std::size_t>(texture.source) >= model.images.size()) {
+        set_error(error, "glTF texture references an invalid image.");
+        return std::nullopt;
+    }
+    return convert_image(model.images[static_cast<std::size_t>(texture.source)], error);
+}
+
 bool is_external_relative_uri(const std::string& uri) {
     if (uri.empty() || std::string_view{uri}.starts_with("data:")) {
         return false;
@@ -344,7 +365,7 @@ std::optional<ImportedModelData> AssetImporter::import_static_model(
     std::string* error
 ) {
     if (!supports_static_model(source_file)) {
-        set_error(error, "Seed import v0 supports .gltf and .glb static models.");
+        set_error(error, "Seed import v1 supports .gltf and .glb static models.");
         return std::nullopt;
     }
     if (!std::filesystem::exists(source_file)) {
@@ -467,19 +488,27 @@ std::optional<ImportedModelData> AssetImporter::import_static_model(
         }
         result.metallic = std::clamp(static_cast<float>(pbr.metallicFactor), 0.0f, 1.0f);
         result.roughness = std::clamp(static_cast<float>(pbr.roughnessFactor), 0.04f, 1.0f);
+        result.normal_scale = std::clamp(static_cast<float>(material.normalTexture.scale), 0.0f, 4.0f);
 
-        const int texture_index = pbr.baseColorTexture.index;
-        if (texture_index >= 0 && static_cast<std::size_t>(texture_index) < model.textures.size()) {
-            const auto& texture = model.textures[static_cast<std::size_t>(texture_index)];
-            if (texture.source >= 0 && static_cast<std::size_t>(texture.source) < model.images.size()) {
-                std::string image_error;
-                auto converted = convert_image(model.images[static_cast<std::size_t>(texture.source)], &image_error);
-                if (!image_error.empty() && !converted.has_value()) {
-                    set_error(error, image_error);
-                    return std::nullopt;
-                }
-                result.base_color_texture = std::move(converted);
-            }
+        std::string image_error;
+        result.base_color_texture = convert_texture(model, pbr.baseColorTexture.index, &image_error);
+        if (!image_error.empty()) {
+            set_error(error, image_error);
+            return std::nullopt;
+        }
+
+        image_error.clear();
+        result.metallic_roughness_texture = convert_texture(model, pbr.metallicRoughnessTexture.index, &image_error);
+        if (!image_error.empty()) {
+            set_error(error, image_error);
+            return std::nullopt;
+        }
+
+        image_error.clear();
+        result.normal_texture = convert_texture(model, material.normalTexture.index, &image_error);
+        if (!image_error.empty()) {
+            set_error(error, image_error);
+            return std::nullopt;
         }
     }
 
