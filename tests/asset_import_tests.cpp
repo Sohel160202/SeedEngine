@@ -29,6 +29,8 @@ int main() {
 
     // 66 embedded bytes: 3 float3 positions, 3 float2 UVs, 3 uint16 indices.
     // No NORMAL attribute is present so Seed must generate normals itself.
+    // One embedded 1x1 PNG is intentionally reused by all PBR map slots: this
+    // test verifies glTF channel extraction, not the artistic texture content.
     const char* gltf = R"JSON({
   "asset": {"version": "2.0"},
   "buffers": [{
@@ -45,11 +47,22 @@ int main() {
     {"bufferView": 1, "componentType": 5126, "count": 3, "type": "VEC2"},
     {"bufferView": 2, "componentType": 5123, "count": 3, "type": "SCALAR"}
   ],
+  "images": [{
+    "uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Wl8sAAAAASUVORK5CYII="
+  }],
+  "textures": [
+    {"source": 0},
+    {"source": 0},
+    {"source": 0}
+  ],
   "materials": [{
+    "normalTexture": {"index": 2, "scale": 0.6},
     "pbrMetallicRoughness": {
       "baseColorFactor": [0.25, 0.5, 0.75, 1.0],
       "metallicFactor": 0.65,
-      "roughnessFactor": 0.22
+      "roughnessFactor": 0.22,
+      "baseColorTexture": {"index": 0},
+      "metallicRoughnessTexture": {"index": 1}
     }
   }],
   "meshes": [{
@@ -95,7 +108,14 @@ int main() {
     assert(nearly_equal(imported->base_color.z, 0.75f));
     assert(nearly_equal(imported->metallic, 0.65f));
     assert(nearly_equal(imported->roughness, 0.22f));
-    assert(!imported->base_color_texture.has_value());
+    assert(nearly_equal(imported->normal_scale, 0.6f));
+
+    assert(imported->base_color_texture.has_value());
+    assert(imported->base_color_texture->valid());
+    assert(imported->metallic_roughness_texture.has_value());
+    assert(imported->metallic_roughness_texture->valid());
+    assert(imported->normal_texture.has_value());
+    assert(imported->normal_texture->valid());
     assert(imported->external_files.empty());
 
     const std::string asset_id = seed::AssetRuntime::make_model_asset_id(
@@ -119,6 +139,10 @@ int main() {
     material.asset_id = asset_id;
     material.metallic = imported->metallic;
     material.roughness = imported->roughness;
+    material.normal_scale = imported->normal_scale;
+    material.use_base_color_texture = true;
+    material.use_metallic_roughness_texture = false;
+    material.use_normal_texture = true;
     scene.add_component<seed::MaterialComponent>(entity, material);
 
     assert(seed::SceneSerializer::save(scene, scene_file, &error));
@@ -138,6 +162,10 @@ int main() {
     assert(loaded_material->asset_id == asset_id);
     assert(nearly_equal(loaded_material->metallic, 0.65f));
     assert(nearly_equal(loaded_material->roughness, 0.22f));
+    assert(nearly_equal(loaded_material->normal_scale, 0.6f));
+    assert(loaded_material->use_base_color_texture);
+    assert(!loaded_material->use_metallic_roughness_texture);
+    assert(loaded_material->use_normal_texture);
 
     std::filesystem::remove_all(root);
     std::cout << "SeedAssetImportTests passed.\n";
