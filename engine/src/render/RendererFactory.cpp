@@ -68,6 +68,8 @@ using GlUseProgramFn = void (*)(unsigned int);
 using GlGetUniformLocationFn = int (*)(unsigned int, const char*);
 using GlUniformMatrix4fvFn = void (*)(int, int, unsigned char, const float*);
 using GlUniform1iFn = void (*)(int, int);
+using GlUniform1fFn = void (*)(int, float);
+using GlUniform3fFn = void (*)(int, float, float, float);
 using GlUniform4fFn = void (*)(int, float, float, float, float);
 using GlDrawElementsFn = void (*)(unsigned int, int, unsigned int, const void*);
 using GlGenTexturesFn = void (*)(int, unsigned int*);
@@ -84,6 +86,11 @@ struct OpenGLShaderResource {
     int base_color_location{-1};
     int texture_location{-1};
     int use_texture_location{-1};
+    int directional_direction_location{-1};
+    int directional_color_location{-1};
+    int directional_intensity_location{-1};
+    int ambient_color_location{-1};
+    int ambient_intensity_location{-1};
 };
 
 struct OpenGLMeshResource {
@@ -184,6 +191,11 @@ public:
         resource.base_color_location = m_get_uniform_location(program, "uBaseColor");
         resource.texture_location = m_get_uniform_location(program, "uBaseTexture");
         resource.use_texture_location = m_get_uniform_location(program, "uUseTexture");
+        resource.directional_direction_location = m_get_uniform_location(program, "uDirectionalDirection");
+        resource.directional_color_location = m_get_uniform_location(program, "uDirectionalColor");
+        resource.directional_intensity_location = m_get_uniform_location(program, "uDirectionalIntensity");
+        resource.ambient_color_location = m_get_uniform_location(program, "uAmbientColor");
+        resource.ambient_intensity_location = m_get_uniform_location(program, "uAmbientIntensity");
 
         const ShaderHandle handle{m_next_shader_id++};
         m_shaders.emplace(handle.value, resource);
@@ -264,6 +276,16 @@ public:
             GlFalse,
             static_cast<int>(sizeof(VertexPositionColor)),
             reinterpret_cast<const void*>(offsetof(VertexPositionColor, texcoord))
+        );
+
+        m_enable_vertex_attrib_array(3);
+        m_vertex_attrib_pointer(
+            3,
+            3,
+            GlFloat,
+            GlFalse,
+            static_cast<int>(sizeof(VertexPositionColor)),
+            reinterpret_cast<const void*>(offsetof(VertexPositionColor, normal))
         );
 
         m_bind_vertex_array(0);
@@ -358,7 +380,8 @@ public:
         TextureHandle texture,
         const Vec4& base_color,
         const Mat4& model,
-        const Mat4& view_projection
+        const Mat4& view_projection,
+        const SceneLighting& lighting
     ) override {
         const auto mesh_found = m_meshes.find(mesh.value);
         const auto shader_found = m_shaders.find(shader.value);
@@ -388,6 +411,36 @@ public:
                 base_color.z,
                 base_color.w
             );
+        }
+        if (shader_resource.directional_direction_location >= 0) {
+            m_uniform3f(
+                shader_resource.directional_direction_location,
+                lighting.directional_direction.x,
+                lighting.directional_direction.y,
+                lighting.directional_direction.z
+            );
+        }
+        if (shader_resource.directional_color_location >= 0) {
+            m_uniform3f(
+                shader_resource.directional_color_location,
+                lighting.directional_color.x,
+                lighting.directional_color.y,
+                lighting.directional_color.z
+            );
+        }
+        if (shader_resource.directional_intensity_location >= 0) {
+            m_uniform1f(shader_resource.directional_intensity_location, lighting.directional_intensity);
+        }
+        if (shader_resource.ambient_color_location >= 0) {
+            m_uniform3f(
+                shader_resource.ambient_color_location,
+                lighting.ambient_color.x,
+                lighting.ambient_color.y,
+                lighting.ambient_color.z
+            );
+        }
+        if (shader_resource.ambient_intensity_location >= 0) {
+            m_uniform1f(shader_resource.ambient_intensity_location, lighting.ambient_intensity);
         }
 
         const auto texture_found = m_textures.find(texture.value);
@@ -497,6 +550,8 @@ private:
         m_get_uniform_location = load<GlGetUniformLocationFn>("glGetUniformLocation");
         m_uniform_matrix4fv = load<GlUniformMatrix4fvFn>("glUniformMatrix4fv");
         m_uniform1i = load<GlUniform1iFn>("glUniform1i");
+        m_uniform1f = load<GlUniform1fFn>("glUniform1f");
+        m_uniform3f = load<GlUniform3fFn>("glUniform3f");
         m_uniform4f = load<GlUniform4fFn>("glUniform4f");
         m_draw_elements = load<GlDrawElementsFn>("glDrawElements");
         m_gen_textures = load<GlGenTexturesFn>("glGenTextures");
@@ -515,7 +570,7 @@ private:
             m_create_program && m_attach_shader && m_link_program &&
             m_get_program_iv && m_get_program_info_log && m_delete_program &&
             m_use_program && m_get_uniform_location && m_uniform_matrix4fv &&
-            m_uniform1i && m_uniform4f && m_draw_elements &&
+            m_uniform1i && m_uniform1f && m_uniform3f && m_uniform4f && m_draw_elements &&
             m_gen_textures && m_bind_texture && m_tex_image_2d &&
             m_tex_parameter_i && m_delete_textures && m_active_texture;
     }
@@ -594,6 +649,8 @@ private:
         m_get_uniform_location = nullptr;
         m_uniform_matrix4fv = nullptr;
         m_uniform1i = nullptr;
+        m_uniform1f = nullptr;
+        m_uniform3f = nullptr;
         m_uniform4f = nullptr;
         m_draw_elements = nullptr;
         m_gen_textures = nullptr;
@@ -642,6 +699,8 @@ private:
     GlGetUniformLocationFn m_get_uniform_location{nullptr};
     GlUniformMatrix4fvFn m_uniform_matrix4fv{nullptr};
     GlUniform1iFn m_uniform1i{nullptr};
+    GlUniform1fFn m_uniform1f{nullptr};
+    GlUniform3fFn m_uniform3f{nullptr};
     GlUniform4fFn m_uniform4f{nullptr};
     GlDrawElementsFn m_draw_elements{nullptr};
     GlGenTexturesFn m_gen_textures{nullptr};
