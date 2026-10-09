@@ -1,5 +1,6 @@
 #pragma once
 
+#include "seed/math/Math.h"
 #include "seed/render/RenderResources.h"
 
 #include <cstdint>
@@ -33,6 +34,9 @@ public:
     virtual bool initialize(void* window_handle, const RendererConfig& config) = 0;
     virtual void resize(std::uint32_t width, std::uint32_t height) = 0;
 
+    virtual std::uint32_t width() const noexcept = 0;
+    virtual std::uint32_t height() const noexcept = 0;
+
     virtual ShaderHandle create_shader(const ShaderDesc& desc) = 0;
     virtual void destroy_shader(ShaderHandle shader) = 0;
 
@@ -40,7 +44,12 @@ public:
     virtual void destroy_mesh(MeshHandle mesh) = 0;
 
     virtual void begin_frame() = 0;
-    virtual void draw_mesh(MeshHandle mesh, ShaderHandle shader) = 0;
+    virtual void draw_mesh(
+        MeshHandle mesh,
+        ShaderHandle shader,
+        const Mat4& model,
+        const Mat4& view_projection
+    ) = 0;
     virtual void end_frame() = 0;
 
     virtual std::string_view backend_name() const = 0;
