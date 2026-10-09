@@ -2,6 +2,7 @@ add_library(SeedEngine STATIC
     src/core/Engine.cpp
     src/platform/PlatformFactory.cpp
     src/render/RendererFactory.cpp
+    src/render/RenderSystem.cpp
     src/scene/Scene.cpp
 )
 
