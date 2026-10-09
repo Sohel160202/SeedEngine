@@ -31,6 +31,8 @@ constexpr unsigned int GlInfoLogLength = 0x8B84;
 constexpr unsigned int GlTexture2D = 0x0DE1;
 constexpr unsigned int GlTexture0 = 0x84C0;
 constexpr unsigned int GlTexture1 = 0x84C1;
+constexpr unsigned int GlTexture2 = 0x84C2;
+constexpr unsigned int GlTexture3 = 0x84C3;
 constexpr unsigned int GlRgba = 0x1908;
 constexpr unsigned int GlDepthComponent = 0x1902;
 constexpr unsigned int GlDepthComponent24 = 0x81A6;
@@ -107,8 +109,13 @@ struct OpenGLShaderResource {
     int base_color_location{-1};
     int texture_location{-1};
     int use_texture_location{-1};
+    int metallic_roughness_texture_location{-1};
+    int use_metallic_roughness_texture_location{-1};
+    int normal_texture_location{-1};
+    int use_normal_texture_location{-1};
     int metallic_location{-1};
     int roughness_location{-1};
+    int normal_scale_location{-1};
     int camera_position_location{-1};
     int directional_direction_location{-1};
     int directional_color_location{-1};
@@ -167,7 +174,7 @@ public:
             static_cast<std::uint32_t>(framebuffer_height > 0 ? framebuffer_height : 1)
         );
 
-        std::cout << "[SeedRenderer] OpenGL backend initialized with sky + directional shadows.\n";
+        std::cout << "[SeedRenderer] OpenGL backend initialized with PBR maps, sky + directional shadows.\n";
         return true;
     }
 
@@ -199,8 +206,13 @@ public:
         resource.base_color_location = m_get_uniform_location(program, "uBaseColor");
         resource.texture_location = m_get_uniform_location(program, "uBaseTexture");
         resource.use_texture_location = m_get_uniform_location(program, "uUseTexture");
+        resource.metallic_roughness_texture_location = m_get_uniform_location(program, "uMetallicRoughnessTexture");
+        resource.use_metallic_roughness_texture_location = m_get_uniform_location(program, "uUseMetallicRoughnessTexture");
+        resource.normal_texture_location = m_get_uniform_location(program, "uNormalTexture");
+        resource.use_normal_texture_location = m_get_uniform_location(program, "uUseNormalTexture");
         resource.metallic_location = m_get_uniform_location(program, "uMetallic");
         resource.roughness_location = m_get_uniform_location(program, "uRoughness");
+        resource.normal_scale_location = m_get_uniform_location(program, "uNormalScale");
         resource.camera_position_location = m_get_uniform_location(program, "uCameraPosition");
         resource.directional_direction_location = m_get_uniform_location(program, "uDirectionalDirection");
         resource.directional_color_location = m_get_uniform_location(program, "uDirectionalColor");
@@ -349,7 +361,7 @@ public:
     void draw_mesh(
         MeshHandle mesh,
         ShaderHandle shader,
-        TextureHandle texture,
+        const MaterialTextures& textures,
         const Vec4& base_color,
         const MaterialSurface& surface,
         bool receive_shadows,
@@ -370,6 +382,7 @@ public:
         if (resource.base_color_location >= 0) m_uniform4f(resource.base_color_location, base_color.x, base_color.y, base_color.z, base_color.w);
         if (resource.metallic_location >= 0) m_uniform1f(resource.metallic_location, surface.metallic);
         if (resource.roughness_location >= 0) m_uniform1f(resource.roughness_location, surface.roughness);
+        if (resource.normal_scale_location >= 0) m_uniform1f(resource.normal_scale_location, surface.normal_scale);
         if (resource.camera_position_location >= 0) m_uniform3f(resource.camera_position_location, lighting.camera_position.x, lighting.camera_position.y, lighting.camera_position.z);
         if (resource.directional_direction_location >= 0) m_uniform3f(resource.directional_direction_location, lighting.directional_direction.x, lighting.directional_direction.y, lighting.directional_direction.z);
         if (resource.directional_color_location >= 0) m_uniform3f(resource.directional_color_location, lighting.directional_color.x, lighting.directional_color.y, lighting.directional_color.z);
@@ -377,22 +390,43 @@ public:
         if (resource.ambient_color_location >= 0) m_uniform3f(resource.ambient_color_location, lighting.ambient_color.x, lighting.ambient_color.y, lighting.ambient_color.z);
         if (resource.ambient_intensity_location >= 0) m_uniform1f(resource.ambient_intensity_location, lighting.ambient_intensity);
 
-        const auto texture_found = m_textures.find(texture.value);
-        const bool use_texture = texture && texture_found != m_textures.end();
-        if (resource.use_texture_location >= 0) m_uniform1i(resource.use_texture_location, use_texture ? 1 : 0);
-        if (use_texture) {
+        const auto* base_texture = find_texture(textures.base_color);
+        const auto* metallic_roughness_texture = find_texture(textures.metallic_roughness);
+        const auto* normal_texture = find_texture(textures.normal);
+
+        const bool use_base_texture = base_texture != nullptr;
+        const bool use_metallic_roughness_texture = metallic_roughness_texture != nullptr;
+        const bool use_normal_texture = normal_texture != nullptr;
+
+        if (resource.use_texture_location >= 0) m_uniform1i(resource.use_texture_location, use_base_texture ? 1 : 0);
+        if (resource.use_metallic_roughness_texture_location >= 0) {
+            m_uniform1i(resource.use_metallic_roughness_texture_location, use_metallic_roughness_texture ? 1 : 0);
+        }
+        if (resource.use_normal_texture_location >= 0) m_uniform1i(resource.use_normal_texture_location, use_normal_texture ? 1 : 0);
+
+        if (use_base_texture) {
             m_active_texture(GlTexture0);
-            m_bind_texture(GlTexture2D, texture_found->second.texture);
+            m_bind_texture(GlTexture2D, base_texture->texture);
             if (resource.texture_location >= 0) m_uniform1i(resource.texture_location, 0);
+        }
+        if (use_metallic_roughness_texture) {
+            m_active_texture(GlTexture1);
+            m_bind_texture(GlTexture2D, metallic_roughness_texture->texture);
+            if (resource.metallic_roughness_texture_location >= 0) m_uniform1i(resource.metallic_roughness_texture_location, 1);
+        }
+        if (use_normal_texture) {
+            m_active_texture(GlTexture2);
+            m_bind_texture(GlTexture2D, normal_texture->texture);
+            if (resource.normal_texture_location >= 0) m_uniform1i(resource.normal_texture_location, 2);
         }
 
         const bool use_shadows = receive_shadows && lighting.shadows_enabled && m_shadow_depth_texture != 0;
         if (resource.receive_shadows_location >= 0) m_uniform1i(resource.receive_shadows_location, receive_shadows ? 1 : 0);
         if (resource.shadows_enabled_location >= 0) m_uniform1i(resource.shadows_enabled_location, use_shadows ? 1 : 0);
         if (use_shadows) {
-            m_active_texture(GlTexture1);
+            m_active_texture(GlTexture3);
             m_bind_texture(GlTexture2D, m_shadow_depth_texture);
-            if (resource.shadow_map_location >= 0) m_uniform1i(resource.shadow_map_location, 1);
+            if (resource.shadow_map_location >= 0) m_uniform1i(resource.shadow_map_location, 3);
         }
 
         m_bind_vertex_array(mesh_found->second.vertex_array);
@@ -400,13 +434,22 @@ public:
         m_bind_vertex_array(0);
 
         if (use_shadows) {
+            m_active_texture(GlTexture3);
+            m_bind_texture(GlTexture2D, 0);
+        }
+        if (use_normal_texture) {
+            m_active_texture(GlTexture2);
+            m_bind_texture(GlTexture2D, 0);
+        }
+        if (use_metallic_roughness_texture) {
             m_active_texture(GlTexture1);
             m_bind_texture(GlTexture2D, 0);
         }
-        if (use_texture) {
+        if (use_base_texture) {
             m_active_texture(GlTexture0);
             m_bind_texture(GlTexture2D, 0);
         }
+        m_active_texture(GlTexture0);
         m_use_program(0);
     }
 
@@ -470,6 +513,12 @@ private:
 
     void set_matrix(int location, const Mat4& matrix) {
         if (location >= 0) m_uniform_matrix4fv(location, 1, GlFalse, matrix.data());
+    }
+
+    const OpenGLTextureResource* find_texture(TextureHandle handle) const {
+        if (!handle) return nullptr;
+        const auto found = m_textures.find(handle.value);
+        return found == m_textures.end() ? nullptr : &found->second;
     }
 
     unsigned int compile_shader(unsigned int type, std::string_view source, const char* label) {
