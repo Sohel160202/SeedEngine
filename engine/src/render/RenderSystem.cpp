@@ -3,6 +3,7 @@
 #include "seed/gameplay/Components.h"
 #include "seed/render/IRenderer.h"
 #include "seed/render/RenderComponents.h"
+#include "seed/scene/Hierarchy.h"
 #include "seed/scene/Scene.h"
 
 #include <algorithm>
@@ -11,36 +12,37 @@
 namespace seed {
 
 bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_entity) {
-    TransformComponent* camera_transform = nullptr;
     CameraComponent* camera = nullptr;
+    EntityId resolved_camera = InvalidEntity;
 
     if (camera_entity != InvalidEntity && scene.is_alive(camera_entity)) {
-        camera_transform = scene.get_component<TransformComponent>(camera_entity);
         camera = scene.get_component<CameraComponent>(camera_entity);
-        if (camera != nullptr && !camera->enabled) {
+        if (camera != nullptr && camera->enabled && scene.has_component<TransformComponent>(camera_entity)) {
+            resolved_camera = camera_entity;
+        } else {
             camera = nullptr;
-            camera_transform = nullptr;
         }
     }
 
-    if (camera == nullptr || camera_transform == nullptr) {
+    if (camera == nullptr) {
         scene.for_each<TransformComponent, CameraComponent>(
-            [&](EntityId, TransformComponent& transform, CameraComponent& candidate) {
+            [&](EntityId entity, TransformComponent&, CameraComponent& candidate) {
                 if (camera != nullptr || !candidate.enabled || !candidate.primary) return;
-                camera_transform = &transform;
+                resolved_camera = entity;
                 camera = &candidate;
             }
         );
     }
 
-    if (camera == nullptr || camera_transform == nullptr) return false;
+    if (camera == nullptr || resolved_camera == InvalidEntity) return false;
 
+    const TransformComponent camera_world = world_transform(scene, resolved_camera);
     const float aspect = static_cast<float>(renderer.width()) /
         static_cast<float>(renderer.height() > 0 ? renderer.height() : 1);
-    const Vec3 forward = forward_from_euler(camera_transform->rotation_degrees);
+    const Vec3 forward = forward_from_euler(camera_world.rotation_degrees);
     const Mat4 view = look_at_matrix(
-        camera_transform->position,
-        camera_transform->position + forward,
+        camera_world.position,
+        camera_world.position + forward,
         {0.0f, 1.0f, 0.0f}
     );
     const Mat4 projection = perspective_matrix(
@@ -52,16 +54,17 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
     const Mat4 view_projection = projection * view;
 
     SceneLighting lighting;
-    lighting.camera_position = camera_transform->position;
+    lighting.camera_position = camera_world.position;
 
     DirectionalLightComponent* directional = nullptr;
-    TransformComponent* directional_transform = nullptr;
+    EntityId directional_entity = InvalidEntity;
     scene.for_each<TransformComponent, DirectionalLightComponent>(
-        [&](EntityId, TransformComponent& transform, DirectionalLightComponent& light) {
+        [&](EntityId entity, TransformComponent&, DirectionalLightComponent& light) {
             if (directional != nullptr || !light.enabled) return;
             directional = &light;
-            directional_transform = &transform;
-            lighting.directional_direction = forward_from_euler(transform.rotation_degrees);
+            directional_entity = entity;
+            const TransformComponent light_world = world_transform(scene, entity);
+            lighting.directional_direction = forward_from_euler(light_world.rotation_degrees);
             lighting.directional_color = light.color;
             lighting.directional_intensity = light.intensity;
         }
@@ -84,10 +87,6 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
         sky.horizon_color = component.horizon_color;
         sky.intensity = component.intensity;
         sky.enabled = true;
-
-        // Environment Lighting v0 intentionally uses the exact same authored
-        // Sky as its source. There is no separate probe or duplicated setup for
-        // beginners: change the Sky and PBR materials react to that world.
         lighting.environment_zenith_color = component.zenith_color;
         lighting.environment_horizon_color = component.horizon_color;
         lighting.environment_intensity = std::max(component.intensity, 0.0f);
@@ -95,12 +94,12 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
     });
     renderer.draw_sky(sky);
 
-    if (directional != nullptr && directional_transform != nullptr &&
+    if (directional != nullptr && directional_entity != InvalidEntity &&
         directional->casts_shadows && directional->intensity > 0.0f) {
         const Vec3 light_direction = normalize(lighting.directional_direction);
         const float distance = std::max(directional->shadow_distance, 5.0f);
         const float extent = std::max(8.0f, distance * 0.60f);
-        const Vec3 center = camera_transform->position + forward * std::min(distance * 0.25f, 8.0f);
+        const Vec3 center = camera_world.position + forward * std::min(distance * 0.25f, 8.0f);
         const Vec3 light_position = center - light_direction * distance;
         const Vec3 up = std::fabs(dot(light_direction, Vec3{0.0f, 1.0f, 0.0f})) > 0.96f
             ? Vec3{0.0f, 0.0f, 1.0f}
@@ -113,12 +112,9 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
 
         if (renderer.begin_shadow_pass(lighting.light_view_projection)) {
             scene.for_each<TransformComponent, MeshComponent>(
-                [&](EntityId, TransformComponent& transform, MeshComponent& mesh) {
+                [&](EntityId entity, TransformComponent&, MeshComponent& mesh) {
                     if (!mesh.visible || !mesh.cast_shadows || !mesh.mesh) return;
-                    renderer.draw_shadow_mesh(
-                        mesh.mesh,
-                        transform_matrix(transform.position, transform.rotation_degrees, transform.scale)
-                    );
+                    renderer.draw_shadow_mesh(mesh.mesh, world_transform_matrix(scene, entity));
                 }
             );
             renderer.end_shadow_pass();
@@ -127,13 +123,8 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
     }
 
     scene.for_each<TransformComponent, MeshComponent, MaterialComponent>(
-        [&](EntityId, TransformComponent& transform, MeshComponent& mesh, MaterialComponent& material) {
+        [&](EntityId entity, TransformComponent&, MeshComponent& mesh, MaterialComponent& material) {
             if (!mesh.visible || !mesh.mesh || !material.shader) return;
-            const Mat4 model = transform_matrix(
-                transform.position,
-                transform.rotation_degrees,
-                transform.scale
-            );
             renderer.draw_mesh(
                 mesh.mesh,
                 material.shader,
@@ -149,7 +140,7 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
                     .normal_scale = std::clamp(material.normal_scale, 0.0f, 4.0f),
                 },
                 mesh.receive_shadows,
-                model,
+                world_transform_matrix(scene, entity),
                 view_projection,
                 lighting
             );
