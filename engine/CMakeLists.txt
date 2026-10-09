@@ -1,5 +1,6 @@
 add_library(SeedEngine STATIC
     src/core/Engine.cpp
+    src/gameplay/GameplayRuntime.cpp
     src/platform/PlatformFactory.cpp
     src/project/ProjectSerializer.cpp
     src/project/SceneSerializer.cpp
