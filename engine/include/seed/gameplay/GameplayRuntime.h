@@ -2,6 +2,7 @@
 
 #include "seed/core/Types.h"
 #include "seed/math/Math.h"
+#include "seed/physics/PhysicsSystem.h"
 #include "seed/platform/IPlatform.h"
 
 #include <string>
@@ -22,6 +23,7 @@ public:
     bool active() const noexcept { return m_active; }
     EntityId player_entity() const noexcept { return m_player_entity; }
     EntityId interaction_target() const noexcept { return m_interaction_target; }
+    bool player_grounded() const noexcept { return m_character_state.grounded; }
 
     const std::string& interaction_prompt() const noexcept { return m_interaction_prompt; }
     const std::string& status_message() const noexcept { return m_status_message; }
@@ -57,11 +59,13 @@ private:
     bool m_looking{false};
     bool m_has_mouse_position{false};
     bool m_interact_requested{false};
+    bool m_jump_requested{false};
     float m_last_mouse_x{0.0f};
     float m_last_mouse_y{0.0f};
     float m_pending_look_x{0.0f};
     float m_pending_look_y{0.0f};
 
+    PhysicsSystem::CharacterState m_character_state{};
     std::unordered_map<EntityId, DoorRuntimeState> m_doors;
     std::string m_interaction_prompt;
     std::string m_status_message;
