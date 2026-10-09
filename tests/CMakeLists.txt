@@ -24,3 +24,12 @@ target_link_libraries(SeedGameplayRuntimeTests PRIVATE SeedEngine)
 target_compile_features(SeedGameplayRuntimeTests PRIVATE cxx_std_20)
 
 add_test(NAME SeedGameplayRuntimeTests COMMAND SeedGameplayRuntimeTests)
+
+add_executable(SeedAssetImportTests
+    asset_import_tests.cpp
+)
+
+target_link_libraries(SeedAssetImportTests PRIVATE SeedEngine)
+target_compile_features(SeedAssetImportTests PRIVATE cxx_std_20)
+
+add_test(NAME SeedAssetImportTests COMMAND SeedAssetImportTests)
