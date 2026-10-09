@@ -11,6 +11,10 @@
 
 namespace seed {
 
+struct ParentComponent {
+    std::string parent_persistent_id;
+};
+
 class Scene {
 public:
     Scene() = default;
@@ -28,21 +32,18 @@ public:
     const std::string& entity_name(EntityId entity) const;
     void set_entity_name(EntityId entity, std::string name);
     const std::string& entity_persistent_id(EntityId entity) const;
+    EntityId find_entity_by_persistent_id(const std::string& persistent_id) const noexcept;
 
     std::size_t entity_count() const noexcept { return m_entities.size(); }
 
     template <typename Function>
     void for_each_entity(Function&& function) {
-        for (auto& [entity, record] : m_entities) {
-            function(entity, record.name);
-        }
+        for (auto& [entity, record] : m_entities) function(entity, record.name);
     }
 
     template <typename Function>
     void for_each_entity(Function&& function) const {
-        for (const auto& [entity, record] : m_entities) {
-            function(entity, record.name);
-        }
+        for (const auto& [entity, record] : m_entities) function(entity, record.name);
     }
 
     template <typename T, typename... Args>
@@ -64,9 +65,7 @@ public:
     template <typename T>
     T* get_component(EntityId entity) {
         auto* pool = pool_if_exists<T>();
-        if (pool == nullptr) {
-            return nullptr;
-        }
+        if (pool == nullptr) return nullptr;
         const auto it = pool->data.find(entity);
         return it == pool->data.end() ? nullptr : &it->second;
     }
@@ -74,9 +73,7 @@ public:
     template <typename T>
     const T* get_component(EntityId entity) const {
         const auto* pool = pool_if_exists<T>();
-        if (pool == nullptr) {
-            return nullptr;
-        }
+        if (pool == nullptr) return nullptr;
         const auto it = pool->data.find(entity);
         return it == pool->data.end() ? nullptr : &it->second;
     }
@@ -91,9 +88,7 @@ public:
     void for_each(Function&& function) {
         for (auto& [entity, record] : m_entities) {
             (void)record;
-            if ((has_component<Components>(entity) && ...)) {
-                function(entity, *get_component<Components>(entity)...);
-            }
+            if ((has_component<Components>(entity) && ...)) function(entity, *get_component<Components>(entity)...);
         }
     }
 
@@ -101,9 +96,7 @@ public:
     void for_each(Function&& function) const {
         for (const auto& [entity, record] : m_entities) {
             (void)record;
-            if ((has_component<Components>(entity) && ...)) {
-                function(entity, *get_component<Components>(entity)...);
-            }
+            if ((has_component<Components>(entity) && ...)) function(entity, *get_component<Components>(entity)...);
         }
     }
 
@@ -122,14 +115,8 @@ private:
     template <typename T>
     struct ComponentPool final : IComponentPool {
         std::unordered_map<EntityId, T> data;
-
-        void erase(EntityId entity) override {
-            data.erase(entity);
-        }
-
-        std::unique_ptr<IComponentPool> clone() const override {
-            return std::make_unique<ComponentPool<T>>(*this);
-        }
+        void erase(EntityId entity) override { data.erase(entity); }
+        std::unique_ptr<IComponentPool> clone() const override { return std::make_unique<ComponentPool<T>>(*this); }
     };
 
     template <typename T>
@@ -148,17 +135,13 @@ private:
     template <typename T>
     ComponentPool<T>* pool_if_exists() {
         const auto it = m_component_pools.find(std::type_index{typeid(T)});
-        return it == m_component_pools.end()
-            ? nullptr
-            : static_cast<ComponentPool<T>*>(it->second.get());
+        return it == m_component_pools.end() ? nullptr : static_cast<ComponentPool<T>*>(it->second.get());
     }
 
     template <typename T>
     const ComponentPool<T>* pool_if_exists() const {
         const auto it = m_component_pools.find(std::type_index{typeid(T)});
-        return it == m_component_pools.end()
-            ? nullptr
-            : static_cast<const ComponentPool<T>*>(it->second.get());
+        return it == m_component_pools.end() ? nullptr : static_cast<const ComponentPool<T>*>(it->second.get());
     }
 
     void ensure_alive(EntityId entity) const;
