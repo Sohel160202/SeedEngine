@@ -21,7 +21,9 @@ enum class StudioActionType {
     CreateEmptyEntity,
     CreateCube,
     DuplicateSelected,
-    DeleteSelected
+    DeleteSelected,
+    Play,
+    Stop
 };
 
 struct StudioAction {
@@ -34,8 +36,11 @@ struct StudioDocumentInfo {
     std::string project_name{"Untitled"};
     std::string scene_name{"Main.seedscene"};
     std::string status_message;
+    std::string gameplay_prompt;
+    std::string gameplay_status;
     bool dirty{true};
     bool has_project{false};
+    bool playing{false};
 };
 
 class StudioUI {
@@ -63,9 +68,9 @@ private:
     void draw_main_menu(const StudioDocumentInfo& document);
     void draw_project_dialogs();
     void draw_world_panel(Scene& scene);
-    void draw_inspector(Scene& scene);
+    void draw_inspector(Scene& scene, const StudioDocumentInfo& document);
     void draw_assets_panel(const StudioDocumentInfo& document);
-    void draw_viewport_frame();
+    void draw_viewport_frame(const StudioDocumentInfo& document);
 
     EntityId m_selected_entity{InvalidEntity};
     StudioAction m_pending_action{};
