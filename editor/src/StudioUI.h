@@ -29,6 +29,9 @@ enum class StudioActionType {
     CreateFirstPersonPlayer,
     DuplicateSelected,
     DeleteSelected,
+    FocusSelected,
+    Undo,
+    Redo,
     Play,
     Stop
 };
@@ -50,6 +53,15 @@ struct StudioDocumentInfo {
     bool dirty{true};
     bool has_project{false};
     bool playing{false};
+    bool can_undo{false};
+    bool can_redo{false};
+};
+
+enum class GizmoTool {
+    Select,
+    Move,
+    Rotate,
+    Scale
 };
 
 class StudioUI {
@@ -58,7 +70,7 @@ public:
     void shutdown();
 
     void begin_frame();
-    void draw(Scene& scene, const StudioDocumentInfo& document);
+    void draw(Scene& scene, const StudioDocumentInfo& document, EntityId viewport_camera = InvalidEntity);
     void render();
 
     void select_entity(EntityId entity) noexcept { m_selected_entity = entity; }
@@ -66,6 +78,7 @@ public:
 
     StudioAction take_action();
     bool consume_scene_edited() noexcept;
+    bool scene_edit_active() const noexcept;
 
     bool wants_mouse() const noexcept;
     bool wants_keyboard() const noexcept;
@@ -79,7 +92,8 @@ private:
     void draw_world_panel(Scene& scene);
     void draw_inspector(Scene& scene, const StudioDocumentInfo& document);
     void draw_assets_panel(const StudioDocumentInfo& document);
-    void draw_viewport_frame(const StudioDocumentInfo& document);
+    void draw_viewport_frame(Scene& scene, const StudioDocumentInfo& document, EntityId viewport_camera);
+    void draw_viewport_toolbar(const StudioDocumentInfo& document);
 
     EntityId m_selected_entity{InvalidEntity};
     StudioAction m_pending_action{};
@@ -89,6 +103,13 @@ private:
     bool m_show_open_project_dialog{false};
     bool m_show_save_as_dialog{false};
     bool m_show_import_model_dialog{false};
+
+    GizmoTool m_gizmo_tool{GizmoTool::Move};
+    bool m_local_space{false};
+    bool m_snap_enabled{false};
+    float m_move_snap{0.5f};
+    float m_rotate_snap{15.0f};
+    float m_scale_snap{0.1f};
 
     std::array<char, 128> m_project_name_buffer{};
     std::array<char, 512> m_project_folder_buffer{};
