@@ -47,11 +47,19 @@ public:
     virtual void destroy_texture(TextureHandle texture) = 0;
 
     virtual void begin_frame() = 0;
+    virtual void draw_sky(const SkySettings& sky) = 0;
+
+    virtual bool begin_shadow_pass(const Mat4& light_view_projection) = 0;
+    virtual void draw_shadow_mesh(MeshHandle mesh, const Mat4& model) = 0;
+    virtual void end_shadow_pass() = 0;
+
     virtual void draw_mesh(
         MeshHandle mesh,
         ShaderHandle shader,
         TextureHandle texture,
         const Vec4& base_color,
+        const MaterialSurface& surface,
+        bool receive_shadows,
         const Mat4& model,
         const Mat4& view_projection,
         const SceneLighting& lighting
