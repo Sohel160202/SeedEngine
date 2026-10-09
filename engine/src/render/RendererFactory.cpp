@@ -15,6 +15,7 @@ namespace {
 
 constexpr unsigned int GlColorBufferBit = 0x00004000;
 constexpr unsigned int GlDepthBufferBit = 0x00000100;
+constexpr unsigned int GlDepthTest = 0x0B71;
 constexpr unsigned int GlArrayBuffer = 0x8892;
 constexpr unsigned int GlElementArrayBuffer = 0x8893;
 constexpr unsigned int GlStaticDraw = 0x88E4;
@@ -31,6 +32,7 @@ constexpr unsigned char GlFalse = 0;
 using GlClearColorFn = void (*)(float, float, float, float);
 using GlClearFn = void (*)(unsigned int);
 using GlViewportFn = void (*)(int, int, int, int);
+using GlEnableFn = void (*)(unsigned int);
 using GlGenVertexArraysFn = void (*)(int, unsigned int*);
 using GlBindVertexArrayFn = void (*)(unsigned int);
 using GlDeleteVertexArraysFn = void (*)(int, const unsigned int*);
@@ -53,10 +55,14 @@ using GlGetProgramivFn = void (*)(unsigned int, unsigned int, int*);
 using GlGetProgramInfoLogFn = void (*)(unsigned int, int, int*, char*);
 using GlDeleteProgramFn = void (*)(unsigned int);
 using GlUseProgramFn = void (*)(unsigned int);
+using GlGetUniformLocationFn = int (*)(unsigned int, const char*);
+using GlUniformMatrix4fvFn = void (*)(int, int, unsigned char, const float*);
 using GlDrawElementsFn = void (*)(unsigned int, int, unsigned int, const void*);
 
 struct OpenGLShaderResource {
     unsigned int program{0};
+    int model_location{-1};
+    int view_projection_location{-1};
 };
 
 struct OpenGLMeshResource {
@@ -85,6 +91,7 @@ public:
         }
 
         glfwSwapInterval(config.vsync ? 1 : 0);
+        m_enable(GlDepthTest);
 
         int framebuffer_width = 0;
         int framebuffer_height = 0;
@@ -99,13 +106,16 @@ public:
     }
 
     void resize(std::uint32_t width, std::uint32_t height) override {
-        m_config.width = width;
-        m_config.height = height;
+        m_config.width = width > 0 ? width : 1;
+        m_config.height = height > 0 ? height : 1;
 
         if (m_viewport) {
-            m_viewport(0, 0, static_cast<int>(width), static_cast<int>(height));
+            m_viewport(0, 0, static_cast<int>(m_config.width), static_cast<int>(m_config.height));
         }
     }
+
+    std::uint32_t width() const noexcept override { return m_config.width; }
+    std::uint32_t height() const noexcept override { return m_config.height; }
 
     ShaderHandle create_shader(const ShaderDesc& desc) override {
         if (!m_window || desc.vertex_source.empty() || desc.fragment_source.empty()) {
@@ -142,8 +152,13 @@ public:
             return {};
         }
 
+        OpenGLShaderResource resource{};
+        resource.program = program;
+        resource.model_location = m_get_uniform_location(program, "uModel");
+        resource.view_projection_location = m_get_uniform_location(program, "uViewProjection");
+
         const ShaderHandle handle{m_next_shader_id++};
-        m_shaders.emplace(handle.value, OpenGLShaderResource{program});
+        m_shaders.emplace(handle.value, resource);
         return handle;
     }
 
@@ -215,7 +230,6 @@ public:
 
         m_bind_vertex_array(0);
         m_bind_buffer(GlArrayBuffer, 0);
-        m_bind_buffer(GlElementArrayBuffer, 0);
 
         const MeshHandle handle{m_next_mesh_id++};
         m_meshes.emplace(handle.value, resource);
@@ -250,21 +264,35 @@ public:
         m_clear(GlColorBufferBit | GlDepthBufferBit);
     }
 
-    void draw_mesh(MeshHandle mesh, ShaderHandle shader) override {
+    void draw_mesh(
+        MeshHandle mesh,
+        ShaderHandle shader,
+        const Mat4& model,
+        const Mat4& view_projection
+    ) override {
         const auto mesh_found = m_meshes.find(mesh.value);
         const auto shader_found = m_shaders.find(shader.value);
         if (mesh_found == m_meshes.end() || shader_found == m_shaders.end()) {
             return;
         }
 
-        m_use_program(shader_found->second.program);
+        const auto& shader_resource = shader_found->second;
+        m_use_program(shader_resource.program);
+
+        if (shader_resource.model_location >= 0) {
+            m_uniform_matrix4fv(shader_resource.model_location, 1, GlFalse, model.data());
+        }
+        if (shader_resource.view_projection_location >= 0) {
+            m_uniform_matrix4fv(
+                shader_resource.view_projection_location,
+                1,
+                GlFalse,
+                view_projection.data()
+            );
+        }
+
         m_bind_vertex_array(mesh_found->second.vertex_array);
-        m_draw_elements(
-            GlTriangles,
-            mesh_found->second.index_count,
-            GlUnsignedInt,
-            nullptr
-        );
+        m_draw_elements(GlTriangles, mesh_found->second.index_count, GlUnsignedInt, nullptr);
         m_bind_vertex_array(0);
         m_use_program(0);
     }
@@ -282,20 +310,20 @@ public:
     void shutdown() override {
         if (m_window) {
             glfwMakeContextCurrent(m_window);
-        }
 
-        for (auto& [_, mesh] : m_meshes) {
-            destroy_mesh_resource(mesh);
-        }
-        m_meshes.clear();
-
-        if (m_delete_program) {
-            for (auto& [_, shader] : m_shaders) {
-                if (shader.program != 0) {
-                    m_delete_program(shader.program);
+            for (const auto& [id, resource] : m_meshes) {
+                (void)id;
+                destroy_mesh_resource(resource);
+            }
+            for (const auto& [id, resource] : m_shaders) {
+                (void)id;
+                if (resource.program != 0 && m_delete_program) {
+                    m_delete_program(resource.program);
                 }
             }
         }
+
+        m_meshes.clear();
         m_shaders.clear();
 
         if (m_window && glfwGetCurrentContext() == m_window) {
@@ -303,7 +331,7 @@ public:
         }
 
         m_window = nullptr;
-        reset_functions();
+        clear_function_pointers();
     }
 
     ~OpenGLRenderer() override {
@@ -311,112 +339,102 @@ public:
     }
 
 private:
-    template <typename T>
-    bool load(T& function, const char* name) {
-        function = reinterpret_cast<T>(glfwGetProcAddress(name));
-        return function != nullptr;
+    template <typename Function>
+    static Function load(const char* name) {
+        return reinterpret_cast<Function>(glfwGetProcAddress(name));
     }
 
     bool load_functions() {
-        bool ok = true;
-        ok &= load(m_clear_color, "glClearColor");
-        ok &= load(m_clear, "glClear");
-        ok &= load(m_viewport, "glViewport");
-        ok &= load(m_gen_vertex_arrays, "glGenVertexArrays");
-        ok &= load(m_bind_vertex_array, "glBindVertexArray");
-        ok &= load(m_delete_vertex_arrays, "glDeleteVertexArrays");
-        ok &= load(m_gen_buffers, "glGenBuffers");
-        ok &= load(m_bind_buffer, "glBindBuffer");
-        ok &= load(m_buffer_data, "glBufferData");
-        ok &= load(m_delete_buffers, "glDeleteBuffers");
-        ok &= load(m_enable_vertex_attrib_array, "glEnableVertexAttribArray");
-        ok &= load(m_vertex_attrib_pointer, "glVertexAttribPointer");
-        ok &= load(m_create_shader, "glCreateShader");
-        ok &= load(m_shader_source, "glShaderSource");
-        ok &= load(m_compile_shader, "glCompileShader");
-        ok &= load(m_get_shader_iv, "glGetShaderiv");
-        ok &= load(m_get_shader_info_log, "glGetShaderInfoLog");
-        ok &= load(m_delete_shader, "glDeleteShader");
-        ok &= load(m_create_program, "glCreateProgram");
-        ok &= load(m_attach_shader, "glAttachShader");
-        ok &= load(m_link_program, "glLinkProgram");
-        ok &= load(m_get_program_iv, "glGetProgramiv");
-        ok &= load(m_get_program_info_log, "glGetProgramInfoLog");
-        ok &= load(m_delete_program, "glDeleteProgram");
-        ok &= load(m_use_program, "glUseProgram");
-        ok &= load(m_draw_elements, "glDrawElements");
-        return ok;
+        m_clear_color = load<GlClearColorFn>("glClearColor");
+        m_clear = load<GlClearFn>("glClear");
+        m_viewport = load<GlViewportFn>("glViewport");
+        m_enable = load<GlEnableFn>("glEnable");
+        m_gen_vertex_arrays = load<GlGenVertexArraysFn>("glGenVertexArrays");
+        m_bind_vertex_array = load<GlBindVertexArrayFn>("glBindVertexArray");
+        m_delete_vertex_arrays = load<GlDeleteVertexArraysFn>("glDeleteVertexArrays");
+        m_gen_buffers = load<GlGenBuffersFn>("glGenBuffers");
+        m_bind_buffer = load<GlBindBufferFn>("glBindBuffer");
+        m_buffer_data = load<GlBufferDataFn>("glBufferData");
+        m_delete_buffers = load<GlDeleteBuffersFn>("glDeleteBuffers");
+        m_enable_vertex_attrib_array = load<GlEnableVertexAttribArrayFn>("glEnableVertexAttribArray");
+        m_vertex_attrib_pointer = load<GlVertexAttribPointerFn>("glVertexAttribPointer");
+        m_create_shader = load<GlCreateShaderFn>("glCreateShader");
+        m_shader_source = load<GlShaderSourceFn>("glShaderSource");
+        m_compile_shader = load<GlCompileShaderFn>("glCompileShader");
+        m_get_shader_iv = load<GlGetShaderivFn>("glGetShaderiv");
+        m_get_shader_info_log = load<GlGetShaderInfoLogFn>("glGetShaderInfoLog");
+        m_delete_shader = load<GlDeleteShaderFn>("glDeleteShader");
+        m_create_program = load<GlCreateProgramFn>("glCreateProgram");
+        m_attach_shader = load<GlAttachShaderFn>("glAttachShader");
+        m_link_program = load<GlLinkProgramFn>("glLinkProgram");
+        m_get_program_iv = load<GlGetProgramivFn>("glGetProgramiv");
+        m_get_program_info_log = load<GlGetProgramInfoLogFn>("glGetProgramInfoLog");
+        m_delete_program = load<GlDeleteProgramFn>("glDeleteProgram");
+        m_use_program = load<GlUseProgramFn>("glUseProgram");
+        m_get_uniform_location = load<GlGetUniformLocationFn>("glGetUniformLocation");
+        m_uniform_matrix4fv = load<GlUniformMatrix4fvFn>("glUniformMatrix4fv");
+        m_draw_elements = load<GlDrawElementsFn>("glDrawElements");
+
+        return m_clear_color && m_clear && m_viewport && m_enable &&
+            m_gen_vertex_arrays && m_bind_vertex_array && m_delete_vertex_arrays &&
+            m_gen_buffers && m_bind_buffer && m_buffer_data && m_delete_buffers &&
+            m_enable_vertex_attrib_array && m_vertex_attrib_pointer &&
+            m_create_shader && m_shader_source && m_compile_shader &&
+            m_get_shader_iv && m_get_shader_info_log && m_delete_shader &&
+            m_create_program && m_attach_shader && m_link_program &&
+            m_get_program_iv && m_get_program_info_log && m_delete_program &&
+            m_use_program && m_get_uniform_location && m_uniform_matrix4fv && m_draw_elements;
     }
 
     unsigned int compile_shader(unsigned int type, std::string_view source, const char* label) {
         const auto shader = m_create_shader(type);
-        if (shader == 0) {
-            std::cerr << "[SeedRenderer] Failed to create " << label << " shader.\n";
-            return 0;
-        }
-
-        const std::string owned_source(source);
-        const char* source_pointer = owned_source.c_str();
-        m_shader_source(shader, 1, &source_pointer, nullptr);
+        const char* source_pointer = source.data();
+        const int source_length = static_cast<int>(source.size());
+        m_shader_source(shader, 1, &source_pointer, &source_length);
         m_compile_shader(shader);
 
         int compiled = 0;
         m_get_shader_iv(shader, GlCompileStatus, &compiled);
-        if (compiled == 0) {
-            std::cerr << "[SeedRenderer] " << label << " shader compilation failed.\n";
-            print_shader_log(shader);
-            m_delete_shader(shader);
-            return 0;
+        if (compiled != 0) {
+            return shader;
         }
 
-        return shader;
-    }
-
-    void print_shader_log(unsigned int shader) {
-        int length = 0;
-        m_get_shader_iv(shader, GlInfoLogLength, &length);
-        if (length <= 1) {
-            return;
-        }
-
-        std::string log(static_cast<std::size_t>(length), '\0');
-        int written = 0;
-        m_get_shader_info_log(shader, length, &written, log.data());
-        std::cerr << "[SeedRenderer] " << log << '\n';
+        int log_length = 0;
+        m_get_shader_iv(shader, GlInfoLogLength, &log_length);
+        std::string log(static_cast<std::size_t>(log_length > 0 ? log_length : 1), '\0');
+        int actual_length = 0;
+        m_get_shader_info_log(shader, static_cast<int>(log.size()), &actual_length, log.data());
+        std::cerr << "[SeedRenderer] " << label << " shader compile failed: " << log << '\n';
+        m_delete_shader(shader);
+        return 0;
     }
 
     void print_program_log(unsigned int program) {
-        int length = 0;
-        m_get_program_iv(program, GlInfoLogLength, &length);
-        if (length <= 1) {
-            return;
-        }
-
-        std::string log(static_cast<std::size_t>(length), '\0');
-        int written = 0;
-        m_get_program_info_log(program, length, &written, log.data());
-        std::cerr << "[SeedRenderer] Program link failed: " << log << '\n';
+        int log_length = 0;
+        m_get_program_iv(program, GlInfoLogLength, &log_length);
+        std::string log(static_cast<std::size_t>(log_length > 0 ? log_length : 1), '\0');
+        int actual_length = 0;
+        m_get_program_info_log(program, static_cast<int>(log.size()), &actual_length, log.data());
+        std::cerr << "[SeedRenderer] shader program link failed: " << log << '\n';
     }
 
-    void destroy_mesh_resource(OpenGLMeshResource& resource) {
-        if (m_delete_buffers) {
-            if (resource.index_buffer != 0) {
-                m_delete_buffers(1, &resource.index_buffer);
-            }
-            if (resource.vertex_buffer != 0) {
-                m_delete_buffers(1, &resource.vertex_buffer);
-            }
+    void destroy_mesh_resource(const OpenGLMeshResource& resource) {
+        if (resource.index_buffer != 0 && m_delete_buffers) {
+            m_delete_buffers(1, &resource.index_buffer);
         }
-        if (m_delete_vertex_arrays && resource.vertex_array != 0) {
+        if (resource.vertex_buffer != 0 && m_delete_buffers) {
+            m_delete_buffers(1, &resource.vertex_buffer);
+        }
+        if (resource.vertex_array != 0 && m_delete_vertex_arrays) {
             m_delete_vertex_arrays(1, &resource.vertex_array);
         }
-        resource = {};
     }
 
-    void reset_functions() {
+    void clear_function_pointers() {
         m_clear_color = nullptr;
         m_clear = nullptr;
         m_viewport = nullptr;
+        m_enable = nullptr;
         m_gen_vertex_arrays = nullptr;
         m_bind_vertex_array = nullptr;
         m_delete_vertex_arrays = nullptr;
@@ -439,20 +457,22 @@ private:
         m_get_program_info_log = nullptr;
         m_delete_program = nullptr;
         m_use_program = nullptr;
+        m_get_uniform_location = nullptr;
+        m_uniform_matrix4fv = nullptr;
         m_draw_elements = nullptr;
     }
 
     GLFWwindow* m_window{nullptr};
     RendererConfig m_config{};
-
-    std::uint32_t m_next_shader_id{1};
-    std::uint32_t m_next_mesh_id{1};
     std::unordered_map<std::uint32_t, OpenGLShaderResource> m_shaders;
     std::unordered_map<std::uint32_t, OpenGLMeshResource> m_meshes;
+    std::uint32_t m_next_shader_id{1};
+    std::uint32_t m_next_mesh_id{1};
 
     GlClearColorFn m_clear_color{nullptr};
     GlClearFn m_clear{nullptr};
     GlViewportFn m_viewport{nullptr};
+    GlEnableFn m_enable{nullptr};
     GlGenVertexArraysFn m_gen_vertex_arrays{nullptr};
     GlBindVertexArrayFn m_bind_vertex_array{nullptr};
     GlDeleteVertexArraysFn m_delete_vertex_arrays{nullptr};
@@ -475,6 +495,8 @@ private:
     GlGetProgramInfoLogFn m_get_program_info_log{nullptr};
     GlDeleteProgramFn m_delete_program{nullptr};
     GlUseProgramFn m_use_program{nullptr};
+    GlGetUniformLocationFn m_get_uniform_location{nullptr};
+    GlUniformMatrix4fvFn m_uniform_matrix4fv{nullptr};
     GlDrawElementsFn m_draw_elements{nullptr};
 };
 
