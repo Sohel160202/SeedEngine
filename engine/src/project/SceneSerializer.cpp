@@ -136,6 +136,17 @@ bool SceneSerializer::save(
                 };
             }
 
+            if (const auto* player = scene.get_component<PlayerControllerComponent>(entity)) {
+                components["PlayerController"] = {
+                    {"move_speed", player->move_speed},
+                    {"fast_multiplier", player->fast_multiplier},
+                    {"look_sensitivity", player->look_sensitivity},
+                    {"interaction_distance", player->interaction_distance},
+                    {"interaction_radius", player->interaction_radius},
+                    {"enabled", player->enabled},
+                };
+            }
+
             entities.push_back({
                 {"id", scene.entity_persistent_id(entity)},
                 {"name", name},
@@ -273,6 +284,18 @@ bool SceneSerializer::load(
                 pickup.quantity = std::max(1, value.value("quantity", 1));
                 pickup.destroy_on_pickup = value.value("destroy_on_pickup", true);
                 loaded_scene.add_component<PickupComponent>(entity, std::move(pickup));
+            }
+
+            if (components.contains("PlayerController")) {
+                const auto& value = components.at("PlayerController");
+                PlayerControllerComponent player;
+                player.move_speed = value.value("move_speed", 4.0f);
+                player.fast_multiplier = value.value("fast_multiplier", 2.5f);
+                player.look_sensitivity = value.value("look_sensitivity", 0.12f);
+                player.interaction_distance = value.value("interaction_distance", 4.0f);
+                player.interaction_radius = value.value("interaction_radius", 1.25f);
+                player.enabled = value.value("enabled", true);
+                loaded_scene.add_component<PlayerControllerComponent>(entity, player);
             }
         }
 
