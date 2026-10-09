@@ -51,17 +51,21 @@ constexpr std::string_view SeedMeshVertexShader = R"GLSL(
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aColor;
 layout(location = 2) in vec2 aTexcoord;
+layout(location = 3) in vec3 aNormal;
 
 uniform mat4 uModel;
 uniform mat4 uViewProjection;
 
 out vec3 vColor;
 out vec2 vTexcoord;
+out vec3 vWorldNormal;
 
 void main() {
     gl_Position = uViewProjection * uModel * vec4(aPosition, 1.0);
     vColor = aColor;
     vTexcoord = aTexcoord;
+    mat3 normalMatrix = transpose(inverse(mat3(uModel)));
+    vWorldNormal = normalize(normalMatrix * aNormal);
 }
 )GLSL";
 
@@ -69,18 +73,32 @@ constexpr std::string_view SeedMeshFragmentShader = R"GLSL(
 #version 330 core
 in vec3 vColor;
 in vec2 vTexcoord;
+in vec3 vWorldNormal;
 out vec4 FragColor;
 
 uniform vec4 uBaseColor;
 uniform sampler2D uBaseTexture;
 uniform int uUseTexture;
+uniform vec3 uDirectionalDirection;
+uniform vec3 uDirectionalColor;
+uniform float uDirectionalIntensity;
+uniform vec3 uAmbientColor;
+uniform float uAmbientIntensity;
 
 void main() {
     vec4 surface = vec4(vColor, 1.0) * uBaseColor;
     if (uUseTexture != 0) {
         surface *= texture(uBaseTexture, vTexcoord);
     }
-    FragColor = surface;
+
+    vec3 normal = normalize(vWorldNormal);
+    vec3 directionToLight = normalize(-uDirectionalDirection);
+    float lambert = max(dot(normal, directionToLight), 0.0);
+    vec3 ambient = uAmbientColor * uAmbientIntensity;
+    vec3 directional = uDirectionalColor * (uDirectionalIntensity * lambert);
+    vec3 lighting = max(ambient + directional, vec3(0.0));
+
+    FragColor = vec4(surface.rgb * lighting, surface.a);
 }
 )GLSL";
 
@@ -176,6 +194,16 @@ seed::EntityId create_editor_camera(seed::Scene& scene) {
     camera.editor_only = true;
     scene.add_component<seed::CameraComponent>(camera_entity, camera);
     return camera_entity;
+}
+
+void create_default_lighting(seed::Scene& scene) {
+    const auto sun = scene.create_entity("Sun");
+    auto& transform = scene.add_component<seed::TransformComponent>(sun);
+    transform.rotation_degrees = {-48.0f, 32.0f, 0.0f};
+    scene.add_component<seed::DirectionalLightComponent>(sun);
+
+    const auto ambient = scene.create_entity("Ambient Light");
+    scene.add_component<seed::AmbientLightComponent>(ambient);
 }
 
 seed::EntityId find_editor_camera(seed::Scene& scene) {
@@ -358,6 +386,12 @@ seed::EntityId duplicate_entity(seed::Scene& scene, seed::EntityId source) {
         camera.primary = false;
         camera.editor_only = false;
         scene.add_component<seed::CameraComponent>(copy, camera);
+    }
+    if (const auto* value = scene.get_component<seed::DirectionalLightComponent>(source)) {
+        scene.add_component<seed::DirectionalLightComponent>(copy, *value);
+    }
+    if (const auto* value = scene.get_component<seed::AmbientLightComponent>(source)) {
+        scene.add_component<seed::AmbientLightComponent>(copy, *value);
     }
     if (const auto* value = scene.get_component<seed::MeshComponent>(source)) {
         scene.add_component<seed::MeshComponent>(copy, *value);
@@ -728,24 +762,45 @@ int main(int argc, char** argv) {
         .fragment_source = SeedMeshFragmentShader,
     });
 
-    constexpr std::array<seed::VertexPositionColor, 8> cube_vertices{{
-        {.position = {-0.75f, -0.75f, -0.75f}, .color = {0.20f, 0.95f, 0.46f}},
-        {.position = { 0.75f, -0.75f, -0.75f}, .color = {0.18f, 0.58f, 1.00f}},
-        {.position = { 0.75f,  0.75f, -0.75f}, .color = {1.00f, 0.78f, 0.18f}},
-        {.position = {-0.75f,  0.75f, -0.75f}, .color = {0.72f, 0.35f, 1.00f}},
-        {.position = {-0.75f, -0.75f,  0.75f}, .color = {0.10f, 0.80f, 0.72f}},
-        {.position = { 0.75f, -0.75f,  0.75f}, .color = {1.00f, 0.35f, 0.28f}},
-        {.position = { 0.75f,  0.75f,  0.75f}, .color = {0.95f, 0.90f, 0.28f}},
-        {.position = {-0.75f,  0.75f,  0.75f}, .color = {0.28f, 0.72f, 1.00f}},
+    constexpr std::array<seed::VertexPositionColor, 24> cube_vertices{{
+        {.position = {-0.75f, -0.75f, -0.75f}, .color = {0.20f, 0.95f, 0.46f}, .normal = {0.0f, 0.0f, -1.0f}},
+        {.position = { 0.75f, -0.75f, -0.75f}, .color = {0.18f, 0.58f, 1.00f}, .normal = {0.0f, 0.0f, -1.0f}},
+        {.position = { 0.75f,  0.75f, -0.75f}, .color = {1.00f, 0.78f, 0.18f}, .normal = {0.0f, 0.0f, -1.0f}},
+        {.position = {-0.75f,  0.75f, -0.75f}, .color = {0.72f, 0.35f, 1.00f}, .normal = {0.0f, 0.0f, -1.0f}},
+
+        {.position = {-0.75f, -0.75f,  0.75f}, .color = {0.10f, 0.80f, 0.72f}, .normal = {0.0f, 0.0f, 1.0f}},
+        {.position = { 0.75f, -0.75f,  0.75f}, .color = {1.00f, 0.35f, 0.28f}, .normal = {0.0f, 0.0f, 1.0f}},
+        {.position = { 0.75f,  0.75f,  0.75f}, .color = {0.95f, 0.90f, 0.28f}, .normal = {0.0f, 0.0f, 1.0f}},
+        {.position = {-0.75f,  0.75f,  0.75f}, .color = {0.28f, 0.72f, 1.00f}, .normal = {0.0f, 0.0f, 1.0f}},
+
+        {.position = {-0.75f, -0.75f, -0.75f}, .color = {0.20f, 0.95f, 0.46f}, .normal = {0.0f, -1.0f, 0.0f}},
+        {.position = {-0.75f, -0.75f,  0.75f}, .color = {0.10f, 0.80f, 0.72f}, .normal = {0.0f, -1.0f, 0.0f}},
+        {.position = { 0.75f, -0.75f,  0.75f}, .color = {1.00f, 0.35f, 0.28f}, .normal = {0.0f, -1.0f, 0.0f}},
+        {.position = { 0.75f, -0.75f, -0.75f}, .color = {0.18f, 0.58f, 1.00f}, .normal = {0.0f, -1.0f, 0.0f}},
+
+        {.position = {-0.75f,  0.75f, -0.75f}, .color = {0.72f, 0.35f, 1.00f}, .normal = {0.0f, 1.0f, 0.0f}},
+        {.position = { 0.75f,  0.75f, -0.75f}, .color = {1.00f, 0.78f, 0.18f}, .normal = {0.0f, 1.0f, 0.0f}},
+        {.position = { 0.75f,  0.75f,  0.75f}, .color = {0.95f, 0.90f, 0.28f}, .normal = {0.0f, 1.0f, 0.0f}},
+        {.position = {-0.75f,  0.75f,  0.75f}, .color = {0.28f, 0.72f, 1.00f}, .normal = {0.0f, 1.0f, 0.0f}},
+
+        {.position = {0.75f, -0.75f, -0.75f}, .color = {0.18f, 0.58f, 1.00f}, .normal = {1.0f, 0.0f, 0.0f}},
+        {.position = {0.75f, -0.75f,  0.75f}, .color = {1.00f, 0.35f, 0.28f}, .normal = {1.0f, 0.0f, 0.0f}},
+        {.position = {0.75f,  0.75f,  0.75f}, .color = {0.95f, 0.90f, 0.28f}, .normal = {1.0f, 0.0f, 0.0f}},
+        {.position = {0.75f,  0.75f, -0.75f}, .color = {1.00f, 0.78f, 0.18f}, .normal = {1.0f, 0.0f, 0.0f}},
+
+        {.position = {-0.75f, -0.75f, -0.75f}, .color = {0.20f, 0.95f, 0.46f}, .normal = {-1.0f, 0.0f, 0.0f}},
+        {.position = {-0.75f,  0.75f, -0.75f}, .color = {0.72f, 0.35f, 1.00f}, .normal = {-1.0f, 0.0f, 0.0f}},
+        {.position = {-0.75f,  0.75f,  0.75f}, .color = {0.28f, 0.72f, 1.00f}, .normal = {-1.0f, 0.0f, 0.0f}},
+        {.position = {-0.75f, -0.75f,  0.75f}, .color = {0.10f, 0.80f, 0.72f}, .normal = {-1.0f, 0.0f, 0.0f}},
     }};
 
     constexpr std::array<std::uint32_t, 36> cube_indices{{
         0, 1, 2, 2, 3, 0,
         4, 6, 5, 6, 4, 7,
-        0, 4, 5, 5, 1, 0,
-        3, 2, 6, 6, 7, 3,
-        1, 5, 6, 6, 2, 1,
-        0, 3, 7, 7, 4, 0,
+        8, 9, 10, 10, 11, 8,
+        12, 13, 14, 14, 15, 12,
+        16, 17, 18, 18, 19, 16,
+        20, 21, 22, 22, 23, 20,
     }};
 
     const auto cube_mesh = renderer->create_mesh({
@@ -766,6 +821,7 @@ int main(int argc, char** argv) {
     auto& scene = engine.scene();
     seed::EntityId editor_camera = create_editor_camera(scene);
     const auto cube_entity = create_cube(scene, cube_mesh, mesh_shader);
+    create_default_lighting(scene);
 
     WorkspaceState workspace;
 
@@ -833,6 +889,7 @@ int main(int argc, char** argv) {
     std::cout << "[SeedStudio] Project system active: .seedproject + .seedscene.\n";
     std::cout << "[SeedStudio] Gameplay authoring active. F5 enters Play Mode.\n";
     std::cout << "[SeedStudio] Static glTF/GLB asset import active.\n";
+    std::cout << "[SeedStudio] Directional + ambient lighting active.\n";
 
     while (engine.tick()) {
         studio_ui.begin_frame();
@@ -966,6 +1023,7 @@ int main(int argc, char** argv) {
                 scene.clear();
                 editor_camera = create_editor_camera(scene);
                 const auto cube = create_cube(scene, cube_mesh, mesh_shader);
+                create_default_lighting(scene);
                 studio_ui.select_entity(cube);
                 workspace = {};
                 if (save_workspace_as(workspace, scene, action.path, action.project_name)) {
@@ -1003,9 +1061,10 @@ int main(int argc, char** argv) {
             case seed::studio::StudioActionType::NewScene:
                 scene.clear();
                 editor_camera = create_editor_camera(scene);
+                create_default_lighting(scene);
                 studio_ui.select_entity(seed::InvalidEntity);
                 workspace.dirty = true;
-                workspace.status_message = "New empty scene. Save to persist it.";
+                workspace.status_message = "New empty scene with default Seed lighting. Save to persist it.";
                 clear_movement_input(camera_input);
                 camera_input.looking = false;
                 break;
@@ -1035,6 +1094,24 @@ int main(int argc, char** argv) {
                 studio_ui.select_entity(entity);
                 workspace.dirty = true;
                 workspace.status_message = "Created Cube.";
+                break;
+            }
+            case seed::studio::StudioActionType::CreateDirectionalLight: {
+                const auto entity = scene.create_entity("Directional Light");
+                auto& transform = scene.add_component<seed::TransformComponent>(entity);
+                transform.rotation_degrees = {-45.0f, 30.0f, 0.0f};
+                scene.add_component<seed::DirectionalLightComponent>(entity);
+                studio_ui.select_entity(entity);
+                workspace.dirty = true;
+                workspace.status_message = "Created Directional Light. Rotate it to change the light direction.";
+                break;
+            }
+            case seed::studio::StudioActionType::CreateAmbientLight: {
+                const auto entity = scene.create_entity("Ambient Light");
+                scene.add_component<seed::AmbientLightComponent>(entity);
+                studio_ui.select_entity(entity);
+                workspace.dirty = true;
+                workspace.status_message = "Created Ambient Light.";
                 break;
             }
             case seed::studio::StudioActionType::CreateFirstPersonPlayer: {
