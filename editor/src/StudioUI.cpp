@@ -299,6 +299,15 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
             queue_action({.type = StudioActionType::CreateCube});
         }
         ImGui::Separator();
+        if (ImGui::BeginMenu("Light")) {
+            if (ImGui::MenuItem("Directional Light")) {
+                queue_action({.type = StudioActionType::CreateDirectionalLight});
+            }
+            if (ImGui::MenuItem("Ambient Light")) {
+                queue_action({.type = StudioActionType::CreateAmbientLight});
+            }
+            ImGui::EndMenu();
+        }
         if (ImGui::BeginMenu("Player")) {
             if (ImGui::MenuItem("First Person")) {
                 queue_action({.type = StudioActionType::CreateFirstPersonPlayer});
@@ -431,7 +440,7 @@ void StudioUI::draw_project_dialogs() {
             ImGui::Separator();
             ImGui::SetNextItemWidth(430.0f);
             ImGui::InputText("Model File", m_import_model_file_buffer.data(), m_import_model_file_buffer.size());
-            ImGui::TextDisabled("Seed import v0: .glb / .gltf, first triangle primitive, base-color texture.");
+            ImGui::TextDisabled("Seed import v0: .glb / .gltf, first triangle primitive, base-color texture + normals.");
             ImGui::TextDisabled("The source and relative .gltf dependencies are copied into Assets/Imported/.");
             ImGui::Spacing();
 
@@ -543,6 +552,28 @@ void StudioUI::draw_inspector(Scene& scene, const StudioDocumentInfo& document) 
                 if (changed && !camera->editor_only) {
                     m_scene_edited = true;
                 }
+            }
+        }
+
+        if (auto* light = scene.get_component<DirectionalLightComponent>(m_selected_entity)) {
+            if (ImGui::CollapsingHeader("Directional Light", ImGuiTreeNodeFlags_DefaultOpen)) {
+                bool changed = false;
+                ImGui::TextDisabled("Transform Rotation controls light direction.");
+                changed |= ImGui::Checkbox("Enabled##Directional", &light->enabled);
+                changed |= ImGui::ColorEdit3("Color##Directional", &light->color.x);
+                changed |= ImGui::DragFloat("Intensity##Directional", &light->intensity, 0.02f, 0.0f, 20.0f, "%.2f");
+                m_scene_edited |= changed;
+            }
+        }
+
+        if (auto* light = scene.get_component<AmbientLightComponent>(m_selected_entity)) {
+            if (ImGui::CollapsingHeader("Ambient Light", ImGuiTreeNodeFlags_DefaultOpen)) {
+                bool changed = false;
+                changed |= ImGui::Checkbox("Enabled##Ambient", &light->enabled);
+                changed |= ImGui::ColorEdit3("Color##Ambient", &light->color.x);
+                changed |= ImGui::DragFloat("Intensity##Ambient", &light->intensity, 0.01f, 0.0f, 5.0f, "%.2f");
+                ImGui::TextDisabled("Ambient light fills surfaces not facing the main light.");
+                m_scene_edited |= changed;
             }
         }
 
