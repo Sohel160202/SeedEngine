@@ -1,4 +1,5 @@
 #include "seed/gameplay/Components.h"
+#include "seed/physics/PhysicsComponents.h"
 #include "seed/project/SceneSerializer.h"
 #include "seed/render/RenderComponents.h"
 #include "seed/scene/Scene.h"
@@ -28,6 +29,11 @@ int main() {
 
     scene.add_component<seed::TransformComponent>(door_entity);
     scene.add_component<seed::InteractableComponent>(door_entity, "Unlock Vault", true);
+
+    seed::BoxColliderComponent door_collider;
+    door_collider.half_extents = {0.6f, 1.1f, 0.12f};
+    door_collider.offset = {0.1f, 0.0f, 0.0f};
+    scene.add_component<seed::BoxColliderComponent>(door_entity, door_collider);
 
     seed::DoorComponent door;
     door.motion = seed::DoorMotion::Slide;
@@ -75,6 +81,15 @@ int main() {
     player_controller.enabled = true;
     scene.add_component<seed::PlayerControllerComponent>(player_entity, player_controller);
 
+    seed::CharacterBodyComponent character_body;
+    character_body.radius = 0.4f;
+    character_body.height = 1.9f;
+    character_body.eye_height = 1.7f;
+    character_body.gravity = 20.0f;
+    character_body.jump_speed = 7.0f;
+    character_body.max_fall_speed = 35.0f;
+    scene.add_component<seed::CharacterBodyComponent>(player_entity, character_body);
+
     seed::InventoryComponent player_inventory;
     player_inventory.items["StarterCoin"] = 3;
     scene.add_component<seed::InventoryComponent>(player_entity, player_inventory);
@@ -105,6 +120,7 @@ int main() {
     const auto* loaded_interactable = loaded.get_component<seed::InteractableComponent>(loaded_door_entity);
     const auto* loaded_door = loaded.get_component<seed::DoorComponent>(loaded_door_entity);
     const auto* loaded_health = loaded.get_component<seed::HealthComponent>(loaded_door_entity);
+    const auto* loaded_door_collider = loaded.get_component<seed::BoxColliderComponent>(loaded_door_entity);
 
     assert(loaded_interactable != nullptr);
     assert(loaded_interactable->prompt == "Unlock Vault");
@@ -117,6 +133,14 @@ int main() {
     assert(loaded_door->required_item == "VaultKey");
     assert(loaded_door->consume_required_item);
     assert(!loaded_door->starts_open);
+
+    assert(loaded_door_collider != nullptr);
+    assert(nearly_equal(loaded_door_collider->half_extents.x, 0.6f));
+    assert(nearly_equal(loaded_door_collider->half_extents.y, 1.1f));
+    assert(nearly_equal(loaded_door_collider->half_extents.z, 0.12f));
+    assert(nearly_equal(loaded_door_collider->offset.x, 0.1f));
+    assert(loaded_door_collider->enabled);
+    assert(loaded_door_collider->solid);
 
     assert(loaded_health != nullptr);
     assert(nearly_equal(loaded_health->maximum, 250.0f));
@@ -138,6 +162,7 @@ int main() {
     const auto* loaded_player_controller = loaded.get_component<seed::PlayerControllerComponent>(loaded_player_entity);
     const auto* loaded_player_inventory = loaded.get_component<seed::InventoryComponent>(loaded_player_entity);
     const auto* loaded_player_transform = loaded.get_component<seed::TransformComponent>(loaded_player_entity);
+    const auto* loaded_character_body = loaded.get_component<seed::CharacterBodyComponent>(loaded_player_entity);
 
     assert(loaded_player_camera != nullptr);
     assert(loaded_player_camera->primary);
@@ -152,6 +177,15 @@ int main() {
     assert(nearly_equal(loaded_player_controller->interaction_distance, 5.0f));
     assert(nearly_equal(loaded_player_controller->interaction_radius, 1.5f));
     assert(loaded_player_controller->enabled);
+
+    assert(loaded_character_body != nullptr);
+    assert(nearly_equal(loaded_character_body->radius, 0.4f));
+    assert(nearly_equal(loaded_character_body->height, 1.9f));
+    assert(nearly_equal(loaded_character_body->eye_height, 1.7f));
+    assert(nearly_equal(loaded_character_body->gravity, 20.0f));
+    assert(nearly_equal(loaded_character_body->jump_speed, 7.0f));
+    assert(nearly_equal(loaded_character_body->max_fall_speed, 35.0f));
+    assert(loaded_character_body->enabled);
 
     assert(loaded_player_inventory != nullptr);
     assert(loaded_player_inventory->items.at("StarterCoin") == 3);
