@@ -59,6 +59,13 @@ struct SceneLighting {
     Vec3 ambient_color{1.0f, 1.0f, 1.0f};
     float ambient_intensity{0.18f};
 
+    // Seed Environment Lighting v0 is driven by the active Sky. The renderer
+    // consumes these Seed-owned values rather than knowing about SkyComponent.
+    Vec3 environment_zenith_color{0.08f, 0.20f, 0.42f};
+    Vec3 environment_horizon_color{0.62f, 0.76f, 0.92f};
+    float environment_intensity{0.0f};
+    bool environment_enabled{false};
+
     Vec3 camera_position{};
     Mat4 light_view_projection{Mat4::identity()};
     bool shadows_enabled{false};
