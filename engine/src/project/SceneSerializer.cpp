@@ -126,6 +126,15 @@ bool SceneSerializer::save(
                 };
             }
 
+            if (const auto* pickup = scene.get_component<PickupComponent>(entity)) {
+                components["Pickup"] = {
+                    {"item_id", pickup->item_id},
+                    {"display_name", pickup->display_name},
+                    {"quantity", pickup->quantity},
+                    {"destroy_on_pickup", pickup->destroy_on_pickup},
+                };
+            }
+
             entities.push_back({
                 {"id", scene.entity_persistent_id(entity)},
                 {"name", name},
@@ -253,6 +262,16 @@ bool SceneSerializer::load(
                     inventory.items = value.at("items").get<std::unordered_map<std::string, int>>();
                 }
                 loaded_scene.add_component<InventoryComponent>(entity, std::move(inventory));
+            }
+
+            if (components.contains("Pickup")) {
+                const auto& value = components.at("Pickup");
+                PickupComponent pickup;
+                pickup.item_id = value.value("item_id", std::string{"Item"});
+                pickup.display_name = value.value("display_name", pickup.item_id);
+                pickup.quantity = std::max(1, value.value("quantity", 1));
+                pickup.destroy_on_pickup = value.value("destroy_on_pickup", true);
+                loaded_scene.add_component<PickupComponent>(entity, std::move(pickup));
             }
         }
 
