@@ -59,12 +59,12 @@ if(NOT imgui_POPULATED)
 endif()
 
 # ImGuizmo is an editor-only manipulation helper. Seed owns selection,
-# hierarchy, transforms, snapping, undo/redo and scene persistence.
+# hierarchy, transforms, snapping, undo/redo and scene persistence. Pin the
+# known compatible source layout rather than following a moving branch.
 FetchContent_Declare(
     imguizmo
     GIT_REPOSITORY https://github.com/CedricGuillemet/ImGuizmo.git
-    GIT_TAG master
-    GIT_SHALLOW TRUE
+    GIT_TAG 18cef5e031d8c6973d80284c67f60549fafd78c1
 )
 FetchContent_GetProperties(imguizmo)
 if(NOT imguizmo_POPULATED)
