@@ -1,9 +1,7 @@
 #include "seed/core/Engine.h"
 #include "seed/gameplay/Components.h"
 
-#include <chrono>
 #include <iostream>
-#include <thread>
 
 int main() {
     seed::Engine engine({
@@ -12,6 +10,9 @@ int main() {
         .window_height = 720,
         .window_resizable = true,
         .create_window = true,
+        .renderer_backend = seed::RendererBackend::OpenGL,
+        .vsync = true,
+        .clear_color = {.r = 0.035f, .g = 0.055f, .b = 0.040f, .a = 1.0f},
     });
 
     if (!engine.start()) {
@@ -37,7 +38,7 @@ int main() {
     );
 
     std::cout << "[SeedRuntime] Scene booted with " << scene.entity_count() << " entities.\n";
-    std::cout << "[SeedRuntime] Native Seed window active. Press Escape to close.\n";
+    std::cout << "[SeedRuntime] Seed renderer active. Press Escape to close.\n";
 
     while (engine.tick()) {
         for (const auto& event : engine.frame_events()) {
@@ -48,8 +49,9 @@ int main() {
             }
         }
 
-        // Temporary Phase 1 pacing until the renderer owns presentation timing.
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        engine.begin_frame();
+        // Future game-world rendering is submitted here.
+        engine.end_frame();
     }
 
     engine.shutdown();
