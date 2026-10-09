@@ -42,6 +42,13 @@ struct VertexPositionColor {
 struct MaterialSurface {
     float metallic{0.0f};
     float roughness{0.65f};
+    float normal_scale{1.0f};
+};
+
+struct MaterialTextures {
+    TextureHandle base_color{};
+    TextureHandle metallic_roughness{};
+    TextureHandle normal{};
 };
 
 struct SceneLighting {
