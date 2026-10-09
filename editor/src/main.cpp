@@ -80,8 +80,13 @@ out vec4 FragColor;
 uniform vec4 uBaseColor;
 uniform sampler2D uBaseTexture;
 uniform int uUseTexture;
+uniform sampler2D uMetallicRoughnessTexture;
+uniform int uUseMetallicRoughnessTexture;
+uniform sampler2D uNormalTexture;
+uniform int uUseNormalTexture;
 uniform float uMetallic;
 uniform float uRoughness;
+uniform float uNormalScale;
 uniform vec3 uCameraPosition;
 uniform vec3 uDirectionalDirection;
 uniform vec3 uDirectionalColor;
@@ -118,6 +123,27 @@ vec3 fresnelSchlick(float cosTheta, vec3 f0) {
     return f0 + (1.0 - f0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
+vec3 materialNormal() {
+    vec3 N = normalize(vWorldNormal);
+    if (uUseNormalTexture == 0) return N;
+
+    vec3 tangentNormal = texture(uNormalTexture, vTexcoord).xyz * 2.0 - 1.0;
+    tangentNormal.xy *= max(uNormalScale, 0.0);
+    tangentNormal = normalize(tangentNormal);
+
+    vec3 positionDx = dFdx(vWorldPosition);
+    vec3 positionDy = dFdy(vWorldPosition);
+    vec2 uvDx = dFdx(vTexcoord);
+    vec2 uvDy = dFdy(vTexcoord);
+    float determinant = uvDx.x * uvDy.y - uvDx.y * uvDy.x;
+    if (abs(determinant) < 0.0000001) return N;
+
+    vec3 T = normalize(positionDx * uvDy.y - positionDy * uvDx.y);
+    T = normalize(T - N * dot(N, T));
+    vec3 B = normalize(cross(N, T)) * (determinant < 0.0 ? -1.0 : 1.0);
+    return normalize(mat3(T, B, N) * tangentNormal);
+}
+
 float shadowVisibility(vec3 normal, vec3 directionToLight) {
     if (uShadowsEnabled == 0 || uReceiveShadows == 0) return 1.0;
     vec3 projected = vShadowPosition.xyz / max(vShadowPosition.w, 0.00001);
@@ -148,7 +174,13 @@ void main() {
 
     float metallic = clamp(uMetallic, 0.0, 1.0);
     float roughness = clamp(uRoughness, 0.04, 1.0);
-    vec3 N = normalize(vWorldNormal);
+    if (uUseMetallicRoughnessTexture != 0) {
+        vec4 metallicRoughness = texture(uMetallicRoughnessTexture, vTexcoord);
+        roughness = clamp(roughness * metallicRoughness.g, 0.04, 1.0);
+        metallic = clamp(metallic * metallicRoughness.b, 0.0, 1.0);
+    }
+
+    vec3 N = materialNormal();
     vec3 V = normalize(uCameraPosition - vWorldPosition);
     vec3 L = normalize(-uDirectionalDirection);
     vec3 H = normalize(V + L);
@@ -339,10 +371,14 @@ void bind_builtin_resources(seed::Scene& scene, seed::MeshHandle cube_mesh, seed
         if (material.asset_id == "builtin:seed_default") {
             material.shader = default_shader;
             material.base_color_texture = {};
+            material.metallic_roughness_texture = {};
+            material.normal_texture = {};
             material.use_asset_defaults = false;
         } else if (!seed::AssetRuntime::is_model_asset_id(material.asset_id)) {
             material.shader = {};
             material.base_color_texture = {};
+            material.metallic_roughness_texture = {};
+            material.normal_texture = {};
         }
     });
 }
@@ -518,14 +554,20 @@ seed::EntityId import_model_into_project(WorkspaceState& workspace, seed::Scene&
     seed::MaterialComponent material;
     material.shader = material_shader;
     material.base_color_texture = resource->base_color_texture;
+    material.metallic_roughness_texture = resource->metallic_roughness_texture;
+    material.normal_texture = resource->normal_texture;
     material.base_color = resource->base_color;
     material.metallic = resource->metallic;
     material.roughness = resource->roughness;
+    material.normal_scale = resource->normal_scale;
+    material.use_base_color_texture = static_cast<bool>(resource->base_color_texture);
+    material.use_metallic_roughness_texture = static_cast<bool>(resource->metallic_roughness_texture);
+    material.use_normal_texture = static_cast<bool>(resource->normal_texture);
     material.asset_id = asset_id;
     material.use_asset_defaults = false;
     scene.add_component<seed::MaterialComponent>(entity, material);
     workspace.dirty = true;
-    workspace.status_message = "Imported 3D model: " + asset_id;
+    workspace.status_message = "Imported PBR model: " + asset_id;
     return entity;
 }
 
@@ -619,7 +661,7 @@ int main(int argc, char** argv) {
         workspace.status_message = authored ? "Play Mode started with the authored First-Person Player." : "Play Mode started with a temporary Player. Create > Player > First Person to author one.";
     };
 
-    std::cout << "[SeedStudio] PBR materials + sky + directional shadows active.\n";
+    std::cout << "[SeedStudio] PBR materials + texture maps + sky + directional shadows active.\n";
 
     while (engine.tick()) {
         studio_ui.begin_frame();
