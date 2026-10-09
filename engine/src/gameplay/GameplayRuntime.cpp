@@ -1,6 +1,7 @@
 #include "seed/gameplay/GameplayRuntime.h"
 
 #include "seed/gameplay/Components.h"
+#include "seed/physics/PhysicsComponents.h"
 #include "seed/scene/Scene.h"
 
 #include <algorithm>
@@ -66,6 +67,10 @@ bool GameplayRuntime::start(Scene& scene, EntityId player_entity) {
     m_active = true;
     m_status_message = "Play Mode running.";
 
+    if (scene.has_component<CharacterBodyComponent>(player_entity)) {
+        PhysicsSystem::initialize_character(scene, player_entity, m_character_state);
+    }
+
     scene.for_each<TransformComponent, DoorComponent>(
         [&](EntityId entity, TransformComponent& transform, DoorComponent& door) {
             DoorRuntimeState state;
@@ -96,8 +101,10 @@ void GameplayRuntime::stop() {
     m_looking = false;
     m_has_mouse_position = false;
     m_interact_requested = false;
+    m_jump_requested = false;
     m_pending_look_x = 0.0f;
     m_pending_look_y = 0.0f;
+    m_character_state = {};
     m_doors.clear();
     m_interaction_prompt.clear();
     m_status_message.clear();
@@ -124,6 +131,9 @@ void GameplayRuntime::handle_event(const PlatformEvent& event) {
 
         if (event.key == KeyCode::E && event.button_state == ButtonState::Pressed) {
             m_interact_requested = true;
+        }
+        if (event.key == KeyCode::Space && event.button_state == ButtonState::Pressed) {
+            m_jump_requested = true;
         }
     }
 
@@ -153,6 +163,7 @@ void GameplayRuntime::handle_event(const PlatformEvent& event) {
         m_fast = false;
         m_looking = false;
         m_has_mouse_position = false;
+        m_jump_requested = false;
     }
 }
 
@@ -176,6 +187,7 @@ void GameplayRuntime::update_player(Scene& scene, double delta_seconds) {
     auto* transform = scene.get_component<TransformComponent>(m_player_entity);
     auto* controller = scene.get_component<PlayerControllerComponent>(m_player_entity);
     if (transform == nullptr || controller == nullptr || !controller->enabled) {
+        m_jump_requested = false;
         return;
     }
 
@@ -187,6 +199,39 @@ void GameplayRuntime::update_player(Scene& scene, double delta_seconds) {
 
     const float speed = controller->move_speed * (m_fast ? controller->fast_multiplier : 1.0f);
     const float distance = speed * static_cast<float>(delta_seconds);
+
+    auto* character_body = scene.get_component<CharacterBodyComponent>(m_player_entity);
+    if (character_body != nullptr && character_body->enabled) {
+        // Physics characters walk along the ground plane. Looking up/down affects
+        // the camera and interaction ray, but never turns W into flying movement.
+        const Vec3 yaw_rotation{0.0f, transform->rotation_degrees.y, 0.0f};
+        const Vec3 forward = forward_from_euler(yaw_rotation);
+        const Vec3 right = right_from_euler(yaw_rotation);
+
+        Vec3 wish{};
+        if (m_forward) wish += forward;
+        if (m_backward) wish += forward * -1.0f;
+        if (m_right) wish += right;
+        if (m_left) wish += right * -1.0f;
+        wish.y = 0.0f;
+
+        if (length(wish) > 1.0f) {
+            wish = normalize(wish);
+        }
+
+        PhysicsSystem::move_character(
+            scene,
+            m_player_entity,
+            wish * distance,
+            m_jump_requested,
+            delta_seconds,
+            m_character_state
+        );
+        m_jump_requested = false;
+        return;
+    }
+
+    // Compatibility path for scenes created before Character Body existed.
     const Vec3 forward = forward_from_euler(transform->rotation_degrees);
     const Vec3 right = right_from_euler(transform->rotation_degrees);
     const Vec3 world_up{0.0f, 1.0f, 0.0f};
@@ -197,6 +242,7 @@ void GameplayRuntime::update_player(Scene& scene, double delta_seconds) {
     if (m_left) transform->position += right * -distance;
     if (m_up) transform->position += world_up * distance;
     if (m_down) transform->position += world_up * -distance;
+    m_jump_requested = false;
 }
 
 void GameplayRuntime::refresh_interaction_target(Scene& scene) {
