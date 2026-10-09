@@ -23,6 +23,8 @@ enum class StudioActionType {
     ImportModel,
     CreateEmptyEntity,
     CreateCube,
+    CreateDirectionalLight,
+    CreateAmbientLight,
     CreateFirstPersonPlayer,
     DuplicateSelected,
     DeleteSelected,
