@@ -1,5 +1,7 @@
 #include "StudioUI.h"
 
+#include "seed/assets/AssetImporter.h"
+#include "seed/assets/AssetRuntime.h"
 #include "seed/core/Engine.h"
 #include "seed/gameplay/Components.h"
 #include "seed/gameplay/GameplayRuntime.h"
@@ -16,6 +18,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
+#include <set>
 #include <span>
 #include <string>
 #include <string_view>
@@ -47,25 +50,37 @@ constexpr std::string_view SeedMeshVertexShader = R"GLSL(
 #version 330 core
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aColor;
+layout(location = 2) in vec2 aTexcoord;
 
 uniform mat4 uModel;
 uniform mat4 uViewProjection;
 
 out vec3 vColor;
+out vec2 vTexcoord;
 
 void main() {
     gl_Position = uViewProjection * uModel * vec4(aPosition, 1.0);
     vColor = aColor;
+    vTexcoord = aTexcoord;
 }
 )GLSL";
 
 constexpr std::string_view SeedMeshFragmentShader = R"GLSL(
 #version 330 core
 in vec3 vColor;
+in vec2 vTexcoord;
 out vec4 FragColor;
 
+uniform vec4 uBaseColor;
+uniform sampler2D uBaseTexture;
+uniform int uUseTexture;
+
 void main() {
-    FragColor = vec4(vColor, 1.0);
+    vec4 surface = vec4(vColor, 1.0) * uBaseColor;
+    if (uUseTexture != 0) {
+        surface *= texture(uBaseTexture, vTexcoord);
+    }
+    FragColor = surface;
 }
 )GLSL";
 
@@ -284,15 +299,24 @@ void bind_builtin_resources(
 ) {
     scene.for_each<seed::MeshComponent>(
         [&](seed::EntityId, seed::MeshComponent& mesh) {
-            mesh.mesh = mesh.asset_id == "builtin:cube" ? cube_mesh : seed::MeshHandle{};
+            if (mesh.asset_id == "builtin:cube") {
+                mesh.mesh = cube_mesh;
+            } else if (!seed::AssetRuntime::is_model_asset_id(mesh.asset_id)) {
+                mesh.mesh = {};
+            }
         }
     );
 
     scene.for_each<seed::MaterialComponent>(
         [&](seed::EntityId, seed::MaterialComponent& material) {
-            material.shader = material.asset_id == "builtin:seed_default"
-                ? default_shader
-                : seed::ShaderHandle{};
+            if (material.asset_id == "builtin:seed_default") {
+                material.shader = default_shader;
+                material.base_color_texture = {};
+                material.base_color = {1.0f, 1.0f, 1.0f, 1.0f};
+            } else if (!seed::AssetRuntime::is_model_asset_id(material.asset_id)) {
+                material.shader = {};
+                material.base_color_texture = {};
+            }
         }
     );
 }
@@ -391,6 +415,38 @@ bool save_workspace(WorkspaceState& workspace, const seed::Scene& scene) {
     return true;
 }
 
+bool copy_project_assets_for_save_as(
+    const std::filesystem::path& old_root,
+    const std::filesystem::path& new_root,
+    std::string* error
+) {
+    if (old_root.empty() || old_root == new_root) {
+        return true;
+    }
+
+    const auto old_assets = old_root / "Assets";
+    if (!std::filesystem::exists(old_assets)) {
+        return true;
+    }
+
+    try {
+        const auto new_assets = new_root / "Assets";
+        std::filesystem::create_directories(new_assets);
+        std::filesystem::copy(
+            old_assets,
+            new_assets,
+            std::filesystem::copy_options::recursive |
+                std::filesystem::copy_options::overwrite_existing
+        );
+        return true;
+    } catch (const std::exception& exception) {
+        if (error != nullptr) {
+            *error = exception.what();
+        }
+        return false;
+    }
+}
+
 bool save_workspace_as(
     WorkspaceState& workspace,
     const seed::Scene& scene,
@@ -398,9 +454,18 @@ bool save_workspace_as(
     const std::string& project_name
 ) {
     try {
+        const std::filesystem::path old_root = workspace.project_file.empty()
+            ? std::filesystem::path{}
+            : workspace.project_file.parent_path();
         const std::filesystem::path root = folder_text.empty()
             ? std::filesystem::current_path()
             : std::filesystem::path{folder_text};
+
+        std::string copy_error;
+        if (!copy_project_assets_for_save_as(old_root, root, &copy_error)) {
+            workspace.status_message = "Save As could not copy Assets/: " + copy_error;
+            return false;
+        }
 
         workspace.project = {};
         workspace.project.name = project_name.empty() ? "Untitled Seed Project" : project_name;
@@ -420,6 +485,7 @@ bool open_workspace(
     const std::string& project_file_text,
     seed::MeshHandle cube_mesh,
     seed::ShaderHandle default_shader,
+    seed::AssetRuntime& assets,
     seed::EntityId& editor_camera
 ) {
     const std::filesystem::path project_file{project_file_text};
@@ -437,7 +503,10 @@ bool open_workspace(
         return false;
     }
 
+    assets.set_project_root(project_file.parent_path());
     bind_builtin_resources(loaded_scene, cube_mesh, default_shader);
+    std::string asset_error;
+    const bool assets_bound = assets.bind_scene(loaded_scene, default_shader, &asset_error);
     editor_camera = ensure_editor_camera(loaded_scene);
     scene = std::move(loaded_scene);
 
@@ -445,12 +514,146 @@ bool open_workspace(
     workspace.project_file = project_file;
     workspace.scene_file = scene_file;
     workspace.dirty = false;
-    workspace.status_message = "Opened: " + project_file.string();
+    workspace.status_message = assets_bound
+        ? "Opened: " + project_file.string()
+        : "Opened with asset warning: " + asset_error;
     return true;
+}
+
+bool safe_dependency_path(const std::filesystem::path& path) {
+    if (path.empty() || path.is_absolute()) {
+        return false;
+    }
+    for (const auto& part : path) {
+        if (part == "..") {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool copy_file_if_needed(
+    const std::filesystem::path& source,
+    const std::filesystem::path& destination,
+    std::string* error
+) {
+    try {
+        if (!std::filesystem::exists(source)) {
+            if (error != nullptr) {
+                *error = "Missing source dependency: " + source.string();
+            }
+            return false;
+        }
+
+        std::filesystem::create_directories(destination.parent_path());
+        std::error_code equivalent_error;
+        if (std::filesystem::exists(destination) &&
+            std::filesystem::equivalent(source, destination, equivalent_error) &&
+            !equivalent_error) {
+            return true;
+        }
+
+        std::filesystem::copy_file(
+            source,
+            destination,
+            std::filesystem::copy_options::overwrite_existing
+        );
+        return true;
+    } catch (const std::exception& exception) {
+        if (error != nullptr) {
+            *error = exception.what();
+        }
+        return false;
+    }
+}
+
+seed::EntityId import_model_into_project(
+    WorkspaceState& workspace,
+    seed::Scene& scene,
+    seed::AssetRuntime& assets,
+    seed::ShaderHandle material_shader,
+    const std::string& source_text
+) {
+    if (workspace.project_file.empty()) {
+        workspace.status_message = "Save the Seed project before importing assets.";
+        return seed::InvalidEntity;
+    }
+
+    const std::filesystem::path source_file{source_text};
+    std::string import_error;
+    const auto imported = seed::AssetImporter::import_static_model(source_file, &import_error);
+    if (!imported.has_value()) {
+        workspace.status_message = "Import failed: " + import_error;
+        return seed::InvalidEntity;
+    }
+
+    const std::filesystem::path project_root = workspace.project_file.parent_path();
+    const std::string folder_name = project_file_stem(source_file.stem().string());
+    const std::filesystem::path destination_directory =
+        project_root / "Assets" / "Imported" / folder_name;
+    const std::filesystem::path destination_source = destination_directory / source_file.filename();
+
+    std::string copy_error;
+    if (!copy_file_if_needed(source_file, destination_source, &copy_error)) {
+        workspace.status_message = "Import copy failed: " + copy_error;
+        return seed::InvalidEntity;
+    }
+
+    for (const auto& dependency : imported->external_files) {
+        if (!safe_dependency_path(dependency)) {
+            workspace.status_message = "Import rejected unsafe glTF dependency path: " + dependency.string();
+            return seed::InvalidEntity;
+        }
+        if (!copy_file_if_needed(
+                source_file.parent_path() / dependency,
+                destination_directory / dependency,
+                &copy_error)) {
+            workspace.status_message = "Import dependency copy failed: " + copy_error;
+            return seed::InvalidEntity;
+        }
+    }
+
+    std::filesystem::path relative_source;
+    try {
+        relative_source = std::filesystem::relative(destination_source, project_root);
+    } catch (const std::exception& exception) {
+        workspace.status_message = std::string{"Import path failed: "} + exception.what();
+        return seed::InvalidEntity;
+    }
+
+    assets.set_project_root(project_root);
+    const std::string asset_id = seed::AssetRuntime::make_model_asset_id(relative_source);
+    std::string asset_error;
+    const auto resource = assets.load_model(asset_id, &asset_error);
+    if (!resource.has_value()) {
+        workspace.status_message = "Imported source but could not create runtime asset: " + asset_error;
+        return seed::InvalidEntity;
+    }
+
+    const auto entity = scene.create_entity(imported->name.empty() ? source_file.stem().string() : imported->name);
+    scene.add_component<seed::TransformComponent>(entity);
+
+    seed::MeshComponent mesh;
+    mesh.mesh = resource->mesh;
+    mesh.visible = true;
+    mesh.asset_id = asset_id;
+    scene.add_component<seed::MeshComponent>(entity, mesh);
+
+    seed::MaterialComponent material;
+    material.shader = material_shader;
+    material.base_color_texture = resource->base_color_texture;
+    material.base_color = resource->base_color;
+    material.asset_id = asset_id;
+    scene.add_component<seed::MaterialComponent>(entity, material);
+
+    workspace.dirty = true;
+    workspace.status_message = "Imported 3D model: " + asset_id;
+    return entity;
 }
 
 seed::studio::StudioDocumentInfo document_info(
     const WorkspaceState& workspace,
+    const seed::Scene& editor_scene,
     bool playing,
     const seed::GameplayRuntime& gameplay,
     const seed::Scene* play_scene,
@@ -465,6 +668,17 @@ seed::studio::StudioDocumentInfo document_info(
     info.dirty = workspace.dirty;
     info.has_project = !workspace.project_file.empty();
     info.playing = playing;
+
+    std::set<std::string> imported_assets;
+    editor_scene.for_each<seed::MeshComponent>(
+        [&](seed::EntityId, const seed::MeshComponent& mesh) {
+            if (seed::AssetRuntime::is_model_asset_id(mesh.asset_id)) {
+                imported_assets.insert(mesh.asset_id);
+            }
+        }
+    );
+    info.project_assets.assign(imported_assets.begin(), imported_assets.end());
+
     if (playing) {
         info.gameplay_prompt = gameplay.interaction_prompt();
         info.gameplay_status = gameplay.status_message();
@@ -547,6 +761,8 @@ int main(int argc, char** argv) {
         return 3;
     }
 
+    seed::AssetRuntime asset_runtime(*renderer);
+
     auto& scene = engine.scene();
     seed::EntityId editor_camera = create_editor_camera(scene);
     const auto cube_entity = create_cube(scene, cube_mesh, mesh_shader);
@@ -616,6 +832,7 @@ int main(int argc, char** argv) {
     std::cout << "[SeedStudio] Native editor window active.\n";
     std::cout << "[SeedStudio] Project system active: .seedproject + .seedscene.\n";
     std::cout << "[SeedStudio] Gameplay authoring active. F5 enters Play Mode.\n";
+    std::cout << "[SeedStudio] Static glTF/GLB asset import active.\n";
 
     while (engine.tick()) {
         studio_ui.begin_frame();
@@ -720,7 +937,7 @@ int main(int argc, char** argv) {
         seed::Scene& ui_scene = playing ? play_scene : scene;
         studio_ui.draw(
             ui_scene,
-            document_info(workspace, playing, gameplay, playing ? &play_scene : nullptr, play_player)
+            document_info(workspace, scene, playing, gameplay, playing ? &play_scene : nullptr, play_player)
         );
         if (!playing && studio_ui.consume_scene_edited()) {
             workspace.dirty = true;
@@ -733,7 +950,7 @@ int main(int argc, char** argv) {
         if (playing && action.type != seed::studio::StudioActionType::Stop &&
             action.type != seed::studio::StudioActionType::Play &&
             action.type != seed::studio::StudioActionType::None) {
-            // File/Create/Edit actions are intentionally ignored during Play Mode.
+            // File/Create/Edit/Import actions are intentionally ignored during Play Mode.
         } else {
             switch (action.type) {
             case seed::studio::StudioActionType::Play:
@@ -745,16 +962,26 @@ int main(int argc, char** argv) {
                 stop_play_mode();
                 break;
             case seed::studio::StudioActionType::NewProject: {
+                asset_runtime.clear();
                 scene.clear();
                 editor_camera = create_editor_camera(scene);
                 const auto cube = create_cube(scene, cube_mesh, mesh_shader);
                 studio_ui.select_entity(cube);
                 workspace = {};
-                save_workspace_as(workspace, scene, action.path, action.project_name);
+                if (save_workspace_as(workspace, scene, action.path, action.project_name)) {
+                    asset_runtime.set_project_root(workspace.project_file.parent_path());
+                }
                 break;
             }
             case seed::studio::StudioActionType::OpenProject:
-                if (open_workspace(workspace, scene, action.path, cube_mesh, mesh_shader, editor_camera)) {
+                if (open_workspace(
+                        workspace,
+                        scene,
+                        action.path,
+                        cube_mesh,
+                        mesh_shader,
+                        asset_runtime,
+                        editor_camera)) {
                     studio_ui.select_entity(first_content_entity(scene));
                     clear_movement_input(camera_input);
                     camera_input.looking = false;
@@ -764,7 +991,14 @@ int main(int argc, char** argv) {
                 save_workspace(workspace, scene);
                 break;
             case seed::studio::StudioActionType::SaveAs:
-                save_workspace_as(workspace, scene, action.path, action.project_name);
+                if (save_workspace_as(workspace, scene, action.path, action.project_name)) {
+                    asset_runtime.set_project_root(workspace.project_file.parent_path());
+                    bind_builtin_resources(scene, cube_mesh, mesh_shader);
+                    std::string asset_error;
+                    if (!asset_runtime.bind_scene(scene, mesh_shader, &asset_error)) {
+                        workspace.status_message = "Saved, but asset rebind failed: " + asset_error;
+                    }
+                }
                 break;
             case seed::studio::StudioActionType::NewScene:
                 scene.clear();
@@ -775,6 +1009,19 @@ int main(int argc, char** argv) {
                 clear_movement_input(camera_input);
                 camera_input.looking = false;
                 break;
+            case seed::studio::StudioActionType::ImportModel: {
+                const auto entity = import_model_into_project(
+                    workspace,
+                    scene,
+                    asset_runtime,
+                    mesh_shader,
+                    action.path
+                );
+                if (entity != seed::InvalidEntity) {
+                    studio_ui.select_entity(entity);
+                }
+                break;
+            }
             case seed::studio::StudioActionType::CreateEmptyEntity: {
                 const auto entity = scene.create_entity("New Entity");
                 scene.add_component<seed::TransformComponent>(entity);
@@ -841,6 +1088,7 @@ int main(int argc, char** argv) {
 
     gameplay.stop();
     studio_ui.shutdown();
+    asset_runtime.clear();
     renderer->destroy_mesh(cube_mesh);
     renderer->destroy_shader(mesh_shader);
 
