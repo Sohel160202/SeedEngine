@@ -154,37 +154,45 @@ void StudioUI::draw(Scene& scene, const StudioDocumentInfo& document) {
     }
 
     draw_main_menu(document);
-    draw_project_dialogs();
+    if (!document.playing) {
+        draw_project_dialogs();
+    }
     draw_world_panel(scene);
-    draw_inspector(scene);
+    draw_inspector(scene, document);
     draw_assets_panel(document);
-    draw_viewport_frame();
+    draw_viewport_frame(document);
 
     const ImGuiIO& io = ImGui::GetIO();
     if (!io.WantTextInput) {
-        if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
-            copy_text(m_project_name_buffer, document.project_name == "Untitled" ? "My Seed Game" : document.project_name);
-            m_show_save_as_dialog = true;
-        } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
-            if (document.has_project) {
-                queue_action({.type = StudioActionType::Save});
-            } else {
-                copy_text(m_project_name_buffer, document.project_name == "Untitled" ? "My Seed Game" : document.project_name);
-                m_show_save_as_dialog = true;
-            }
+        if (ImGui::IsKeyPressed(ImGuiKey_F5, false)) {
+            queue_action({.type = document.playing ? StudioActionType::Stop : StudioActionType::Play});
         }
 
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) {
-            m_show_open_project_dialog = true;
-        }
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) {
-            queue_action({.type = StudioActionType::NewScene});
-        }
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D, false) && m_selected_entity != InvalidEntity) {
-            queue_action({.type = StudioActionType::DuplicateSelected});
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) && m_selected_entity != InvalidEntity) {
-            queue_action({.type = StudioActionType::DeleteSelected});
+        if (!document.playing) {
+            if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
+                copy_text(m_project_name_buffer, document.project_name == "Untitled" ? "My Seed Game" : document.project_name);
+                m_show_save_as_dialog = true;
+            } else if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
+                if (document.has_project) {
+                    queue_action({.type = StudioActionType::Save});
+                } else {
+                    copy_text(m_project_name_buffer, document.project_name == "Untitled" ? "My Seed Game" : document.project_name);
+                    m_show_save_as_dialog = true;
+                }
+            }
+
+            if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O, false)) {
+                m_show_open_project_dialog = true;
+            }
+            if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_N, false)) {
+                queue_action({.type = StudioActionType::NewScene});
+            }
+            if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D, false) && m_selected_entity != InvalidEntity) {
+                queue_action({.type = StudioActionType::DuplicateSelected});
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_Delete, false) && m_selected_entity != InvalidEntity) {
+                queue_action({.type = StudioActionType::DeleteSelected});
+            }
         }
     }
 }
@@ -236,7 +244,7 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
     ImGui::TextUnformatted("SEED STUDIO");
     ImGui::Separator();
 
-    if (ImGui::BeginMenu("File")) {
+    if (ImGui::BeginMenu("File", !document.playing)) {
         if (ImGui::MenuItem("New Project...")) {
             copy_text(m_project_name_buffer, "My Seed Game");
             m_show_new_project_dialog = true;
@@ -263,7 +271,7 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         ImGui::EndMenu();
     }
 
-    if (ImGui::BeginMenu("Edit")) {
+    if (ImGui::BeginMenu("Edit", !document.playing)) {
         ImGui::MenuItem("Undo", "Ctrl+Z", false, false);
         ImGui::MenuItem("Redo", "Ctrl+Y", false, false);
         ImGui::Separator();
@@ -276,7 +284,7 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         ImGui::EndMenu();
     }
 
-    if (ImGui::BeginMenu("Create")) {
+    if (ImGui::BeginMenu("Create", !document.playing)) {
         if (ImGui::MenuItem("Empty Entity")) {
             queue_action({.type = StudioActionType::CreateEmptyEntity});
         }
@@ -287,7 +295,14 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
     }
 
     if (ImGui::BeginMenu("Build")) {
-        ImGui::MenuItem("Play", "F5", false, false);
+        if (document.playing) {
+            if (ImGui::MenuItem("Stop", "F5")) {
+                queue_action({.type = StudioActionType::Stop});
+            }
+        } else if (ImGui::MenuItem("Play", "F5")) {
+            queue_action({.type = StudioActionType::Play});
+        }
+        ImGui::Separator();
         ImGui::MenuItem("Build Game...", nullptr, false, false);
         ImGui::EndMenu();
     }
@@ -296,10 +311,17 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
     if (document.dirty) {
         document_label += " *";
     }
+    if (document.playing) {
+        document_label += "   [PLAY]";
+    }
 
     const float label_width = ImGui::CalcTextSize(document_label.c_str()).x;
     ImGui::SameLine(std::max(450.0f, ImGui::GetWindowWidth() - label_width - 18.0f));
-    ImGui::TextDisabled("%s", document_label.c_str());
+    if (document.playing) {
+        ImGui::Text("%s", document_label.c_str());
+    } else {
+        ImGui::TextDisabled("%s", document_label.c_str());
+    }
     ImGui::EndMainMenuBar();
 }
 
@@ -425,7 +447,7 @@ void StudioUI::draw_world_panel(Scene& scene) {
     ImGui::End();
 }
 
-void StudioUI::draw_inspector(Scene& scene) {
+void StudioUI::draw_inspector(Scene& scene, const StudioDocumentInfo& document) {
     const ImGuiIO& io = ImGui::GetIO();
     const float menu_height = ImGui::GetFrameHeight();
     const float panel_height = std::max(120.0f, io.DisplaySize.y - menu_height - BottomPanelHeight);
@@ -444,10 +466,15 @@ void StudioUI::draw_inspector(Scene& scene) {
         ImGui::TextDisabled("Runtime Entity #%llu", static_cast<unsigned long long>(m_selected_entity));
         const auto& persistent_id = scene.entity_persistent_id(m_selected_entity);
         ImGui::TextDisabled("Persistent %.8s...", persistent_id.c_str());
+        if (document.playing) {
+            ImGui::TextDisabled("Play Mode — Inspector is read-only. Runtime changes are discarded on Stop.");
+        }
         ImGui::Separator();
 
         const auto* selected_camera = scene.get_component<CameraComponent>(m_selected_entity);
         const bool editor_only = selected_camera != nullptr && selected_camera->editor_only;
+
+        ImGui::BeginDisabled(document.playing);
 
         if (auto* transform = scene.get_component<TransformComponent>(m_selected_entity)) {
             if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -512,6 +539,8 @@ void StudioUI::draw_inspector(Scene& scene) {
             ImGui::Spacing();
             ImGui::TextDisabled("Editor-only entities cannot receive gameplay components.");
         }
+
+        ImGui::EndDisabled();
     }
     ImGui::End();
 }
@@ -523,26 +552,38 @@ void StudioUI::draw_assets_panel(const StudioDocumentInfo& document) {
     ImGui::SetNextWindowSize({io.DisplaySize.x, BottomPanelHeight}, ImGuiCond_Always);
 
     if (ImGui::Begin("Assets", nullptr, fixed_panel_flags())) {
-        ImGui::TextDisabled("PROJECT ASSETS");
+        ImGui::TextDisabled(document.playing ? "PLAY MODE" : "PROJECT ASSETS");
         ImGui::Separator();
         ImGui::Spacing();
-        ImGui::TextUnformatted("Seed Cube Mesh");
-        ImGui::SameLine(180.0f);
-        ImGui::TextDisabled("builtin:cube");
-        ImGui::TextUnformatted("Default Seed Material");
-        ImGui::SameLine(180.0f);
-        ImGui::TextDisabled("builtin:seed_default");
-        ImGui::Spacing();
-        if (!document.status_message.empty()) {
-            ImGui::TextWrapped("%s", document.status_message.c_str());
-        } else if (!document.has_project) {
-            ImGui::TextDisabled("Unsaved project — File > Save As... to create .seedproject and .seedscene files.");
+
+        if (document.playing) {
+            ImGui::TextUnformatted("Runtime scene is a temporary clone. Stop returns to the editor world unchanged.");
+            if (!document.gameplay_status.empty()) {
+                ImGui::TextWrapped("%s", document.gameplay_status.c_str());
+            }
+            if (!document.gameplay_prompt.empty()) {
+                ImGui::Text("Interaction: %s", document.gameplay_prompt.c_str());
+            }
+            ImGui::TextDisabled("F5 Stop   RMB Look   WASD Move   Space/Q Up/Down   Shift Fast   E Interact");
+        } else {
+            ImGui::TextUnformatted("Seed Cube Mesh");
+            ImGui::SameLine(180.0f);
+            ImGui::TextDisabled("builtin:cube");
+            ImGui::TextUnformatted("Default Seed Material");
+            ImGui::SameLine(180.0f);
+            ImGui::TextDisabled("builtin:seed_default");
+            ImGui::Spacing();
+            if (!document.status_message.empty()) {
+                ImGui::TextWrapped("%s", document.status_message.c_str());
+            } else if (!document.has_project) {
+                ImGui::TextDisabled("Unsaved project — File > Save As... to create .seedproject and .seedscene files.");
+            }
         }
     }
     ImGui::End();
 }
 
-void StudioUI::draw_viewport_frame() {
+void StudioUI::draw_viewport_frame(const StudioDocumentInfo& document) {
     const ImGuiIO& io = ImGui::GetIO();
     const float menu_height = ImGui::GetFrameHeight();
     const ImVec2 min{LeftPanelWidth, menu_height};
@@ -552,20 +593,50 @@ void StudioUI::draw_viewport_frame() {
     };
 
     ImDrawList* draw_list = ImGui::GetForegroundDrawList();
-    draw_list->AddRect(min, max, IM_COL32(44, 72, 55, 255), 0.0f, 0, 1.0f);
+    const ImU32 border_color = document.playing
+        ? IM_COL32(70, 190, 105, 255)
+        : IM_COL32(44, 72, 55, 255);
+    draw_list->AddRect(min, max, border_color, 0.0f, 0, document.playing ? 2.0f : 1.0f);
 
+    const char* badge_text = document.playing ? "PLAY MODE" : "3D VIEWPORT";
+    const float badge_width = document.playing ? 100.0f : 112.0f;
     const ImVec2 badge_min{min.x + 12.0f, min.y + 12.0f};
-    const ImVec2 badge_max{badge_min.x + 112.0f, badge_min.y + 25.0f};
-    draw_list->AddRectFilled(badge_min, badge_max, IM_COL32(9, 18, 13, 220), 4.0f);
-    draw_list->AddText({badge_min.x + 9.0f, badge_min.y + 5.0f}, IM_COL32(180, 220, 194, 255), "3D VIEWPORT");
+    const ImVec2 badge_max{badge_min.x + badge_width, badge_min.y + 25.0f};
+    draw_list->AddRectFilled(badge_min, badge_max, IM_COL32(9, 18, 13, 230), 4.0f);
+    draw_list->AddText(
+        {badge_min.x + 9.0f, badge_min.y + 5.0f},
+        document.playing ? IM_COL32(115, 245, 145, 255) : IM_COL32(180, 220, 194, 255),
+        badge_text
+    );
 
-    const char* controls = "RMB Look   WASD Move   Q/E Up/Down   Shift Fast   Wheel Speed";
+    const char* controls = document.playing
+        ? "RMB Look   WASD Move   Space/Q Up/Down   Shift Fast   E Interact   F5 Stop"
+        : "RMB Look   WASD Move   Q/E Up/Down   Shift Fast   Wheel Speed";
     const ImVec2 text_size = ImGui::CalcTextSize(controls);
     const ImVec2 controls_pos{
         min.x + (max.x - min.x - text_size.x) * 0.5f,
         max.y - text_size.y - 10.0f
     };
     draw_list->AddText(controls_pos, IM_COL32(160, 188, 170, 220), controls);
+
+    if (document.playing && !document.gameplay_prompt.empty()) {
+        const ImVec2 prompt_size = ImGui::CalcTextSize(document.gameplay_prompt.c_str());
+        const ImVec2 prompt_padding{14.0f, 8.0f};
+        const ImVec2 prompt_min{
+            min.x + (max.x - min.x - prompt_size.x) * 0.5f - prompt_padding.x,
+            max.y - 72.0f - prompt_size.y - prompt_padding.y
+        };
+        const ImVec2 prompt_max{
+            prompt_min.x + prompt_size.x + prompt_padding.x * 2.0f,
+            prompt_min.y + prompt_size.y + prompt_padding.y * 2.0f
+        };
+        draw_list->AddRectFilled(prompt_min, prompt_max, IM_COL32(4, 9, 6, 220), 5.0f);
+        draw_list->AddText(
+            {prompt_min.x + prompt_padding.x, prompt_min.y + prompt_padding.y},
+            IM_COL32(230, 245, 234, 255),
+            document.gameplay_prompt.c_str()
+        );
+    }
 }
 
 } // namespace seed::studio
