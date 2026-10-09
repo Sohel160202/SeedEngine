@@ -25,13 +25,19 @@ nlohmann::json vec3_to_json(const Vec3& value) {
 }
 
 Vec3 vec3_from_json(const nlohmann::json& value, Vec3 fallback = {}) {
-    if (!value.is_array() || value.size() != 3) {
-        return fallback;
-    }
+    if (!value.is_array() || value.size() != 3) return fallback;
+    return {value.at(0).get<float>(), value.at(1).get<float>(), value.at(2).get<float>()};
+}
+
+nlohmann::json vec4_to_json(const Vec4& value) {
+    return nlohmann::json::array({value.x, value.y, value.z, value.w});
+}
+
+Vec4 vec4_from_json(const nlohmann::json& value, Vec4 fallback = {1.0f, 1.0f, 1.0f, 1.0f}) {
+    if (!value.is_array() || value.size() != 4) return fallback;
     return {
-        value.at(0).get<float>(),
-        value.at(1).get<float>(),
-        value.at(2).get<float>(),
+        value.at(0).get<float>(), value.at(1).get<float>(),
+        value.at(2).get<float>(), value.at(3).get<float>()
     };
 }
 
@@ -88,6 +94,8 @@ bool SceneSerializer::save(
                     {"color", vec3_to_json(light->color)},
                     {"intensity", light->intensity},
                     {"enabled", light->enabled},
+                    {"casts_shadows", light->casts_shadows},
+                    {"shadow_distance", light->shadow_distance},
                 };
             }
 
@@ -99,16 +107,30 @@ bool SceneSerializer::save(
                 };
             }
 
+            if (const auto* sky = scene.get_component<SkyComponent>(entity)) {
+                components["Sky"] = {
+                    {"zenith_color", vec3_to_json(sky->zenith_color)},
+                    {"horizon_color", vec3_to_json(sky->horizon_color)},
+                    {"intensity", sky->intensity},
+                    {"enabled", sky->enabled},
+                };
+            }
+
             if (const auto* mesh = scene.get_component<MeshComponent>(entity)) {
                 components["Mesh"] = {
                     {"asset", mesh->asset_id},
                     {"visible", mesh->visible},
+                    {"cast_shadows", mesh->cast_shadows},
+                    {"receive_shadows", mesh->receive_shadows},
                 };
             }
 
             if (const auto* material = scene.get_component<MaterialComponent>(entity)) {
                 components["Material"] = {
                     {"asset", material->asset_id},
+                    {"base_color", vec4_to_json(material->base_color)},
+                    {"metallic", material->metallic},
+                    {"roughness", material->roughness},
                 };
             }
 
@@ -160,9 +182,7 @@ bool SceneSerializer::save(
             }
 
             if (const auto* inventory = scene.get_component<InventoryComponent>(entity)) {
-                components["Inventory"] = {
-                    {"items", inventory->items},
-                };
+                components["Inventory"] = {{"items", inventory->items}};
             }
 
             if (const auto* pickup = scene.get_component<PickupComponent>(entity)) {
@@ -203,7 +223,6 @@ bool SceneSerializer::save(
             set_error(error, "Could not open scene file for writing: " + scene_file.string());
             return false;
         }
-
         output << document.dump(2) << '\n';
         return static_cast<bool>(output);
     } catch (const std::exception& exception) {
@@ -226,14 +245,12 @@ bool SceneSerializer::load(
 
         nlohmann::json document;
         input >> document;
-
         if (document.value("seed_format", std::string{}) != "seedscene") {
             set_error(error, "File is not a Seed scene: " + scene_file.string());
             return false;
         }
 
         Scene loaded_scene;
-
         for (const auto& entity_json : document.value("entities", nlohmann::json::array())) {
             const std::string name = entity_json.value("name", std::string{"Entity"});
             const std::string persistent_id = entity_json.value("id", std::string{});
@@ -267,6 +284,8 @@ bool SceneSerializer::load(
                 light.color = vec3_from_json(value.value("color", nlohmann::json::array()), {1.0f, 0.96f, 0.88f});
                 light.intensity = value.value("intensity", 1.0f);
                 light.enabled = value.value("enabled", true);
+                light.casts_shadows = value.value("casts_shadows", true);
+                light.shadow_distance = value.value("shadow_distance", 35.0f);
                 loaded_scene.add_component<DirectionalLightComponent>(entity, light);
             }
 
@@ -279,11 +298,23 @@ bool SceneSerializer::load(
                 loaded_scene.add_component<AmbientLightComponent>(entity, light);
             }
 
+            if (components.contains("Sky")) {
+                const auto& value = components.at("Sky");
+                SkyComponent sky;
+                sky.zenith_color = vec3_from_json(value.value("zenith_color", nlohmann::json::array()), {0.08f, 0.20f, 0.42f});
+                sky.horizon_color = vec3_from_json(value.value("horizon_color", nlohmann::json::array()), {0.62f, 0.76f, 0.92f});
+                sky.intensity = value.value("intensity", 1.0f);
+                sky.enabled = value.value("enabled", true);
+                loaded_scene.add_component<SkyComponent>(entity, sky);
+            }
+
             if (components.contains("Mesh")) {
                 const auto& value = components.at("Mesh");
                 MeshComponent mesh;
                 mesh.asset_id = value.value("asset", std::string{"builtin:cube"});
                 mesh.visible = value.value("visible", true);
+                mesh.cast_shadows = value.value("cast_shadows", true);
+                mesh.receive_shadows = value.value("receive_shadows", true);
                 loaded_scene.add_component<MeshComponent>(entity, mesh);
             }
 
@@ -291,6 +322,10 @@ bool SceneSerializer::load(
                 const auto& value = components.at("Material");
                 MaterialComponent material;
                 material.asset_id = value.value("asset", std::string{"builtin:seed_default"});
+                material.use_asset_defaults = !value.contains("base_color") && !value.contains("metallic") && !value.contains("roughness");
+                material.base_color = vec4_from_json(value.value("base_color", nlohmann::json::array()), {1.0f, 1.0f, 1.0f, 1.0f});
+                material.metallic = value.value("metallic", 0.0f);
+                material.roughness = value.value("roughness", 0.65f);
                 loaded_scene.add_component<MaterialComponent>(entity, material);
             }
 
@@ -349,9 +384,7 @@ bool SceneSerializer::load(
             if (components.contains("Inventory")) {
                 const auto& value = components.at("Inventory");
                 InventoryComponent inventory;
-                if (value.contains("items")) {
-                    inventory.items = value.at("items").get<std::unordered_map<std::string, int>>();
-                }
+                if (value.contains("items")) inventory.items = value.at("items").get<std::unordered_map<std::string, int>>();
                 loaded_scene.add_component<InventoryComponent>(entity, std::move(inventory));
             }
 
