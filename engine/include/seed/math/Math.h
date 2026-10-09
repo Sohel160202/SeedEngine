@@ -13,6 +13,10 @@ constexpr float radians(float degrees) noexcept {
     return degrees * (Pi / 180.0f);
 }
 
+constexpr float degrees(float radians_value) noexcept {
+    return radians_value * (180.0f / Pi);
+}
+
 struct Vec2 {
     float x{0.0f};
     float y{0.0f};
@@ -100,6 +104,15 @@ inline Mat4 operator*(const Mat4& a, const Mat4& b) noexcept {
     return result;
 }
 
+inline Vec4 operator*(const Mat4& matrix, const Vec4& value) noexcept {
+    return {
+        matrix.values[0] * value.x + matrix.values[4] * value.y + matrix.values[8] * value.z + matrix.values[12] * value.w,
+        matrix.values[1] * value.x + matrix.values[5] * value.y + matrix.values[9] * value.z + matrix.values[13] * value.w,
+        matrix.values[2] * value.x + matrix.values[6] * value.y + matrix.values[10] * value.z + matrix.values[14] * value.w,
+        matrix.values[3] * value.x + matrix.values[7] * value.y + matrix.values[11] * value.z + matrix.values[15] * value.w,
+    };
+}
+
 inline Mat4 translation_matrix(const Vec3& position) noexcept {
     Mat4 result = Mat4::identity();
     result.values[12] = position.x;
@@ -116,8 +129,8 @@ inline Mat4 scale_matrix(const Vec3& scale) noexcept {
     return result;
 }
 
-inline Mat4 rotation_x_matrix(float degrees) noexcept {
-    const float angle = radians(degrees);
+inline Mat4 rotation_x_matrix(float degrees_value) noexcept {
+    const float angle = radians(degrees_value);
     const float c = std::cos(angle);
     const float s = std::sin(angle);
     Mat4 result = Mat4::identity();
@@ -128,8 +141,8 @@ inline Mat4 rotation_x_matrix(float degrees) noexcept {
     return result;
 }
 
-inline Mat4 rotation_y_matrix(float degrees) noexcept {
-    const float angle = radians(degrees);
+inline Mat4 rotation_y_matrix(float degrees_value) noexcept {
+    const float angle = radians(degrees_value);
     const float c = std::cos(angle);
     const float s = std::sin(angle);
     Mat4 result = Mat4::identity();
@@ -140,8 +153,8 @@ inline Mat4 rotation_y_matrix(float degrees) noexcept {
     return result;
 }
 
-inline Mat4 rotation_z_matrix(float degrees) noexcept {
-    const float angle = radians(degrees);
+inline Mat4 rotation_z_matrix(float degrees_value) noexcept {
+    const float angle = radians(degrees_value);
     const float c = std::cos(angle);
     const float s = std::sin(angle);
     Mat4 result = Mat4::identity();
@@ -158,6 +171,84 @@ inline Mat4 transform_matrix(const Vec3& position, const Vec3& rotation_degrees,
         rotation_y_matrix(rotation_degrees.y) *
         rotation_x_matrix(rotation_degrees.x);
     return translation_matrix(position) * rotation * scale_matrix(scale);
+}
+
+inline bool inverse_matrix(const Mat4& matrix, Mat4& result) noexcept {
+    const float* m = matrix.values.data();
+    float inv[16];
+
+    inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] +
+             m[9] * m[7] * m[14] + m[13] * m[6] * m[11] - m[13] * m[7] * m[10];
+    inv[4] = -m[4] * m[10] * m[15] + m[4] * m[11] * m[14] + m[8] * m[6] * m[15] -
+             m[8] * m[7] * m[14] - m[12] * m[6] * m[11] + m[12] * m[7] * m[10];
+    inv[8] = m[4] * m[9] * m[15] - m[4] * m[11] * m[13] - m[8] * m[5] * m[15] +
+             m[8] * m[7] * m[13] + m[12] * m[5] * m[11] - m[12] * m[7] * m[9];
+    inv[12] = -m[4] * m[9] * m[14] + m[4] * m[10] * m[13] + m[8] * m[5] * m[14] -
+              m[8] * m[6] * m[13] - m[12] * m[5] * m[10] + m[12] * m[6] * m[9];
+    inv[1] = -m[1] * m[10] * m[15] + m[1] * m[11] * m[14] + m[9] * m[2] * m[15] -
+             m[9] * m[3] * m[14] - m[13] * m[2] * m[11] + m[13] * m[3] * m[10];
+    inv[5] = m[0] * m[10] * m[15] - m[0] * m[11] * m[14] - m[8] * m[2] * m[15] +
+             m[8] * m[3] * m[14] + m[12] * m[2] * m[11] - m[12] * m[3] * m[10];
+    inv[9] = -m[0] * m[9] * m[15] + m[0] * m[11] * m[13] + m[8] * m[1] * m[15] -
+             m[8] * m[3] * m[13] - m[12] * m[1] * m[11] + m[12] * m[3] * m[9];
+    inv[13] = m[0] * m[9] * m[14] - m[0] * m[10] * m[13] - m[8] * m[1] * m[14] +
+              m[8] * m[2] * m[13] + m[12] * m[1] * m[10] - m[12] * m[2] * m[9];
+    inv[2] = m[1] * m[6] * m[15] - m[1] * m[7] * m[14] - m[5] * m[2] * m[15] +
+             m[5] * m[3] * m[14] + m[13] * m[2] * m[7] - m[13] * m[3] * m[6];
+    inv[6] = -m[0] * m[6] * m[15] + m[0] * m[7] * m[14] + m[4] * m[2] * m[15] -
+             m[4] * m[3] * m[14] - m[12] * m[2] * m[7] + m[12] * m[3] * m[6];
+    inv[10] = m[0] * m[5] * m[15] - m[0] * m[7] * m[13] - m[4] * m[1] * m[15] +
+              m[4] * m[3] * m[13] + m[12] * m[1] * m[7] - m[12] * m[3] * m[5];
+    inv[14] = -m[0] * m[5] * m[14] + m[0] * m[6] * m[13] + m[4] * m[1] * m[14] -
+              m[4] * m[2] * m[13] - m[12] * m[1] * m[6] + m[12] * m[2] * m[5];
+    inv[3] = -m[1] * m[6] * m[11] + m[1] * m[7] * m[10] + m[5] * m[2] * m[11] -
+             m[5] * m[3] * m[10] - m[9] * m[2] * m[7] + m[9] * m[3] * m[6];
+    inv[7] = m[0] * m[6] * m[11] - m[0] * m[7] * m[10] - m[4] * m[2] * m[11] +
+             m[4] * m[3] * m[10] + m[8] * m[2] * m[7] - m[8] * m[3] * m[6];
+    inv[11] = -m[0] * m[5] * m[11] + m[0] * m[7] * m[9] + m[4] * m[1] * m[11] -
+              m[4] * m[3] * m[9] - m[8] * m[1] * m[7] + m[8] * m[3] * m[5];
+    inv[15] = m[0] * m[5] * m[10] - m[0] * m[6] * m[9] - m[4] * m[1] * m[10] +
+              m[4] * m[2] * m[9] + m[8] * m[1] * m[6] - m[8] * m[2] * m[5];
+
+    const float determinant = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
+    if (std::fabs(determinant) < 0.0000001f) return false;
+    const float reciprocal = 1.0f / determinant;
+    for (std::size_t index = 0; index < 16; ++index) result.values[index] = inv[index] * reciprocal;
+    return true;
+}
+
+inline bool decompose_transform_matrix(
+    const Mat4& matrix,
+    Vec3& position,
+    Vec3& rotation_degrees,
+    Vec3& scale
+) noexcept {
+    position = {matrix.values[12], matrix.values[13], matrix.values[14]};
+
+    const Vec3 column0{matrix.values[0], matrix.values[1], matrix.values[2]};
+    const Vec3 column1{matrix.values[4], matrix.values[5], matrix.values[6]};
+    const Vec3 column2{matrix.values[8], matrix.values[9], matrix.values[10]};
+    scale = {length(column0), length(column1), length(column2)};
+    if (scale.x < 0.000001f || scale.y < 0.000001f || scale.z < 0.000001f) return false;
+
+    const float m00 = matrix.values[0] / scale.x;
+    const float m10 = matrix.values[1] / scale.x;
+    const float m20 = matrix.values[2] / scale.x;
+    const float m21 = matrix.values[6] / scale.y;
+    const float m22 = matrix.values[10] / scale.z;
+
+    const float y = std::asin(std::clamp(-m20, -1.0f, 1.0f));
+    const float cy = std::cos(y);
+    float x = 0.0f;
+    float z = 0.0f;
+    if (std::fabs(cy) > 0.00001f) {
+        x = std::atan2(m21, m22);
+        z = std::atan2(m10, m00);
+    } else {
+        x = std::atan2(-matrix.values[9] / scale.z, matrix.values[5] / scale.y);
+    }
+    rotation_degrees = {degrees(x), degrees(y), degrees(z)};
+    return true;
 }
 
 inline Mat4 perspective_matrix(float fov_y_degrees, float aspect, float near_plane, float far_plane) noexcept {
