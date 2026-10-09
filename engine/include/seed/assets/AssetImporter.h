@@ -23,14 +23,15 @@ struct ImportedTextureData {
     }
 };
 
-// Seed's first imported static-model representation. The importer deliberately
-// stops at Seed-owned CPU data; renderer handles and TinyGLTF types never leak
-// through this interface.
+// Seed-owned CPU representation of an imported static model. TinyGLTF types
+// never cross this boundary.
 struct ImportedModelData {
     std::string name;
     std::vector<VertexPositionColor> vertices;
     std::vector<std::uint32_t> indices;
     Vec4 base_color{1.0f, 1.0f, 1.0f, 1.0f};
+    float metallic{0.0f};
+    float roughness{0.65f};
     std::optional<ImportedTextureData> base_color_texture;
 
     // Relative URI dependencies used by .gltf files. .glb normally has none.
@@ -42,9 +43,10 @@ class AssetImporter {
 public:
     static bool supports_static_model(const std::filesystem::path& source_file);
 
-    // Physics/rendering v0 intentionally imports the first triangle primitive
-    // from a glTF/GLB file. Multi-primitive models, skinning and full PBR arrive
-    // in later asset milestones without changing Seed's public scene model.
+    // Import v0 intentionally uses the first triangle primitive. It supports
+    // positions, UVs, vertex colors, normals (or generated normals), base color,
+    // and metallic/roughness factors. Multi-primitive assets, skinning and PBR
+    // texture maps can grow behind this Seed-owned interface later.
     static std::optional<ImportedModelData> import_static_model(
         const std::filesystem::path& source_file,
         std::string* error = nullptr
