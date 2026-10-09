@@ -27,7 +27,7 @@ void set_key_state(
     case KeyCode::A: left = down; break;
     case KeyCode::D: right = down; break;
     case KeyCode::Q: move_down = down; break;
-    case KeyCode::E: move_up = down; break;
+    case KeyCode::Space: move_up = down; break;
     case KeyCode::LeftShift:
     case KeyCode::RightShift: fast = down; break;
     default: break;
@@ -122,9 +122,6 @@ void GameplayRuntime::handle_event(const PlatformEvent& event) {
             m_fast
         );
 
-        // E is currently both fly-up and interact. A discrete press requests
-        // interaction, while holding E still permits vertical movement in this
-        // first no-collision controller.
         if (event.key == KeyCode::E && event.button_state == ButtonState::Pressed) {
             m_interact_requested = true;
         }
