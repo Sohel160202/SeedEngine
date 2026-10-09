@@ -1,5 +1,6 @@
 add_library(SeedStudioUI STATIC
     src/StudioUI.cpp
+    src/GameplayAuthoring.cpp
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
