@@ -19,6 +19,25 @@ void set_error(std::string* error, std::string message) {
     }
 }
 
+TextureHandle create_imported_texture(IRenderer& renderer, const std::optional<ImportedTextureData>& imported) {
+    if (!imported.has_value() || !imported->valid()) {
+        return {};
+    }
+    return renderer.create_texture({
+        .width = imported->width,
+        .height = imported->height,
+        .rgba8_pixels = imported->rgba8_pixels,
+    });
+}
+
+void destroy_resource(IRenderer& renderer, ModelAssetResource& resource) {
+    if (resource.base_color_texture) renderer.destroy_texture(resource.base_color_texture);
+    if (resource.metallic_roughness_texture) renderer.destroy_texture(resource.metallic_roughness_texture);
+    if (resource.normal_texture) renderer.destroy_texture(resource.normal_texture);
+    if (resource.mesh) renderer.destroy_mesh(resource.mesh);
+    resource = {};
+}
+
 } // namespace
 
 AssetRuntime::AssetRuntime(IRenderer& renderer)
@@ -101,18 +120,27 @@ std::optional<ModelAssetResource> AssetRuntime::load_model(
     resource.base_color = imported->base_color;
     resource.metallic = imported->metallic;
     resource.roughness = imported->roughness;
-    if (imported->base_color_texture.has_value() && imported->base_color_texture->valid()) {
-        const auto& texture = *imported->base_color_texture;
-        resource.base_color_texture = m_renderer->create_texture({
-            .width = texture.width,
-            .height = texture.height,
-            .rgba8_pixels = texture.rgba8_pixels,
-        });
-        if (!resource.base_color_texture) {
-            m_renderer->destroy_mesh(resource.mesh);
-            set_error(error, "Renderer could not create base-color texture for " + asset_id);
-            return std::nullopt;
-        }
+    resource.normal_scale = imported->normal_scale;
+
+    resource.base_color_texture = create_imported_texture(*m_renderer, imported->base_color_texture);
+    if (imported->base_color_texture.has_value() && !resource.base_color_texture) {
+        destroy_resource(*m_renderer, resource);
+        set_error(error, "Renderer could not create base-color texture for " + asset_id);
+        return std::nullopt;
+    }
+
+    resource.metallic_roughness_texture = create_imported_texture(*m_renderer, imported->metallic_roughness_texture);
+    if (imported->metallic_roughness_texture.has_value() && !resource.metallic_roughness_texture) {
+        destroy_resource(*m_renderer, resource);
+        set_error(error, "Renderer could not create metallic/roughness texture for " + asset_id);
+        return std::nullopt;
+    }
+
+    resource.normal_texture = create_imported_texture(*m_renderer, imported->normal_texture);
+    if (imported->normal_texture.has_value() && !resource.normal_texture) {
+        destroy_resource(*m_renderer, resource);
+        set_error(error, "Renderer could not create normal texture for " + asset_id);
+        return std::nullopt;
     }
 
     m_models.emplace(asset_id, resource);
@@ -144,10 +172,16 @@ bool AssetRuntime::bind_scene(Scene& scene, ShaderHandle material_shader, std::s
             material->shader = material_shader;
             material->asset_id = mesh.asset_id;
             material->base_color_texture = resource->base_color_texture;
+            material->metallic_roughness_texture = resource->metallic_roughness_texture;
+            material->normal_texture = resource->normal_texture;
             if (material->use_asset_defaults) {
                 material->base_color = resource->base_color;
                 material->metallic = resource->metallic;
                 material->roughness = resource->roughness;
+                material->normal_scale = resource->normal_scale;
+                material->use_base_color_texture = static_cast<bool>(resource->base_color_texture);
+                material->use_metallic_roughness_texture = static_cast<bool>(resource->metallic_roughness_texture);
+                material->use_normal_texture = static_cast<bool>(resource->normal_texture);
                 material->use_asset_defaults = false;
             }
         }
@@ -161,14 +195,9 @@ bool AssetRuntime::bind_scene(Scene& scene, ShaderHandle material_shader, std::s
 
 void AssetRuntime::clear() {
     if (m_renderer != nullptr) {
-        for (const auto& [asset_id, resource] : m_models) {
+        for (auto& [asset_id, resource] : m_models) {
             (void)asset_id;
-            if (resource.base_color_texture) {
-                m_renderer->destroy_texture(resource.base_color_texture);
-            }
-            if (resource.mesh) {
-                m_renderer->destroy_mesh(resource.mesh);
-            }
+            destroy_resource(*m_renderer, resource);
         }
     }
     m_models.clear();
