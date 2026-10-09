@@ -22,6 +22,7 @@ enum class StudioActionType {
     NewScene,
     CreateEmptyEntity,
     CreateCube,
+    CreateFirstPersonPlayer,
     DuplicateSelected,
     DeleteSelected,
     Play,
