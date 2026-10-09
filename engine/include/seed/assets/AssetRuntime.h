@@ -16,9 +16,12 @@ class Scene;
 struct ModelAssetResource {
     MeshHandle mesh{};
     TextureHandle base_color_texture{};
+    TextureHandle metallic_roughness_texture{};
+    TextureHandle normal_texture{};
     Vec4 base_color{1.0f, 1.0f, 1.0f, 1.0f};
     float metallic{0.0f};
     float roughness{0.65f};
+    float normal_scale{1.0f};
 };
 
 // Resolves persistent Seed model asset IDs into renderer resources. The cache is
