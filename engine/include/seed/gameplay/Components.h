@@ -42,6 +42,15 @@ struct InventoryComponent {
     std::unordered_map<std::string, int> items;
 };
 
+// Beginner-facing collectible item definition. A Pickup is intentionally data-only;
+// GameplayRuntime owns the actual collect/inventory behavior.
+struct PickupComponent {
+    std::string item_id{"Item"};
+    std::string display_name{"Item"};
+    int quantity{1};
+    bool destroy_on_pickup{true};
+};
+
 // First Seed-native playable controller. It is currently used by Play Mode and
 // Seed Runtime; the creator-facing Player preset will expose these values later.
 struct PlayerControllerComponent {
