@@ -2,167 +2,194 @@
 
 > **Grow your idea into a game.**
 
-Seed Engine is a beginner-first game engine being built as its **own engine**, not as a plugin or authoring layer for another game engine.
+Seed Engine is a beginner-first 3D game engine being built as its **own engine**, not as a plugin or authoring layer for another game engine.
 
 The goal is simple:
 
 **A new creator should think about the game they want to make, not the engine plumbing required to make it.**
 
-Seed should make polished 3D games approachable without trapping users in a toy tool. Beginners work with concepts such as **Player**, **Door**, **Enemy**, **Inventory**, **Quest**, and **Dialogue**. Advanced users can progressively access deeper logic, scripting, native systems, rendering, and engine extensions.
+Seed presents game concepts such as **Player**, **Door**, **Pickup**, **Inventory**, **Enemy**, **Quest** and **Dialogue**, while progressively exposing deeper logic and native systems to advanced creators.
 
-## Direction
+## Architecture
 
-Seed owns its core architecture:
+Seed owns its core product architecture:
 
 - **Language:** C++20
 - **Build system:** CMake
 - **Seed Core:** application lifecycle and frame loop
 - **Seed Scene:** entities, typed components, persistent identities and scene queries
-- **Seed Runtime:** runs Seed games
-- **Seed Studio:** our own editor and authoring environment
-- **Seed Gameplay:** beginner-facing reusable gameplay concepts
+- **Seed Runtime:** gameplay execution
+- **Seed Studio:** Seed's visual editor and authoring environment
+- **Seed Gameplay:** beginner-facing gameplay concepts
+- **Seed Physics:** Seed-owned collision/character-controller layer
+- **Seed Assets:** persistent asset IDs, source importing and runtime resource cache
 - **Seed Input:** Seed-owned keyboard/mouse event model
 - **Seed Platform:** replaceable native platform abstraction
-- **Seed Renderer:** replaceable renderer abstraction and backend selection
+- **Seed Renderer:** replaceable renderer abstraction and current OpenGL backend
 - **Seed Math:** vectors, matrices and 3D transform/camera math
 - **Seed project/scene formats:** Seed-owned `.seedproject` and `.seedscene`
 
-Seed may use focused third-party libraries for low-level jobs. Those libraries do **not** define Seed's object model, project format, gameplay framework, editor, or runtime architecture.
+Seed may use focused third-party libraries for low-level jobs. Those libraries do **not** define Seed's object model, project format, gameplay framework, asset model, editor, or runtime architecture. See `docs/DEPENDENCIES.md`.
 
-## Important architecture rule
-
-**Seed is not built on another game engine.**
-
-The earlier Godot prototype proved the `Add Gameplay` UX concept. It is no longer the active product architecture. Its history remains in Git so we can learn from it without carrying Godot into the engine.
-
-GLFW 3.5.1 is currently used only as a replaceable low-level desktop window/input backend behind Seed's `IPlatform` interface. GLFW types and key codes are translated at the backend boundary and are not exposed to Seed gameplay or project content.
-
-Dear ImGui is used only inside `SeedStudio` as an editor-widget drawing dependency. `SeedEngine` and `SeedRuntime` do not depend on ImGui, and Seed owns the editor layout, selection model, component editing and authoring workflows.
-
-nlohmann/json is used only as the low-level parser/writer behind Seed-owned human-readable project and scene formats. Seed defines their schemas, versioning rules and runtime meaning.
-
-See `docs/DEPENDENCIES.md` for the dependency policy.
+The earlier Godot prototype only proved the original `Add Gameplay` UX idea. It is no longer part of the active product architecture.
 
 ## What exists now
 
-### Seed Core
+### Seed Core + Scene
 
 - standalone C++20 `SeedEngine` library
-- engine lifecycle
-- frame timing / frame index
-- headless mode
-- automated tests
+- runtime entity IDs plus stable UUID-style persistent IDs
+- typed component storage and multi-component queries
+- deep scene cloning for Play Mode
+- headless mode and automated tests
 - Windows / Linux / macOS CI
 
-### Seed Scene
+Current component families include transforms, cameras, rendering, gameplay, inventory, pickup/door authoring, player controllers and physics bodies/colliders.
 
-- runtime entity IDs
-- stable UUID-style persistent entity IDs
-- entity creation/destruction
-- entity names
-- typed component storage
-- component queries
-- entity iteration for tooling
-- reusable gameplay component data
+### Platform + Renderer
 
-Current components include:
-
-- `TransformComponent`
-- `CameraComponent`
-- `MeshComponent`
-- `MaterialComponent`
-- `InteractableComponent`
-- `DoorComponent`
-- `HealthComponent`
-- `InventoryComponent`
-
-### Seed Platform
-
-- native application windows
-- Seed-owned keyboard codes
-- Seed-owned mouse button codes
-- key/button state translation
-- mouse movement and wheel events
-- resize / focus / quit events
-- resizable windows
-
-### Seed Renderer
-
-- `IRenderer`
-- renderer factory
-- first OpenGL backend
+- native desktop windows and event translation through `IPlatform`
+- GLFW hidden behind the current desktop backend
+- `IRenderer` abstraction with current OpenGL backend
 - runtime OpenGL function loading
-- shaders and shader error reporting
-- vertex/index buffers
-- indexed mesh drawing
-- model/view/projection matrices
-- depth testing
-- framebuffer resize handling
-- vsync and presentation
+- shaders and compile/link diagnostics
+- vertex/index buffers and indexed mesh drawing
+- UV-capable static mesh vertices
+- GPU texture resources
+- material base color + base-color texture submission
+- model/view/projection transforms
+- depth testing, resize handling, vsync and presentation
 - scene-driven `RenderSystem`
-- explicit editor-camera rendering for Seed Studio
 
-### Seed Projects + Scenes
+### Projects + persistence
 
-Seed now owns two initial persistence formats:
+Seed owns human-readable project and scene formats:
 
 ```text
 MyGame.seedproject
 Scenes/
 └─ Main.seedscene
+Assets/
+└─ Imported/
 ```
 
 Implemented:
 
-- human-readable `.seedproject` files
-- human-readable `.seedscene` files
-- format version fields
 - project name + startup scene
-- stable entity UUID persistence
-- Transform serialization
-- Camera serialization
-- Mesh/Material asset IDs
-- Interactable, Door, Health and Inventory serialization
-- safe scene round-trip loading
-- built-in runtime resource rebinding after load
-- editor-only viewport camera excluded from game scene files
+- stable persistent entity IDs
+- Transform, Camera, render, gameplay and physics component persistence
+- persistent asset IDs instead of GPU handles
+- editor-only viewport camera excluded from saved game scenes
+- Save / Save As / Open Project
 - automated persistence round-trip tests
 
-Runtime GPU handles are deliberately **not** written to disk. Scene files store stable asset IDs such as `builtin:cube` and `builtin:seed_default`.
+### Seed Studio
 
-### Seed Studio v0
-
-- native 3D editor window
-- Seed-styled top menu
-- **World** panel with entity selection
-- central **3D Viewport** area
-- **Inspector** panel
-- live Transform editing
-- Camera property editing
-- Mesh / Material inspection
-- **Assets** panel placeholder
-- editor fly camera: RMB + mouse, WASD, Q/E, Shift, mouse wheel
-- first scene-driven 3D Seed Cube
-- New Project / Open Project
-- Save / Save As
-- New Scene
-- dirty-document `*` indicator
+- native Seed Studio desktop application
+- World panel and entity selection
+- 3D viewport + editor fly camera
+- Inspector with live component editing
 - Create Empty Entity / Cube
-- Duplicate (`Ctrl+D`)
-- Delete (`Del`)
-- project status feedback
-- `+ Add Gameplay` entry point reserved for the beginner workflow
+- Create → Player → First Person preset
+- Duplicate / Delete
+- dirty-document tracking
+- project Save/Open workflow
+- Play / Stop on a temporary cloned runtime scene
+- project Assets panel
 
-### Applications
+### Beginner-facing gameplay authoring
 
-- `SeedRuntime`
-- `SeedStudio`
+`+ Add Gameplay` currently supports working Seed concepts including:
 
-Both are standalone Seed executables linked to the same Seed Engine library.
+- Interactable
+- Health
+- Door / Lock
+- Pickup
+- Inventory
+- Player — First Person
+- Solid Collision
 
-## The Seed mental model
+Seed automatically supplies important dependencies where appropriate. For example, Door can receive Interactable/Collision without forcing a beginner to assemble engine plumbing manually.
 
-Seed organizes creation around three beginner-readable ideas.
+The current runtime loop supports:
+
+```text
+Player
+  ↓
+Interact
+  ↓
+Pickup key
+  ↓
+Inventory
+  ↓
+Locked Door
+  ↓
+Consume key (optional)
+  ↓
+Door opens
+```
+
+### Physics v0
+
+Seed's first physics layer currently provides:
+
+- static box colliders
+- first-person character body
+- gravity
+- ground detection
+- jumping
+- floor/wall blocking
+- basic wall sliding
+- collider movement with moving doors
+
+It is intentionally a character/static-world foundation rather than a full rigid-body solver yet.
+
+### Asset Import v0
+
+Seed's first real content import path supports static glTF 2.0 sources:
+
+```text
+.glb / .gltf
+   ↓
+Seed AssetImporter
+   ↓
+Seed-owned vertices / indices / texture pixels
+   ↓
+project-relative model: asset ID
+   ↓
+Seed GPU mesh + texture resources
+```
+
+Current import scope:
+
+- `.glb` and `.gltf`
+- first triangle primitive
+- POSITION
+- optional vertex color
+- TEXCOORD_0
+- indices
+- base-color factor
+- base-color texture
+- copying imported sources into the Seed project's `Assets/Imported/` folder
+- copying relative `.gltf` buffer/image dependencies
+- stable project-relative `model:` asset IDs
+- runtime resource cache + scene rebinding after reopen
+- imported asset references surviving `.seedscene` save/load
+
+TinyGLTF is only the low-level source parser/image-decoding backend. Seed owns the persistent asset model, renderer resources, project layout and editor workflow.
+
+Not yet included in Asset Import v0: skeletal animation, skinning, multiple primitives/materials, full glTF scene-node hierarchy, normal/PBR lighting, or automatic imported-mesh collision.
+
+## Applications
+
+```text
+SeedStudio   # creator/editor application
+SeedRuntime  # standalone Seed runtime executable
+```
+
+Both link to the same Seed Engine library.
+
+## Seed's creator mental model
 
 ### World
 What exists?
@@ -177,35 +204,35 @@ Move, interact, fight, talk, collect, open, chase and trade.
 ### Rules
 What happens when something occurs?
 
-Quests, conditions, progression, events, victory, defeat and game state.
+Conditions, progression, events, quests, victory, defeat and game state.
 
 ## Progressive complexity
 
-Seed should never punish a creator for becoming more advanced.
-
-1. **Designer** — presets, properties, gameplay components
+1. **Designer** — presets, properties, gameplay concepts
 2. **Seed Logic** — readable event / condition / action authoring
 3. **Advanced visual logic** — lower-level control where useful
-4. **Code** — native C++ and future supported scripting/extension paths
+4. **Code** — native C++ and future extension paths
 
 ## Repository layout
 
 ```text
 SeedEngine/
-├─ engine/                 # Seed Engine static library
+├─ engine/
 │  ├─ include/seed/
+│  │  ├─ assets/
 │  │  ├─ core/
 │  │  ├─ gameplay/
 │  │  ├─ math/
+│  │  ├─ physics/
 │  │  ├─ platform/
 │  │  ├─ project/
 │  │  ├─ render/
 │  │  └─ scene/
 │  └─ src/
-├─ runtime/                # Seed Runtime executable
-├─ editor/                 # Seed Studio + editor-only UI layer
-├─ tests/                  # Core + persistence tests
-├─ docs/                   # Architecture, dependency policy and roadmap
+├─ runtime/
+├─ editor/
+├─ tests/
+├─ docs/
 ├─ CMakeLists.txt
 └─ README.md
 ```
@@ -216,15 +243,15 @@ Requirements:
 
 - CMake 3.24+
 - a C++20 compiler
-- Git access during initial CMake configure so focused dependencies can be fetched
+- Git access during initial configure so focused dependencies can be fetched
 
-On Ubuntu/Debian, building the current X11 backend also requires:
+Ubuntu/Debian also needs the current X11 development headers:
 
 ```bash
 sudo apt install xorg-dev
 ```
 
-Build Seed:
+Build:
 
 ```bash
 cmake -S . -B build
@@ -232,37 +259,19 @@ cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-Current executables:
+## Current direction
 
-```text
-SeedRuntime
-SeedStudio
-```
+Seed has moved beyond the original engine-foundation stage: scene editing, persistence, gameplay authoring, Play Mode, a first-person Player, interaction/inventory/doors and character collision are all part of the active engine.
 
-## Current milestone
-
-Phase 0 (**Seed Core**) is complete.
-
-Phase 1 (**Platform Layer**) is complete for the first desktop backend and has been manually verified on Windows.
-
-Phase 2 (**Renderer Foundation**) renders scene-driven 3D entities with perspective cameras, transforms, depth testing, GPU buffers and shaders.
-
-Phase 3 (**Projects + Scene Persistence**) now has working `.seedproject` / `.seedscene` formats, persistent UUIDs, stable built-in asset IDs, save/load and automated round-trip tests.
-
-The first major slice of Phase 4 (**Seed Studio v0**) is also working: World selection, live Inspector editing, project save/open, create/duplicate/delete entity operations, and the 3D editor camera all run in the native Seed Studio application.
-
-The next product-defining milestone is Phase 5: making **`+ Add Gameplay` functional** so creators can attach Seed-native concepts such as Interactable, Health and Door directly from the Inspector.
-
-See `docs/ROADMAP.md` for the full path.
+The current content milestone is **real imported 3D assets and textures**. The next rendering milestone is expected to focus on normals + lighting and richer glTF material/primitive support so Seed can start building its first non-placeholder environment.
 
 ## v0.1 product target
 
 A person with no programming experience should eventually be able to create a small, presentable third-person 3D game without writing code.
 
-The v0.1 creator-facing vertical slice will contain:
+The creator-facing vertical slice is planned to grow toward:
 
-- Seed Player preset
-- third-person movement + camera
+- first-person and third-person Player presets
 - interaction
 - health and damage
 - pickups and inventory
@@ -270,10 +279,12 @@ The v0.1 creator-facing vertical slice will contain:
 - dialogue
 - simple quests
 - basic enemy AI
-- save/load
+- save-game support
 - HUD and settings
-- one complete game made through Seed Studio
+- imported assets, materials, lighting and audio
+- build/export workflow
+- one complete game authored through Seed Studio
 
 ## Status
 
-**Pre-alpha — independent 3D engine + visual editor + first Seed-owned project/scene persistence.**
+**Pre-alpha — independent 3D engine + visual editor + gameplay runtime + physics foundation + first static model/texture import pipeline.**
