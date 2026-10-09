@@ -43,26 +43,39 @@ int main() {
     health.invulnerable = true;
     scene.add_component<seed::HealthComponent>(door_entity, health);
 
+    const auto pickup_entity = scene.create_entity("Vault Key");
+    scene.add_component<seed::TransformComponent>(pickup_entity);
+    scene.add_component<seed::InteractableComponent>(pickup_entity, "Pick Up Vault Key", true);
+    seed::PickupComponent pickup;
+    pickup.item_id = "VaultKey";
+    pickup.display_name = "Vault Key";
+    pickup.quantity = 2;
+    pickup.destroy_on_pickup = true;
+    scene.add_component<seed::PickupComponent>(pickup_entity, pickup);
+
     std::string error;
     assert(seed::SceneSerializer::save(scene, scene_file, &error));
 
     seed::Scene loaded;
     assert(seed::SceneSerializer::load(loaded, scene_file, &error));
-    assert(loaded.entity_count() == 1);
+    assert(loaded.entity_count() == 2);
 
-    seed::EntityId entity = seed::InvalidEntity;
+    seed::EntityId loaded_door_entity = seed::InvalidEntity;
+    seed::EntityId loaded_pickup_entity = seed::InvalidEntity;
     loaded.for_each_entity([&](seed::EntityId candidate, const std::string& name) {
         if (name == "Vault Door") {
-            entity = candidate;
+            loaded_door_entity = candidate;
+        } else if (name == "Vault Key") {
+            loaded_pickup_entity = candidate;
         }
     });
 
-    assert(entity != seed::InvalidEntity);
-    assert(loaded.entity_persistent_id(entity) == persistent_id);
+    assert(loaded_door_entity != seed::InvalidEntity);
+    assert(loaded.entity_persistent_id(loaded_door_entity) == persistent_id);
 
-    const auto* loaded_interactable = loaded.get_component<seed::InteractableComponent>(entity);
-    const auto* loaded_door = loaded.get_component<seed::DoorComponent>(entity);
-    const auto* loaded_health = loaded.get_component<seed::HealthComponent>(entity);
+    const auto* loaded_interactable = loaded.get_component<seed::InteractableComponent>(loaded_door_entity);
+    const auto* loaded_door = loaded.get_component<seed::DoorComponent>(loaded_door_entity);
+    const auto* loaded_health = loaded.get_component<seed::HealthComponent>(loaded_door_entity);
 
     assert(loaded_interactable != nullptr);
     assert(loaded_interactable->prompt == "Unlock Vault");
@@ -80,6 +93,14 @@ int main() {
     assert(nearly_equal(loaded_health->maximum, 250.0f));
     assert(nearly_equal(loaded_health->current, 175.0f));
     assert(loaded_health->invulnerable);
+
+    assert(loaded_pickup_entity != seed::InvalidEntity);
+    const auto* loaded_pickup = loaded.get_component<seed::PickupComponent>(loaded_pickup_entity);
+    assert(loaded_pickup != nullptr);
+    assert(loaded_pickup->item_id == "VaultKey");
+    assert(loaded_pickup->display_name == "Vault Key");
+    assert(loaded_pickup->quantity == 2);
+    assert(loaded_pickup->destroy_on_pickup);
 
     std::filesystem::remove_all(test_root);
     std::cout << "SeedGameplayPersistenceTests passed.\n";
