@@ -1,4 +1,6 @@
 add_library(SeedEngine STATIC
+    src/assets/AssetImporter.cpp
+    src/assets/AssetRuntime.cpp
     src/core/Engine.cpp
     src/gameplay/GameplayRuntime.cpp
     src/physics/PhysicsSystem.cpp
@@ -13,6 +15,8 @@ add_library(SeedEngine STATIC
 target_include_directories(SeedEngine
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PRIVATE
+        ${tinygltf_SOURCE_DIR}
 )
 
 target_compile_features(SeedEngine PUBLIC cxx_std_20)
