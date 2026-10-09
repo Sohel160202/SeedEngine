@@ -1,11 +1,14 @@
 #include "seed/core/Engine.h"
 #include "seed/gameplay/Components.h"
 #include "seed/math/Math.h"
+#include "seed/project/ProjectSerializer.h"
+#include "seed/project/SceneSerializer.h"
 #include "seed/render/RenderComponents.h"
 #include "seed/scene/Scene.h"
 
 #include <cassert>
 #include <cmath>
+#include <filesystem>
 #include <iostream>
 
 namespace {
@@ -24,6 +27,7 @@ int main() {
         assert(door != seed::InvalidEntity);
         assert(scene.is_alive(door));
         assert(scene.entity_name(door) == "Door");
+        assert(!scene.entity_persistent_id(door).empty());
 
         auto& transform = scene.add_component<seed::TransformComponent>(door);
         transform.position = {1.0f, 2.0f, 3.0f};
@@ -94,6 +98,79 @@ int main() {
             }
         );
         assert(camera_count == 1);
+    }
+
+    {
+        const auto test_root = std::filesystem::temp_directory_path() / "seed_engine_persistence_test";
+        const auto project_file = test_root / "PersistenceTest.seedproject";
+        const auto scene_file = test_root / "Scenes" / "Main.seedscene";
+        std::filesystem::remove_all(test_root);
+
+        seed::ProjectDescriptor project;
+        project.name = "Persistence Test";
+        project.startup_scene = std::filesystem::path{"Scenes/Main.seedscene"};
+
+        std::string error;
+        assert(seed::ProjectSerializer::save(project, project_file, &error));
+        const auto loaded_project = seed::ProjectSerializer::load(project_file, &error);
+        assert(loaded_project.has_value());
+        assert(loaded_project->name == "Persistence Test");
+        assert(loaded_project->startup_scene.generic_string() == "Scenes/Main.seedscene");
+
+        seed::Scene scene;
+        const auto cube = scene.create_entity("Saved Cube");
+        const std::string original_persistent_id = scene.entity_persistent_id(cube);
+
+        auto& transform = scene.add_component<seed::TransformComponent>(cube);
+        transform.position = {2.0f, -2.4f, 1.55f};
+        transform.rotation_degrees = {48.0f, 88.5f, -27.5f};
+        transform.scale = {3.9f, 1.95f, 1.41f};
+
+        seed::MeshComponent mesh;
+        mesh.asset_id = "builtin:cube";
+        scene.add_component<seed::MeshComponent>(cube, mesh);
+
+        seed::MaterialComponent material;
+        material.asset_id = "builtin:seed_default";
+        scene.add_component<seed::MaterialComponent>(cube, material);
+
+        scene.add_component<seed::HealthComponent>(cube, 150.0f, 125.0f, false);
+
+        assert(seed::SceneSerializer::save(scene, scene_file, &error));
+
+        seed::Scene loaded_scene;
+        assert(seed::SceneSerializer::load(loaded_scene, scene_file, &error));
+        assert(loaded_scene.entity_count() == 1);
+
+        seed::EntityId loaded_cube = seed::InvalidEntity;
+        loaded_scene.for_each_entity([&](seed::EntityId entity, const std::string& name) {
+            if (name == "Saved Cube") {
+                loaded_cube = entity;
+            }
+        });
+
+        assert(loaded_cube != seed::InvalidEntity);
+        assert(loaded_scene.entity_persistent_id(loaded_cube) == original_persistent_id);
+
+        const auto* loaded_transform = loaded_scene.get_component<seed::TransformComponent>(loaded_cube);
+        assert(loaded_transform != nullptr);
+        assert(nearly_equal(loaded_transform->position.x, 2.0f));
+        assert(nearly_equal(loaded_transform->position.y, -2.4f));
+        assert(nearly_equal(loaded_transform->scale.z, 1.41f));
+
+        const auto* loaded_mesh = loaded_scene.get_component<seed::MeshComponent>(loaded_cube);
+        const auto* loaded_material = loaded_scene.get_component<seed::MaterialComponent>(loaded_cube);
+        assert(loaded_mesh != nullptr && loaded_mesh->asset_id == "builtin:cube");
+        assert(loaded_material != nullptr && loaded_material->asset_id == "builtin:seed_default");
+        assert(!loaded_mesh->mesh);
+        assert(!loaded_material->shader);
+
+        const auto* loaded_health = loaded_scene.get_component<seed::HealthComponent>(loaded_cube);
+        assert(loaded_health != nullptr);
+        assert(nearly_equal(loaded_health->maximum, 150.0f));
+        assert(nearly_equal(loaded_health->current, 125.0f));
+
+        std::filesystem::remove_all(test_root);
     }
 
     {
