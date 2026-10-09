@@ -2,6 +2,7 @@
 
 #include "seed/core/Engine.h"
 #include "seed/gameplay/Components.h"
+#include "seed/gameplay/GameplayRuntime.h"
 #include "seed/project/ProjectSerializer.h"
 #include "seed/project/SceneSerializer.h"
 #include "seed/render/RenderComponents.h"
@@ -175,6 +176,29 @@ seed::EntityId find_editor_camera(seed::Scene& scene) {
 seed::EntityId ensure_editor_camera(seed::Scene& scene) {
     const auto existing = find_editor_camera(scene);
     return existing != seed::InvalidEntity ? existing : create_editor_camera(scene);
+}
+
+seed::EntityId create_play_player(seed::Scene& scene, seed::EntityId source_camera) {
+    seed::TransformComponent spawn_transform;
+    if (const auto* source = scene.get_component<seed::TransformComponent>(source_camera)) {
+        spawn_transform = *source;
+    } else {
+        spawn_transform.position = {0.0f, 0.0f, 4.2f};
+        spawn_transform.rotation_degrees = {-8.0f, 0.0f, 0.0f};
+    }
+
+    const auto player = scene.create_entity("Play Player");
+    scene.add_component<seed::TransformComponent>(player, spawn_transform);
+
+    seed::CameraComponent camera;
+    camera.primary = true;
+    camera.enabled = true;
+    camera.editor_only = false;
+    camera.field_of_view_degrees = 65.0f;
+    scene.add_component<seed::CameraComponent>(player, camera);
+    scene.add_component<seed::PlayerControllerComponent>(player);
+    scene.add_component<seed::InventoryComponent>(player);
+    return player;
 }
 
 seed::EntityId create_cube(
@@ -360,7 +384,11 @@ bool open_workspace(
     return true;
 }
 
-seed::studio::StudioDocumentInfo document_info(const WorkspaceState& workspace) {
+seed::studio::StudioDocumentInfo document_info(
+    const WorkspaceState& workspace,
+    bool playing,
+    const seed::GameplayRuntime& gameplay
+) {
     seed::studio::StudioDocumentInfo info;
     info.project_name = workspace.project_file.empty() ? "Untitled" : workspace.project.name;
     info.scene_name = workspace.scene_file.empty()
@@ -369,6 +397,11 @@ seed::studio::StudioDocumentInfo document_info(const WorkspaceState& workspace) 
     info.status_message = workspace.status_message;
     info.dirty = workspace.dirty;
     info.has_project = !workspace.project_file.empty();
+    info.playing = playing;
+    if (playing) {
+        info.gameplay_prompt = gameplay.interaction_prompt();
+        info.gameplay_status = gameplay.status_message();
+    }
     return info;
 }
 
@@ -411,8 +444,8 @@ int main(int argc, char** argv) {
         {.position = {-0.75f,  0.75f, -0.75f}, .color = {0.72f, 0.35f, 1.00f}},
         {.position = {-0.75f, -0.75f,  0.75f}, .color = {0.10f, 0.80f, 0.72f}},
         {.position = { 0.75f, -0.75f,  0.75f}, .color = {1.00f, 0.35f, 0.28f}},
-        {.position = { 0.75f,  0.75f,  0.75f}, .color = {0.95f, 0.90f, 0.34f}},
-        {.position = {-0.75f,  0.75f,  0.75f}, .color = {0.28f, 0.78f, 1.00f}},
+        {.position = { 0.75f,  0.75f,  0.75f}, .color = {0.95f, 0.90f, 0.28f}},
+        {.position = {-0.75f,  0.75f,  0.75f}, .color = {0.28f, 0.72f, 1.00f}},
     }};
 
     constexpr std::array<std::uint32_t, 36> cube_indices{{
@@ -454,10 +487,50 @@ int main(int argc, char** argv) {
     studio_ui.select_entity(cube_entity);
 
     CameraInputState camera_input{};
+    seed::Scene play_scene;
+    seed::GameplayRuntime gameplay;
+    seed::EntityId play_player = seed::InvalidEntity;
+    bool playing = false;
+
+    auto stop_play_mode = [&]() {
+        if (!playing) {
+            return;
+        }
+        gameplay.stop();
+        play_scene.clear();
+        play_player = seed::InvalidEntity;
+        playing = false;
+        clear_movement_input(camera_input);
+        camera_input.looking = false;
+        studio_ui.select_entity(first_content_entity(scene));
+        workspace.status_message = "Play Mode stopped. Runtime changes were discarded.";
+    };
+
+    auto start_play_mode = [&]() {
+        if (playing) {
+            return;
+        }
+
+        play_scene = scene;
+        const seed::EntityId play_editor_camera = ensure_editor_camera(play_scene);
+        play_player = create_play_player(play_scene, play_editor_camera);
+        if (!gameplay.start(play_scene, play_player)) {
+            play_scene.clear();
+            play_player = seed::InvalidEntity;
+            workspace.status_message = "Could not start Play Mode.";
+            return;
+        }
+
+        playing = true;
+        clear_movement_input(camera_input);
+        camera_input.looking = false;
+        studio_ui.select_entity(first_content_entity(play_scene));
+        workspace.status_message = "Play Mode started.";
+    };
 
     std::cout << "[SeedStudio] Native editor window active.\n";
     std::cout << "[SeedStudio] Project system active: .seedproject + .seedscene.\n";
-    std::cout << "[SeedStudio] Ctrl+S saves; Create/Edit menus can add, duplicate and delete entities.\n";
+    std::cout << "[SeedStudio] Gameplay authoring active. F5 enters Play Mode.\n";
 
     while (engine.tick()) {
         studio_ui.begin_frame();
@@ -466,22 +539,42 @@ int main(int argc, char** argv) {
         const bool ui_wants_keyboard = studio_ui.wants_keyboard();
 
         auto* camera_transform = scene.get_component<seed::TransformComponent>(editor_camera);
-        if (camera_transform == nullptr) {
+        if (!playing && camera_transform == nullptr) {
             editor_camera = ensure_editor_camera(scene);
             camera_transform = scene.get_component<seed::TransformComponent>(editor_camera);
         }
 
+        bool stop_requested_by_escape = false;
+
         for (const auto& event : engine.frame_events()) {
-            if (event.type == seed::PlatformEventType::Key) {
-                if (event.key == seed::KeyCode::Escape &&
-                    event.button_state == seed::ButtonState::Pressed) {
+            if (event.type == seed::PlatformEventType::Key &&
+                event.key == seed::KeyCode::Escape &&
+                event.button_state == seed::ButtonState::Pressed) {
+                if (playing) {
+                    stop_requested_by_escape = true;
+                } else {
                     engine.request_exit();
                 }
+                continue;
+            }
 
-                if (!ui_wants_keyboard) {
-                    const bool key_down = event.button_state != seed::ButtonState::Released;
-                    set_key_state(camera_input, event.key, key_down);
+            if (playing) {
+                const bool keyboard_event = event.type == seed::PlatformEventType::Key;
+                const bool mouse_event = event.type == seed::PlatformEventType::MouseButton ||
+                    event.type == seed::PlatformEventType::MouseMove ||
+                    event.type == seed::PlatformEventType::MouseWheel;
+
+                if ((!keyboard_event || !ui_wants_keyboard) && (!mouse_event || !ui_wants_mouse)) {
+                    gameplay.handle_event(event);
+                } else if (event.type == seed::PlatformEventType::WindowFocusChanged) {
+                    gameplay.handle_event(event);
                 }
+                continue;
+            }
+
+            if (event.type == seed::PlatformEventType::Key && !ui_wants_keyboard) {
+                const bool key_down = event.button_state != seed::ButtonState::Released;
+                set_key_state(camera_input, event.key, key_down);
             }
 
             if (event.type == seed::PlatformEventType::MouseButton &&
@@ -524,96 +617,125 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (ui_wants_keyboard) {
-            clear_movement_input(camera_input);
-        }
-        if (camera_transform != nullptr) {
-            update_camera_movement(*camera_transform, camera_input, engine.delta_seconds());
+        if (stop_requested_by_escape) {
+            stop_play_mode();
         }
 
-        studio_ui.draw(scene, document_info(workspace));
-        if (studio_ui.consume_scene_edited()) {
+        if (playing) {
+            gameplay.update(play_scene, engine.delta_seconds());
+        } else {
+            if (ui_wants_keyboard) {
+                clear_movement_input(camera_input);
+            }
+            if (camera_transform != nullptr) {
+                update_camera_movement(*camera_transform, camera_input, engine.delta_seconds());
+            }
+        }
+
+        seed::Scene& ui_scene = playing ? play_scene : scene;
+        studio_ui.draw(ui_scene, document_info(workspace, playing, gameplay));
+        if (!playing && studio_ui.consume_scene_edited()) {
             workspace.dirty = true;
             workspace.status_message = "Scene modified.";
+        } else if (playing) {
+            (void)studio_ui.consume_scene_edited();
         }
 
         const auto action = studio_ui.take_action();
-        switch (action.type) {
-        case seed::studio::StudioActionType::NewProject: {
-            scene.clear();
-            editor_camera = create_editor_camera(scene);
-            const auto cube = create_cube(scene, cube_mesh, mesh_shader);
-            studio_ui.select_entity(cube);
-            workspace = {};
-            save_workspace_as(workspace, scene, action.path, action.project_name);
-            break;
-        }
-        case seed::studio::StudioActionType::OpenProject:
-            if (open_workspace(workspace, scene, action.path, cube_mesh, mesh_shader, editor_camera)) {
-                studio_ui.select_entity(first_content_entity(scene));
-                clear_movement_input(camera_input);
-                camera_input.looking = false;
+        if (playing && action.type != seed::studio::StudioActionType::Stop &&
+            action.type != seed::studio::StudioActionType::Play &&
+            action.type != seed::studio::StudioActionType::None) {
+            // File/Create/Edit actions are intentionally ignored during Play Mode.
+        } else {
+            switch (action.type) {
+            case seed::studio::StudioActionType::Play:
+                if (!playing) {
+                    start_play_mode();
+                }
+                break;
+            case seed::studio::StudioActionType::Stop:
+                stop_play_mode();
+                break;
+            case seed::studio::StudioActionType::NewProject: {
+                scene.clear();
+                editor_camera = create_editor_camera(scene);
+                const auto cube = create_cube(scene, cube_mesh, mesh_shader);
+                studio_ui.select_entity(cube);
+                workspace = {};
+                save_workspace_as(workspace, scene, action.path, action.project_name);
+                break;
             }
-            break;
-        case seed::studio::StudioActionType::Save:
-            save_workspace(workspace, scene);
-            break;
-        case seed::studio::StudioActionType::SaveAs:
-            save_workspace_as(workspace, scene, action.path, action.project_name);
-            break;
-        case seed::studio::StudioActionType::NewScene:
-            scene.clear();
-            editor_camera = create_editor_camera(scene);
-            studio_ui.select_entity(seed::InvalidEntity);
-            workspace.dirty = true;
-            workspace.status_message = "New empty scene. Save to persist it.";
-            clear_movement_input(camera_input);
-            camera_input.looking = false;
-            break;
-        case seed::studio::StudioActionType::CreateEmptyEntity: {
-            const auto entity = scene.create_entity("New Entity");
-            scene.add_component<seed::TransformComponent>(entity);
-            studio_ui.select_entity(entity);
-            workspace.dirty = true;
-            workspace.status_message = "Created New Entity.";
-            break;
-        }
-        case seed::studio::StudioActionType::CreateCube: {
-            const auto entity = create_cube(scene, cube_mesh, mesh_shader, "Cube");
-            studio_ui.select_entity(entity);
-            workspace.dirty = true;
-            workspace.status_message = "Created Cube.";
-            break;
-        }
-        case seed::studio::StudioActionType::DuplicateSelected: {
-            const auto copy = duplicate_entity(scene, studio_ui.selected_entity());
-            if (copy != seed::InvalidEntity) {
-                studio_ui.select_entity(copy);
-                workspace.dirty = true;
-                workspace.status_message = "Duplicated entity with a new persistent ID.";
-            } else {
-                workspace.status_message = "Editor-only entities cannot be duplicated.";
-            }
-            break;
-        }
-        case seed::studio::StudioActionType::DeleteSelected: {
-            const auto selected = studio_ui.selected_entity();
-            if (is_editor_only_entity(scene, selected)) {
-                workspace.status_message = "The Seed Studio editor camera cannot be deleted.";
-            } else if (selected != seed::InvalidEntity && scene.destroy_entity(selected)) {
+            case seed::studio::StudioActionType::OpenProject:
+                if (open_workspace(workspace, scene, action.path, cube_mesh, mesh_shader, editor_camera)) {
+                    studio_ui.select_entity(first_content_entity(scene));
+                    clear_movement_input(camera_input);
+                    camera_input.looking = false;
+                }
+                break;
+            case seed::studio::StudioActionType::Save:
+                save_workspace(workspace, scene);
+                break;
+            case seed::studio::StudioActionType::SaveAs:
+                save_workspace_as(workspace, scene, action.path, action.project_name);
+                break;
+            case seed::studio::StudioActionType::NewScene:
+                scene.clear();
+                editor_camera = create_editor_camera(scene);
                 studio_ui.select_entity(seed::InvalidEntity);
                 workspace.dirty = true;
-                workspace.status_message = "Deleted entity.";
+                workspace.status_message = "New empty scene. Save to persist it.";
+                clear_movement_input(camera_input);
+                camera_input.looking = false;
+                break;
+            case seed::studio::StudioActionType::CreateEmptyEntity: {
+                const auto entity = scene.create_entity("New Entity");
+                scene.add_component<seed::TransformComponent>(entity);
+                studio_ui.select_entity(entity);
+                workspace.dirty = true;
+                workspace.status_message = "Created New Entity.";
+                break;
             }
-            break;
-        }
-        case seed::studio::StudioActionType::None:
-        default:
-            break;
+            case seed::studio::StudioActionType::CreateCube: {
+                const auto entity = create_cube(scene, cube_mesh, mesh_shader, "Cube");
+                studio_ui.select_entity(entity);
+                workspace.dirty = true;
+                workspace.status_message = "Created Cube.";
+                break;
+            }
+            case seed::studio::StudioActionType::DuplicateSelected: {
+                const auto copy = duplicate_entity(scene, studio_ui.selected_entity());
+                if (copy != seed::InvalidEntity) {
+                    studio_ui.select_entity(copy);
+                    workspace.dirty = true;
+                    workspace.status_message = "Duplicated entity with a new persistent ID.";
+                } else {
+                    workspace.status_message = "Editor-only entities cannot be duplicated.";
+                }
+                break;
+            }
+            case seed::studio::StudioActionType::DeleteSelected: {
+                const auto selected = studio_ui.selected_entity();
+                if (is_editor_only_entity(scene, selected)) {
+                    workspace.status_message = "The Seed Studio editor camera cannot be deleted.";
+                } else if (selected != seed::InvalidEntity && scene.destroy_entity(selected)) {
+                    studio_ui.select_entity(seed::InvalidEntity);
+                    workspace.dirty = true;
+                    workspace.status_message = "Deleted entity.";
+                }
+                break;
+            }
+            case seed::studio::StudioActionType::None:
+            default:
+                break;
+            }
         }
 
         engine.begin_frame();
-        seed::RenderSystem::render(scene, *renderer, editor_camera);
+        if (playing && play_player != seed::InvalidEntity) {
+            seed::RenderSystem::render(play_scene, *renderer, play_player);
+        } else {
+            seed::RenderSystem::render(scene, *renderer, editor_camera);
+        }
         studio_ui.render();
         engine.end_frame();
 
@@ -622,6 +744,7 @@ int main(int argc, char** argv) {
         }
     }
 
+    gameplay.stop();
     studio_ui.shutdown();
     renderer->destroy_mesh(cube_mesh);
     renderer->destroy_shader(mesh_shader);
