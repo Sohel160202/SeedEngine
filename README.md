@@ -17,7 +17,7 @@ Seed owns its core architecture:
 - **Language:** C++20
 - **Build system:** CMake
 - **Seed Core:** application lifecycle and frame loop
-- **Seed Scene:** entities, typed components and scene queries
+- **Seed Scene:** entities, typed components, persistent identities and scene queries
 - **Seed Runtime:** runs Seed games
 - **Seed Studio:** our own editor and authoring environment
 - **Seed Gameplay:** beginner-facing reusable gameplay concepts
@@ -25,7 +25,7 @@ Seed owns its core architecture:
 - **Seed Platform:** replaceable native platform abstraction
 - **Seed Renderer:** replaceable renderer abstraction and backend selection
 - **Seed Math:** vectors, matrices and 3D transform/camera math
-- **Seed project/scene formats:** will be owned by Seed
+- **Seed project/scene formats:** Seed-owned `.seedproject` and `.seedscene`
 
 Seed may use focused third-party libraries for low-level jobs. Those libraries do **not** define Seed's object model, project format, gameplay framework, editor, or runtime architecture.
 
@@ -39,6 +39,8 @@ GLFW 3.5.1 is currently used only as a replaceable low-level desktop window/inpu
 
 Dear ImGui is used only inside `SeedStudio` as an editor-widget drawing dependency. `SeedEngine` and `SeedRuntime` do not depend on ImGui, and Seed owns the editor layout, selection model, component editing and authoring workflows.
 
+nlohmann/json is used only as the low-level parser/writer behind Seed-owned human-readable project and scene formats. Seed defines their schemas, versioning rules and runtime meaning.
+
 See `docs/DEPENDENCIES.md` for the dependency policy.
 
 ## What exists now
@@ -50,9 +52,12 @@ See `docs/DEPENDENCIES.md` for the dependency policy.
 - frame timing / frame index
 - headless mode
 - automated tests
+- Windows / Linux / macOS CI
 
 ### Seed Scene
 
+- runtime entity IDs
+- stable UUID-style persistent entity IDs
 - entity creation/destruction
 - entity names
 - typed component storage
@@ -95,6 +100,35 @@ Current components include:
 - framebuffer resize handling
 - vsync and presentation
 - scene-driven `RenderSystem`
+- explicit editor-camera rendering for Seed Studio
+
+### Seed Projects + Scenes
+
+Seed now owns two initial persistence formats:
+
+```text
+MyGame.seedproject
+Scenes/
+└─ Main.seedscene
+```
+
+Implemented:
+
+- human-readable `.seedproject` files
+- human-readable `.seedscene` files
+- format version fields
+- project name + startup scene
+- stable entity UUID persistence
+- Transform serialization
+- Camera serialization
+- Mesh/Material asset IDs
+- Interactable, Door, Health and Inventory serialization
+- safe scene round-trip loading
+- built-in runtime resource rebinding after load
+- editor-only viewport camera excluded from game scene files
+- automated persistence round-trip tests
+
+Runtime GPU handles are deliberately **not** written to disk. Scene files store stable asset IDs such as `builtin:cube` and `builtin:seed_default`.
 
 ### Seed Studio v0
 
@@ -109,6 +143,14 @@ Current components include:
 - **Assets** panel placeholder
 - editor fly camera: RMB + mouse, WASD, Q/E, Shift, mouse wheel
 - first scene-driven 3D Seed Cube
+- New Project / Open Project
+- Save / Save As
+- New Scene
+- dirty-document `*` indicator
+- Create Empty Entity / Cube
+- Duplicate (`Ctrl+D`)
+- Delete (`Del`)
+- project status feedback
 - `+ Add Gameplay` entry point reserved for the beginner workflow
 
 ### Applications
@@ -152,10 +194,17 @@ Seed should never punish a creator for becoming more advanced.
 SeedEngine/
 ├─ engine/                 # Seed Engine static library
 │  ├─ include/seed/
+│  │  ├─ core/
+│  │  ├─ gameplay/
+│  │  ├─ math/
+│  │  ├─ platform/
+│  │  ├─ project/
+│  │  ├─ render/
+│  │  └─ scene/
 │  └─ src/
 ├─ runtime/                # Seed Runtime executable
 ├─ editor/                 # Seed Studio + editor-only UI layer
-├─ tests/                  # Core engine tests
+├─ tests/                  # Core + persistence tests
 ├─ docs/                   # Architecture, dependency policy and roadmap
 ├─ CMakeLists.txt
 └─ README.md
@@ -196,11 +245,13 @@ Phase 0 (**Seed Core**) is complete.
 
 Phase 1 (**Platform Layer**) is complete for the first desktop backend and has been manually verified on Windows.
 
-Phase 2 (**Renderer Foundation**) now renders scene-driven 3D entities with perspective cameras, transforms, depth testing, GPU buffers and shaders.
+Phase 2 (**Renderer Foundation**) renders scene-driven 3D entities with perspective cameras, transforms, depth testing, GPU buffers and shaders.
 
-The first shell of Phase 4 (**Seed Studio**) has also been pulled forward so the engine can already be edited visually while persistence work is built. World selection and Inspector Transform changes mutate Seed Scene data live.
+Phase 3 (**Projects + Scene Persistence**) now has working `.seedproject` / `.seedscene` formats, persistent UUIDs, stable built-in asset IDs, save/load and automated round-trip tests.
 
-The next major infrastructure milestone is Phase 3: **`.seedproject`, `.seedscene`, asset IDs, serialization and reopening the same world after restarting Seed Studio.**
+The first major slice of Phase 4 (**Seed Studio v0**) is also working: World selection, live Inspector editing, project save/open, create/duplicate/delete entity operations, and the 3D editor camera all run in the native Seed Studio application.
+
+The next product-defining milestone is Phase 5: making **`+ Add Gameplay` functional** so creators can attach Seed-native concepts such as Interactable, Health and Door directly from the Inspector.
 
 See `docs/ROADMAP.md` for the full path.
 
@@ -225,4 +276,4 @@ The v0.1 creator-facing vertical slice will contain:
 
 ## Status
 
-**Pre-alpha — independent 3D engine + first Seed Studio visual editor shell.**
+**Pre-alpha — independent 3D engine + visual editor + first Seed-owned project/scene persistence.**
