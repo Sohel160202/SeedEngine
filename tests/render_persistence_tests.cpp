@@ -29,10 +29,19 @@ int main() {
     mesh.cast_shadows = false;
     mesh.receive_shadows = true;
     scene.add_component<seed::MeshComponent>(object, mesh);
+
     seed::MaterialComponent material;
     material.base_color = {0.2f, 0.4f, 0.8f, 1.0f};
     material.metallic = 0.72f;
     material.roughness = 0.18f;
+    material.normal_scale = 1.65f;
+    material.use_base_color_texture = false;
+    material.use_metallic_roughness_texture = true;
+    material.use_normal_texture = false;
+    // Runtime handles must never be serialized.
+    material.base_color_texture = {11};
+    material.metallic_roughness_texture = {12};
+    material.normal_texture = {13};
     scene.add_component<seed::MaterialComponent>(object, material);
 
     const auto sun = scene.create_entity("Sun");
@@ -82,7 +91,14 @@ int main() {
     assert(nearly_equal(loaded_material->base_color.z, 0.8f));
     assert(nearly_equal(loaded_material->metallic, 0.72f));
     assert(nearly_equal(loaded_material->roughness, 0.18f));
+    assert(nearly_equal(loaded_material->normal_scale, 1.65f));
+    assert(!loaded_material->use_base_color_texture);
+    assert(loaded_material->use_metallic_roughness_texture);
+    assert(!loaded_material->use_normal_texture);
     assert(!loaded_material->use_asset_defaults);
+    assert(!loaded_material->base_color_texture);
+    assert(!loaded_material->metallic_roughness_texture);
+    assert(!loaded_material->normal_texture);
 
     assert(loaded_directional != nullptr);
     assert(loaded_directional->casts_shadows);
