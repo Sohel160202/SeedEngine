@@ -18,6 +18,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -178,16 +179,31 @@ seed::EntityId ensure_editor_camera(seed::Scene& scene) {
     return existing != seed::InvalidEntity ? existing : create_editor_camera(scene);
 }
 
-seed::EntityId create_play_player(seed::Scene& scene, seed::EntityId source_camera) {
+void make_primary_game_camera(seed::Scene& scene, seed::EntityId player_entity) {
+    scene.for_each<seed::CameraComponent>(
+        [&](seed::EntityId entity, seed::CameraComponent& camera) {
+            if (!camera.editor_only) {
+                camera.primary = entity == player_entity;
+            }
+        }
+    );
+}
+
+seed::EntityId create_first_person_player(
+    seed::Scene& scene,
+    seed::EntityId source_camera,
+    std::string name = "Player"
+) {
     seed::TransformComponent spawn_transform;
     if (const auto* source = scene.get_component<seed::TransformComponent>(source_camera)) {
         spawn_transform = *source;
     } else {
-        spawn_transform.position = {0.0f, 0.0f, 4.2f};
-        spawn_transform.rotation_degrees = {-8.0f, 0.0f, 0.0f};
+        spawn_transform.position = {0.0f, 1.7f, 4.2f};
+        spawn_transform.rotation_degrees = {0.0f, 0.0f, 0.0f};
     }
+    spawn_transform.scale = {1.0f, 1.0f, 1.0f};
 
-    const auto player = scene.create_entity("Play Player");
+    const auto player = scene.create_entity(std::move(name));
     scene.add_component<seed::TransformComponent>(player, spawn_transform);
 
     seed::CameraComponent camera;
@@ -198,7 +214,36 @@ seed::EntityId create_play_player(seed::Scene& scene, seed::EntityId source_came
     scene.add_component<seed::CameraComponent>(player, camera);
     scene.add_component<seed::PlayerControllerComponent>(player);
     scene.add_component<seed::InventoryComponent>(player);
+    make_primary_game_camera(scene, player);
     return player;
+}
+
+seed::EntityId find_authored_player(seed::Scene& scene) {
+    seed::EntityId fallback = seed::InvalidEntity;
+    seed::EntityId primary = seed::InvalidEntity;
+
+    scene.for_each<seed::TransformComponent, seed::CameraComponent, seed::PlayerControllerComponent>(
+        [&](seed::EntityId entity,
+            seed::TransformComponent&,
+            seed::CameraComponent& camera,
+            seed::PlayerControllerComponent& controller) {
+            if (camera.editor_only || !camera.enabled || !controller.enabled) {
+                return;
+            }
+            if (fallback == seed::InvalidEntity) {
+                fallback = entity;
+            }
+            if (camera.primary) {
+                primary = entity;
+            }
+        }
+    );
+
+    return primary != seed::InvalidEntity ? primary : fallback;
+}
+
+seed::EntityId create_temporary_play_player(seed::Scene& scene, seed::EntityId source_camera) {
+    return create_first_person_player(scene, source_camera, "Play Player");
 }
 
 seed::EntityId create_cube(
@@ -294,11 +339,17 @@ seed::EntityId duplicate_entity(seed::Scene& scene, seed::EntityId source) {
     if (const auto* value = scene.get_component<seed::DoorComponent>(source)) {
         scene.add_component<seed::DoorComponent>(copy, *value);
     }
+    if (const auto* value = scene.get_component<seed::PickupComponent>(source)) {
+        scene.add_component<seed::PickupComponent>(copy, *value);
+    }
     if (const auto* value = scene.get_component<seed::HealthComponent>(source)) {
         scene.add_component<seed::HealthComponent>(copy, *value);
     }
     if (const auto* value = scene.get_component<seed::InventoryComponent>(source)) {
         scene.add_component<seed::InventoryComponent>(copy, *value);
+    }
+    if (const auto* value = scene.get_component<seed::PlayerControllerComponent>(source)) {
+        scene.add_component<seed::PlayerControllerComponent>(copy, *value);
     }
 
     return copy;
@@ -387,7 +438,9 @@ bool open_workspace(
 seed::studio::StudioDocumentInfo document_info(
     const WorkspaceState& workspace,
     bool playing,
-    const seed::GameplayRuntime& gameplay
+    const seed::GameplayRuntime& gameplay,
+    const seed::Scene* play_scene,
+    seed::EntityId play_player
 ) {
     seed::studio::StudioDocumentInfo info;
     info.project_name = workspace.project_file.empty() ? "Untitled" : workspace.project.name;
@@ -401,6 +454,16 @@ seed::studio::StudioDocumentInfo document_info(
     if (playing) {
         info.gameplay_prompt = gameplay.interaction_prompt();
         info.gameplay_status = gameplay.status_message();
+
+        if (play_scene != nullptr && play_player != seed::InvalidEntity && play_scene->is_alive(play_player)) {
+            if (const auto* inventory = play_scene->get_component<seed::InventoryComponent>(play_player)) {
+                info.gameplay_inventory.reserve(inventory->items.size());
+                for (const auto& [item_id, quantity] : inventory->items) {
+                    info.gameplay_inventory.emplace_back(item_id, quantity);
+                }
+                std::sort(info.gameplay_inventory.begin(), info.gameplay_inventory.end());
+            }
+        }
     }
     return info;
 }
@@ -512,8 +575,14 @@ int main(int argc, char** argv) {
         }
 
         play_scene = scene;
-        const seed::EntityId play_editor_camera = ensure_editor_camera(play_scene);
-        play_player = create_play_player(play_scene, play_editor_camera);
+        play_player = find_authored_player(play_scene);
+        const bool authored_player = play_player != seed::InvalidEntity;
+
+        if (!authored_player) {
+            const seed::EntityId play_editor_camera = ensure_editor_camera(play_scene);
+            play_player = create_temporary_play_player(play_scene, play_editor_camera);
+        }
+
         if (!gameplay.start(play_scene, play_player)) {
             play_scene.clear();
             play_player = seed::InvalidEntity;
@@ -524,8 +593,10 @@ int main(int argc, char** argv) {
         playing = true;
         clear_movement_input(camera_input);
         camera_input.looking = false;
-        studio_ui.select_entity(first_content_entity(play_scene));
-        workspace.status_message = "Play Mode started.";
+        studio_ui.select_entity(play_player);
+        workspace.status_message = authored_player
+            ? "Play Mode started with the authored First-Person Player."
+            : "Play Mode started with a temporary Player. Create > Player > First Person to author one.";
     };
 
     std::cout << "[SeedStudio] Native editor window active.\n";
@@ -633,7 +704,10 @@ int main(int argc, char** argv) {
         }
 
         seed::Scene& ui_scene = playing ? play_scene : scene;
-        studio_ui.draw(ui_scene, document_info(workspace, playing, gameplay));
+        studio_ui.draw(
+            ui_scene,
+            document_info(workspace, playing, gameplay, playing ? &play_scene : nullptr, play_player)
+        );
         if (!playing && studio_ui.consume_scene_edited()) {
             workspace.dirty = true;
             workspace.status_message = "Scene modified.";
@@ -700,6 +774,13 @@ int main(int argc, char** argv) {
                 studio_ui.select_entity(entity);
                 workspace.dirty = true;
                 workspace.status_message = "Created Cube.";
+                break;
+            }
+            case seed::studio::StudioActionType::CreateFirstPersonPlayer: {
+                const auto entity = create_first_person_player(scene, editor_camera, "Player");
+                studio_ui.select_entity(entity);
+                workspace.dirty = true;
+                workspace.status_message = "Created First-Person Player with Camera + Controller + Inventory.";
                 break;
             }
             case seed::studio::StudioActionType::DuplicateSelected: {
