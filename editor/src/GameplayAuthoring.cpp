@@ -1,6 +1,7 @@
 #include "GameplayAuthoring.h"
 
 #include "seed/gameplay/Components.h"
+#include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
 #include "seed/scene/Scene.h"
 
@@ -52,6 +53,34 @@ void make_primary_game_camera(Scene& scene, EntityId entity) {
     });
 }
 
+void ensure_first_person_dependencies(Scene& scene, EntityId entity) {
+    if (!scene.has_component<TransformComponent>(entity)) {
+        scene.add_component<TransformComponent>(entity);
+    }
+
+    if (!scene.has_component<CameraComponent>(entity)) {
+        CameraComponent camera;
+        camera.primary = true;
+        camera.enabled = true;
+        camera.editor_only = false;
+        camera.field_of_view_degrees = 65.0f;
+        scene.add_component<CameraComponent>(entity, camera);
+    } else {
+        auto* camera = scene.get_component<CameraComponent>(entity);
+        camera->primary = true;
+        camera->enabled = true;
+        camera->editor_only = false;
+    }
+    make_primary_game_camera(scene, entity);
+
+    if (!scene.has_component<InventoryComponent>(entity)) {
+        scene.add_component<InventoryComponent>(entity);
+    }
+    if (!scene.has_component<CharacterBodyComponent>(entity)) {
+        scene.add_component<CharacterBodyComponent>(entity);
+    }
+}
+
 } // namespace
 
 bool draw_gameplay_components(Scene& scene, EntityId entity) {
@@ -64,7 +93,7 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
     if (auto* player = scene.get_component<PlayerControllerComponent>(entity)) {
         ImGui::PushID("SeedPlayer");
         if (ImGui::CollapsingHeader("Player — First Person", ImGuiTreeNodeFlags_DefaultOpen)) {
-            component_description("A ready-to-play first-person Seed player. Camera and Inventory are managed as dependencies.");
+            component_description("A ready-to-play first-person Seed player. Camera, Inventory, and Character Body are managed as dependencies.");
 
             changed |= ImGui::Checkbox("Enabled", &player->enabled);
             if (ImGui::DragFloat("Move Speed", &player->move_speed, 0.1f, 0.1f, 100.0f, "%.1f m/s")) {
@@ -93,21 +122,21 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
             if (!scene.has_component<CameraComponent>(entity)) {
                 ImGui::TextWrapped("This Player is missing its game Camera.");
                 if (ImGui::Button("Fix: Add First-Person Camera")) {
-                    CameraComponent camera;
-                    camera.primary = true;
-                    camera.enabled = true;
-                    camera.editor_only = false;
-                    camera.field_of_view_degrees = 65.0f;
-                    scene.add_component<CameraComponent>(entity, camera);
-                    make_primary_game_camera(scene, entity);
+                    ensure_first_person_dependencies(scene, entity);
                     changed = true;
                 }
             }
-
             if (!scene.has_component<InventoryComponent>(entity)) {
                 ImGui::TextWrapped("This Player is missing Inventory, so pickups cannot be stored.");
                 if (ImGui::Button("Fix: Add Inventory")) {
                     scene.add_component<InventoryComponent>(entity);
+                    changed = true;
+                }
+            }
+            if (!scene.has_component<CharacterBodyComponent>(entity)) {
+                ImGui::TextWrapped("This Player has no Character Body, so it will use legacy free-fly movement.");
+                if (ImGui::Button("Fix: Add Character Body")) {
+                    scene.add_component<CharacterBodyComponent>(entity);
                     changed = true;
                 }
             }
@@ -120,13 +149,77 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
         ImGui::PopID();
     }
 
+    if (auto* body = scene.get_component<CharacterBodyComponent>(entity)) {
+        ImGui::PushID("SeedCharacterBody");
+        if (ImGui::CollapsingHeader("Character Physics", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("Seed Physics character body: gravity, grounding, jumping, and solid-world collision.");
+            changed |= ImGui::Checkbox("Physics Enabled", &body->enabled);
+
+            if (ImGui::DragFloat("Radius", &body->radius, 0.01f, 0.05f, 5.0f, "%.2f m")) {
+                body->radius = std::max(0.05f, body->radius);
+                changed = true;
+            }
+            if (ImGui::DragFloat("Height", &body->height, 0.02f, 0.2f, 10.0f, "%.2f m")) {
+                body->height = std::max(body->radius * 2.0f, body->height);
+                body->eye_height = std::clamp(body->eye_height, body->radius, body->height - 0.05f);
+                changed = true;
+            }
+            if (ImGui::DragFloat("Eye Height", &body->eye_height, 0.02f, 0.05f, 10.0f, "%.2f m")) {
+                body->eye_height = std::clamp(body->eye_height, body->radius, body->height - 0.05f);
+                changed = true;
+            }
+
+            ImGui::SeparatorText("Movement Physics");
+            if (ImGui::DragFloat("Gravity", &body->gravity, 0.25f, 0.0f, 100.0f, "%.1f m/s2")) {
+                body->gravity = std::max(0.0f, body->gravity);
+                changed = true;
+            }
+            if (ImGui::DragFloat("Jump Speed", &body->jump_speed, 0.1f, 0.0f, 50.0f, "%.1f m/s")) {
+                body->jump_speed = std::max(0.0f, body->jump_speed);
+                changed = true;
+            }
+            if (ImGui::DragFloat("Max Fall Speed", &body->max_fall_speed, 0.5f, 0.0f, 200.0f, "%.1f m/s")) {
+                body->max_fall_speed = std::max(0.0f, body->max_fall_speed);
+                changed = true;
+            }
+
+            if (remove_component_button("Remove Character Body")) {
+                scene.remove_component<CharacterBodyComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
+    if (auto* collider = scene.get_component<BoxColliderComponent>(entity)) {
+        ImGui::PushID("SeedBoxCollider");
+        if (ImGui::CollapsingHeader("Solid Collision", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("Blocks Character Bodies using Seed Physics. Collider size is multiplied by Transform scale.");
+            changed |= ImGui::Checkbox("Collision Enabled", &collider->enabled);
+            changed |= ImGui::Checkbox("Solid", &collider->solid);
+
+            if (ImGui::DragFloat3("Half Extents", &collider->half_extents.x, 0.02f, 0.01f, 1000.0f)) {
+                collider->half_extents.x = std::max(0.01f, collider->half_extents.x);
+                collider->half_extents.y = std::max(0.01f, collider->half_extents.y);
+                collider->half_extents.z = std::max(0.01f, collider->half_extents.z);
+                changed = true;
+            }
+            changed |= ImGui::DragFloat3("Collider Offset", &collider->offset.x, 0.02f);
+
+            if (remove_component_button("Remove Solid Collision")) {
+                scene.remove_component<BoxColliderComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
     if (auto* interactable = scene.get_component<InteractableComponent>(entity)) {
         ImGui::PushID("SeedInteractable");
         if (ImGui::CollapsingHeader("Interactable", ImGuiTreeNodeFlags_DefaultOpen)) {
             component_description("Lets the player target this object and receive an interaction prompt.");
             changed |= ImGui::Checkbox("Enabled", &interactable->enabled);
             changed |= edit_string("Prompt", interactable->prompt);
-
             if (remove_component_button("Remove Interactable")) {
                 scene.remove_component<InteractableComponent>(entity);
                 changed = true;
@@ -139,20 +232,17 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
         ImGui::PushID("SeedPickup");
         if (ImGui::CollapsingHeader("Pickup", ImGuiTreeNodeFlags_DefaultOpen)) {
             component_description("Turns this object into an item the player can collect into Inventory.");
-
             changed |= edit_string("Item ID", pickup->item_id);
 
             const std::string old_display_name = pickup->display_name;
             if (edit_string("Display Name", pickup->display_name)) {
                 if (auto* interactable = scene.get_component<InteractableComponent>(entity)) {
-                    const std::string old_default_prompt = "Pick Up " + old_display_name;
-                    if (interactable->prompt == old_default_prompt) {
+                    if (interactable->prompt == "Pick Up " + old_display_name) {
                         interactable->prompt = "Pick Up " + pickup->display_name;
                     }
                 }
                 changed = true;
             }
-
             if (ImGui::DragInt("Quantity", &pickup->quantity, 1.0f, 1, 9999)) {
                 pickup->quantity = std::max(1, pickup->quantity);
                 changed = true;
@@ -160,8 +250,7 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
             changed |= ImGui::Checkbox("Destroy on Pickup", &pickup->destroy_on_pickup);
 
             if (!scene.has_component<InteractableComponent>(entity)) {
-                ImGui::Spacing();
-                ImGui::TextWrapped("This pickup is missing Interactable, so the player cannot collect it.");
+                ImGui::TextWrapped("This Pickup is missing Interactable.");
                 if (ImGui::Button("Fix: Add Interactable")) {
                     scene.add_component<InteractableComponent>(entity, "Pick Up " + pickup->display_name, true);
                     changed = true;
@@ -195,7 +284,6 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                 if (it == inventory->items.end()) {
                     continue;
                 }
-
                 ImGui::PushID(item_id.c_str());
                 ImGui::TextUnformatted(item_id.c_str());
                 ImGui::SameLine(150.0f);
@@ -210,7 +298,6 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                 }
                 ImGui::PopID();
             }
-
             if (!remove_item.empty()) {
                 inventory->items.erase(remove_item);
                 changed = true;
@@ -244,7 +331,6 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
         ImGui::PushID("SeedHealth");
         if (ImGui::CollapsingHeader("Health", ImGuiTreeNodeFlags_DefaultOpen)) {
             component_description("Makes this object capable of receiving damage and tracking health.");
-
             const float old_maximum = health->maximum;
             if (ImGui::DragFloat("Maximum", &health->maximum, 1.0f, 1.0f, 100000.0f, "%.0f")) {
                 health->maximum = std::max(1.0f, health->maximum);
@@ -253,18 +339,15 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                 }
                 changed = true;
             }
-
             if (ImGui::DragFloat("Current", &health->current, 1.0f, 0.0f, health->maximum, "%.0f")) {
                 health->current = std::clamp(health->current, 0.0f, health->maximum);
                 changed = true;
             }
-
             changed |= ImGui::Checkbox("Invulnerable", &health->invulnerable);
             if (ImGui::Button("Reset to Maximum")) {
                 health->current = health->maximum;
                 changed = true;
             }
-
             if (remove_component_button("Remove Health")) {
                 scene.remove_component<HealthComponent>(entity);
                 changed = true;
@@ -276,7 +359,7 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
     if (auto* door = scene.get_component<DoorComponent>(entity)) {
         ImGui::PushID("SeedDoor");
         if (ImGui::CollapsingHeader("Door / Lock", ImGuiTreeNodeFlags_DefaultOpen)) {
-            component_description("Turns this object into a configurable door. Seed automatically adds Interactable when a door is created.");
+            component_description("Turns this object into a configurable door. Seed manages Interactable and Solid Collision dependencies.");
 
             int motion_index = door->motion == DoorMotion::Slide ? 1 : 0;
             if (ImGui::Combo("Opening", &motion_index, "Rotate\0Slide\0")) {
@@ -284,13 +367,11 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                 door->open_amount = door->motion == DoorMotion::Slide ? 1.5f : 90.0f;
                 changed = true;
             }
-
             if (door->motion == DoorMotion::Rotate) {
                 changed |= ImGui::DragFloat("Open Angle", &door->open_amount, 1.0f, -360.0f, 360.0f, "%.0f deg");
             } else {
                 changed |= ImGui::DragFloat("Open Distance", &door->open_amount, 0.05f, -100.0f, 100.0f, "%.2f m");
             }
-
             if (ImGui::DragFloat("Duration", &door->duration_seconds, 0.05f, 0.05f, 60.0f, "%.2f sec")) {
                 door->duration_seconds = std::max(0.05f, door->duration_seconds);
                 changed = true;
@@ -303,17 +384,21 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
             changed |= ImGui::Checkbox("Starts Open", &door->starts_open);
 
             if (!scene.has_component<InteractableComponent>(entity)) {
-                ImGui::Spacing();
-                ImGui::TextWrapped("This door is missing Interactable, so a player cannot activate it.");
+                ImGui::TextWrapped("This Door is missing Interactable.");
                 if (ImGui::Button("Fix: Add Interactable")) {
                     scene.add_component<InteractableComponent>(entity, "Open", true);
                     changed = true;
                 }
             }
-
+            if (!scene.has_component<BoxColliderComponent>(entity)) {
+                ImGui::TextWrapped("This Door has no Solid Collision, so the Player can walk through it.");
+                if (ImGui::Button("Fix: Add Solid Collision")) {
+                    scene.add_component<BoxColliderComponent>(entity);
+                    changed = true;
+                }
+            }
             if (!scene.has_component<TransformComponent>(entity)) {
-                ImGui::Spacing();
-                ImGui::TextWrapped("This door is missing Transform, so it cannot move.");
+                ImGui::TextWrapped("This Door is missing Transform, so it cannot move.");
                 if (ImGui::Button("Fix: Add Transform")) {
                     scene.add_component<TransformComponent>(entity);
                     changed = true;
@@ -343,6 +428,7 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     ImGui::Separator();
 
     const bool has_player = scene.has_component<PlayerControllerComponent>(entity);
+    const bool has_collider = scene.has_component<BoxColliderComponent>(entity);
     const bool has_interactable = scene.has_component<InteractableComponent>(entity);
     const bool has_pickup = scene.has_component<PickupComponent>(entity);
     const bool has_inventory = scene.has_component<InventoryComponent>(entity);
@@ -351,50 +437,39 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
 
     ImGui::BeginDisabled(has_player);
     if (ImGui::MenuItem(has_player ? "Player — First Person [Added]" : "Player — First Person")) {
-        if (!scene.has_component<TransformComponent>(entity)) {
-            scene.add_component<TransformComponent>(entity);
-        }
-
-        if (!scene.has_component<CameraComponent>(entity)) {
-            CameraComponent camera;
-            camera.primary = true;
-            camera.enabled = true;
-            camera.editor_only = false;
-            camera.field_of_view_degrees = 65.0f;
-            scene.add_component<CameraComponent>(entity, camera);
-        } else {
-            auto* camera = scene.get_component<CameraComponent>(entity);
-            camera->primary = true;
-            camera->enabled = true;
-            camera->editor_only = false;
-        }
-        make_primary_game_camera(scene, entity);
-
-        if (!scene.has_component<InventoryComponent>(entity)) {
-            scene.add_component<InventoryComponent>(entity);
-        }
+        ensure_first_person_dependencies(scene, entity);
         scene.add_component<PlayerControllerComponent>(entity);
         changed = true;
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Create a playable first-person entity. Camera + Inventory are added automatically.");
+        ImGui::SetTooltip("Playable first-person Player. Camera + Inventory + Character Body are automatic.");
+    }
+
+    ImGui::BeginDisabled(has_collider);
+    if (ImGui::MenuItem(has_collider ? "Solid Collision [Added]" : "Solid Collision")) {
+        if (!scene.has_component<TransformComponent>(entity)) {
+            scene.add_component<TransformComponent>(entity);
+        }
+        scene.add_component<BoxColliderComponent>(entity);
+        changed = true;
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("Make this object block Character Bodies using Seed Physics.");
     }
 
     ImGui::Separator();
 
     ImGui::BeginDisabled(has_interactable);
-    if (ImGui::MenuItem(has_interactable ? "Interactable   [Added]" : "Interactable")) {
+    if (ImGui::MenuItem(has_interactable ? "Interactable [Added]" : "Interactable")) {
         scene.add_component<InteractableComponent>(entity, "Interact", true);
         changed = true;
     }
     ImGui::EndDisabled();
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Give this object an interaction prompt.");
-    }
 
     ImGui::BeginDisabled(has_pickup);
-    if (ImGui::MenuItem(has_pickup ? "Pickup         [Added]" : "Pickup")) {
+    if (ImGui::MenuItem(has_pickup ? "Pickup [Added]" : "Pickup")) {
         if (!scene.has_component<TransformComponent>(entity)) {
             scene.add_component<TransformComponent>(entity);
         }
@@ -405,48 +480,39 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
         changed = true;
     }
     ImGui::EndDisabled();
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Make this object collectible. Transform + Interactable are added automatically.");
-    }
 
     ImGui::BeginDisabled(has_inventory);
-    if (ImGui::MenuItem(has_inventory ? "Inventory      [Added]" : "Inventory")) {
+    if (ImGui::MenuItem(has_inventory ? "Inventory [Added]" : "Inventory")) {
         scene.add_component<InventoryComponent>(entity);
         changed = true;
     }
     ImGui::EndDisabled();
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Give this entity a persistent collection of item IDs and quantities.");
-    }
 
     ImGui::BeginDisabled(has_health);
-    if (ImGui::MenuItem(has_health ? "Health         [Added]" : "Health")) {
+    if (ImGui::MenuItem(has_health ? "Health [Added]" : "Health")) {
         scene.add_component<HealthComponent>(entity, 100.0f, 100.0f, false);
         changed = true;
     }
     ImGui::EndDisabled();
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Make this object damageable and give it health.");
-    }
 
     ImGui::BeginDisabled(has_door);
-    if (ImGui::MenuItem(has_door ? "Door / Lock    [Added]" : "Door / Lock")) {
+    if (ImGui::MenuItem(has_door ? "Door / Lock [Added]" : "Door / Lock")) {
         if (!scene.has_component<TransformComponent>(entity)) {
             scene.add_component<TransformComponent>(entity);
         }
         if (!scene.has_component<InteractableComponent>(entity)) {
             scene.add_component<InteractableComponent>(entity, "Open", true);
         }
+        if (!scene.has_component<BoxColliderComponent>(entity)) {
+            scene.add_component<BoxColliderComponent>(entity);
+        }
         scene.add_component<DoorComponent>(entity);
         changed = true;
     }
     ImGui::EndDisabled();
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Add a rotating/sliding door. Interactable is added automatically.");
-    }
 
     ImGui::Separator();
-    ImGui::TextDisabled("Next: Enemy, Dialogue, Quest");
+    ImGui::TextDisabled("Next: Enemy, Dialogue, Quest, Save Game");
     return changed;
 }
 
