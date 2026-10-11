@@ -51,14 +51,30 @@ struct PickupComponent {
     bool destroy_on_pickup{true};
 };
 
-// First Seed-native playable controller. It is currently used by Play Mode and
-// Seed Runtime; the creator-facing Player preset will expose these values later.
+enum class PlayerViewMode {
+    FirstPerson,
+    ThirdPerson
+};
+
+// Seed-native playable controller shared by first- and third-person player presets.
+// The beginner sees one Player concept while Seed owns the camera/movement details.
 struct PlayerControllerComponent {
+    PlayerViewMode view_mode{PlayerViewMode::FirstPerson};
+
     float move_speed{4.0f};
     float fast_multiplier{2.5f};
     float look_sensitivity{0.12f};
     float interaction_distance{4.0f};
     float interaction_radius{1.25f};
+
+    // Third-person camera rig settings. They are ignored in First Person mode.
+    float camera_distance{4.5f};
+    float camera_height{1.55f};
+    float camera_shoulder_offset{0.0f};
+    float camera_min_pitch{-60.0f};
+    float camera_max_pitch{70.0f};
+    bool orient_to_movement{true};
+
     bool enabled{true};
 };
 
