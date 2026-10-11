@@ -22,6 +22,7 @@ public:
 
     bool active() const noexcept { return m_active; }
     EntityId player_entity() const noexcept { return m_player_entity; }
+    EntityId camera_entity() const noexcept { return m_camera_entity; }
     EntityId interaction_target() const noexcept { return m_interaction_target; }
     bool player_grounded() const noexcept { return m_character_state.grounded; }
 
@@ -36,9 +37,11 @@ private:
         bool target_open{false};
     };
 
+    EntityId resolve_player_camera(Scene& scene) const;
     void refresh_interaction_target(Scene& scene);
     void perform_interaction(Scene& scene);
     void update_player(Scene& scene, double delta_seconds);
+    void update_third_person_camera(Scene& scene);
     void update_doors(Scene& scene, double delta_seconds);
     void apply_door_transform(Scene& scene, EntityId entity, const DoorRuntimeState& state);
     bool player_has_item(const Scene& scene, const std::string& item_id) const;
@@ -47,6 +50,7 @@ private:
 
     bool m_active{false};
     EntityId m_player_entity{InvalidEntity};
+    EntityId m_camera_entity{InvalidEntity};
     EntityId m_interaction_target{InvalidEntity};
 
     bool m_forward{false};
@@ -64,6 +68,8 @@ private:
     float m_last_mouse_y{0.0f};
     float m_pending_look_x{0.0f};
     float m_pending_look_y{0.0f};
+    float m_third_person_yaw{0.0f};
+    float m_third_person_pitch{-12.0f};
 
     PhysicsSystem::CharacterState m_character_state{};
     std::unordered_map<EntityId, DoorRuntimeState> m_doors;
