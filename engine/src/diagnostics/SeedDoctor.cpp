@@ -3,6 +3,7 @@
 #include "seed/gameplay/Components.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
+#include "seed/save/PersistenceComponents.h"
 #include "seed/scene/Scene.h"
 
 #include <algorithm>
@@ -141,6 +142,26 @@ std::vector<DoctorFinding> SeedDoctor::inspect(const Scene& scene) {
                 "Create Third-Person Camera"
             );
         }
+    });
+
+    scene.for_each<PersistentComponent>([&](EntityId entity, const PersistentComponent& persistent) {
+        if (!persistent.enabled) return;
+        const bool has_v0_state =
+            scene.has_component<TransformComponent>(entity) ||
+            scene.has_component<HealthComponent>(entity) ||
+            scene.has_component<InventoryComponent>(entity);
+        if (has_v0_state) return;
+
+        add_finding(
+            findings,
+            scene,
+            entity,
+            "save.persistent.no_supported_state",
+            DoctorSeverity::Warning,
+            "This entity is marked Persistent, but Seed Save Game v0 has no supported runtime state to save on it yet.",
+            "PersistentComponent is enabled, but this entity has no TransformComponent, HealthComponent, or InventoryComponent. Seed will report and skip it during capture rather than writing an empty save entry.",
+            DoctorFixKind::None
+        );
     });
 
     return findings;

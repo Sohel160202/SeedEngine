@@ -1,3 +1,14 @@
+# Seed's tests intentionally use assert() as lightweight executable checks.
+# Multi-config generators such as Visual Studio define NDEBUG for Release, which
+# would otherwise compile those checks (and any expression inside them) away.
+# Keep assertions active in every CI configuration so Windows/Linux/macOS are
+# actually exercising the same test behavior.
+if(MSVC)
+    add_compile_options(/UNDEBUG)
+else()
+    add_compile_options(-UNDEBUG)
+endif()
+
 add_executable(SeedCoreTests
     scene_tests.cpp
 )
@@ -102,6 +113,20 @@ add_executable(SeedDoctorTests
 target_link_libraries(SeedDoctorTests PRIVATE SeedEngine)
 target_compile_features(SeedDoctorTests PRIVATE cxx_std_20)
 add_test(NAME SeedDoctorTests COMMAND SeedDoctorTests)
+
+add_executable(SeedSaveGameTests
+    save_game_tests.cpp
+)
+target_link_libraries(SeedSaveGameTests PRIVATE SeedEngine)
+target_compile_features(SeedSaveGameTests PRIVATE cxx_std_20)
+add_test(NAME SeedSaveGameTests COMMAND SeedSaveGameTests)
+
+add_executable(SeedSaveGameServiceTests
+    save_game_service_tests.cpp
+)
+target_link_libraries(SeedSaveGameServiceTests PRIVATE SeedEngine)
+target_compile_features(SeedSaveGameServiceTests PRIVATE cxx_std_20)
+add_test(NAME SeedSaveGameServiceTests COMMAND SeedSaveGameServiceTests)
 
 # Windowed OpenGL smoke executable. It is intentionally not a normal CTest
 # because headless Windows/macOS runners do not provide a display context.
