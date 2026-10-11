@@ -74,3 +74,10 @@ add_executable(SeedHierarchyTests
 target_link_libraries(SeedHierarchyTests PRIVATE SeedEngine)
 target_compile_features(SeedHierarchyTests PRIVATE cxx_std_20)
 add_test(NAME SeedHierarchyTests COMMAND SeedHierarchyTests)
+
+add_executable(SeedSceneDiffTests
+    scene_diff_tests.cpp
+)
+target_link_libraries(SeedSceneDiffTests PRIVATE SeedEngine)
+target_compile_features(SeedSceneDiffTests PRIVATE cxx_std_20)
+add_test(NAME SeedSceneDiffTests COMMAND SeedSceneDiffTests)
