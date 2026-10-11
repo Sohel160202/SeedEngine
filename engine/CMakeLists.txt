@@ -3,6 +3,7 @@ add_library(SeedEngine STATIC
     src/assets/AssetRuntime.cpp
     src/core/Engine.cpp
     src/gameplay/GameplayRuntime.cpp
+    src/physics/PhysicsQueries.cpp
     src/physics/PhysicsSystem.cpp
     src/platform/PlatformFactory.cpp
     src/project/ProjectSerializer.cpp
