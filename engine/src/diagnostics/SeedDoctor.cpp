@@ -137,7 +137,8 @@ std::vector<DoctorFinding> SeedDoctor::inspect(const Scene& scene) {
                 DoctorSeverity::Error,
                 "Third-Person Player is missing its game Camera.",
                 "Third-person camera resolution expects an enabled, non-editor CameraComponent parented to the Player persistent ID.",
-                DoctorFixKind::None
+                DoctorFixKind::AddThirdPersonCamera,
+                "Create Third-Person Camera"
             );
         }
     });
@@ -172,6 +173,39 @@ DoctorFixResult SeedDoctor::apply_safe_fix(Scene& scene, const DoctorFinding& fi
             return {.applied = true, .message = "Added Character Body with Seed defaults."};
         }
         return {.applied = false, .message = "Character Body is already present."};
+
+    case DoctorFixKind::AddThirdPersonCamera: {
+        const auto* player = scene.get_component<PlayerControllerComponent>(entity);
+        if (player == nullptr || player->view_mode != PlayerViewMode::ThirdPerson) {
+            return {.applied = false, .message = "The entity is no longer a Third-Person Player."};
+        }
+        if (has_game_camera_child(scene, entity)) {
+            return {.applied = false, .message = "Third-Person Camera is already present."};
+        }
+
+        const EntityId camera_entity = scene.create_entity("Third Person Camera");
+        TransformComponent camera_transform;
+        camera_transform.position = {
+            player->camera_shoulder_offset,
+            player->camera_height,
+            player->camera_distance,
+        };
+        camera_transform.rotation_degrees = {-12.0f, 0.0f, 0.0f};
+        scene.add_component<TransformComponent>(camera_entity, camera_transform);
+
+        CameraComponent camera;
+        camera.primary = false;
+        camera.enabled = true;
+        camera.editor_only = false;
+        camera.field_of_view_degrees = 65.0f;
+        scene.add_component<CameraComponent>(camera_entity, camera);
+        scene.add_component<ParentComponent>(
+            camera_entity,
+            ParentComponent{.parent_persistent_id = scene.entity_persistent_id(entity)}
+        );
+
+        return {.applied = true, .message = "Created and parented Third-Person Camera."};
+    }
 
     case DoctorFixKind::None:
     default:
