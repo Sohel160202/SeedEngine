@@ -218,8 +218,6 @@ EntityId GameplayRuntime::resolve_player_camera(Scene& scene) const {
     const bool wants_third_person =
         controller != nullptr && controller->view_mode == PlayerViewMode::ThirdPerson;
 
-    // Third Person deliberately prefers a child camera even when the Player root
-    // carries Studio's compatibility Camera marker.
     if (wants_third_person) {
         const std::string& player_id = scene.entity_persistent_id(m_player_entity);
         EntityId child_camera = InvalidEntity;
@@ -387,40 +385,48 @@ void GameplayRuntime::refresh_interaction_target(Scene& scene) {
     m_interaction_prompt.clear();
 
     const auto* controller = scene.get_component<PlayerControllerComponent>(m_player_entity);
-    if (controller == nullptr || !controller->enabled) {
+    if (controller == nullptr || !controller->enabled || !scene.has_component<TransformComponent>(m_player_entity)) {
         return;
     }
 
-    TransformComponent view_transform{};
+    const TransformComponent player_world = world_transform(scene, m_player_entity);
+    TransformComponent view_transform = player_world;
     if (m_camera_entity != InvalidEntity && scene.is_alive(m_camera_entity) &&
         scene.has_component<TransformComponent>(m_camera_entity)) {
         view_transform = world_transform(scene, m_camera_entity);
-    } else if (scene.has_component<TransformComponent>(m_player_entity)) {
-        view_transform = world_transform(scene, m_player_entity);
-    } else {
-        return;
     }
 
     const Vec3 origin = view_transform.position;
     const Vec3 forward = forward_from_euler(view_transform.rotation_degrees);
+    const bool third_person = controller->view_mode == PlayerViewMode::ThirdPerson;
+    const float ray_distance = controller->interaction_distance +
+        (third_person ? std::max(0.0f, controller->camera_distance) : 0.0f);
     float best_projection = std::numeric_limits<float>::max();
 
     scene.for_each<TransformComponent, InteractableComponent>(
-        [&](EntityId entity, TransformComponent& transform, InteractableComponent& interactable) {
+        [&](EntityId entity, TransformComponent&, InteractableComponent& interactable) {
             if (entity == m_player_entity || !interactable.enabled) {
                 return;
             }
 
             const TransformComponent target_world = world_transform(scene, entity);
+            const float entity_radius = std::max(0.4f, maximum_scale(target_world) * 0.65f);
+
+            // Interaction reach belongs to the Player, not to a third-person camera
+            // that may be several metres behind them.
+            const float player_distance = length(target_world.position - player_world.position);
+            if (player_distance > controller->interaction_distance + entity_radius) {
+                return;
+            }
+
             const Vec3 to_target = target_world.position - origin;
             const float projection = dot(to_target, forward);
-            if (projection <= 0.0f || projection > controller->interaction_distance) {
+            if (projection <= 0.0f || projection > ray_distance + entity_radius) {
                 return;
             }
 
             const Vec3 closest_point = origin + forward * projection;
             const float perpendicular_distance = length(target_world.position - closest_point);
-            const float entity_radius = std::max(0.4f, maximum_scale(target_world) * 0.65f);
             const float allowed_radius = controller->interaction_radius + entity_radius;
             if (perpendicular_distance > allowed_radius || projection >= best_projection) {
                 return;
