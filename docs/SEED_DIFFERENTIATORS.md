@@ -17,7 +17,21 @@ Goals:
 - allow useful runtime-spawned objects to be promoted into authored scene objects
 - keep Undo/Redo integration
 
-Foundation status: Seed now has an engine-owned semantic `SceneDiff` model with persistent-entity matching, property-level changes, Safe / Review / Runtime State classification and selective application.
+Implemented foundation:
+
+- engine-owned semantic `SceneDiff` with persistent-entity matching
+- property/component/entity/parent structural changes rather than text-line diffs
+- `Safe`, `Review`, and `Runtime State` classification
+- exact selective application without copying unrelated runtime state
+- runtime-spawned entity promotion support
+- Seed Studio `Review Play Changes` modal on Stop
+- Safe changes preselected; Review changes opt-in; Runtime State locked out
+- human-readable Before/After values and semantic component/property paths
+- Seed's temporary fallback Play Player is removed before diffing so engine plumbing never appears as creator work
+- editor input and a new Play session are blocked until the pending review is explicitly applied or discarded
+- runtime assets are rebound after selected changes are applied
+
+Next milestone: make the entire Apply Selected operation one Studio history transaction so one `Ctrl+Z` restores the complete pre-apply authored scene.
 
 ## 2. Human-readable Scene Diff + Merge
 
@@ -129,22 +143,41 @@ Every major Seed release should be validated by building and shipping a complete
 
 A feature is not considered mature only because its API exists. It must work in combination with the rest of the engine through a real project pipeline.
 
+## Character pipeline status
+
+Seed's first real animated-character foundation now includes:
+
+- animated glTF import with joints, weights, skeletons, inverse bind matrices and clips
+- backend-neutral skinned-mesh renderer contract
+- OpenGL GPU vertex skinning with a 96-joint palette
+- real Linux OpenGL skinning smoke coverage
+- `SkinnedMeshComponent` + `AnimationPlayerComponent`
+- scene-level clip evaluation and skin-matrix generation
+- RenderSystem skinned-character routing through the ordinary Seed PBR lighting/material path
+- Studio Play Mode animation ticking
+- static + skinned PBR shaders in Seed Studio
+- scene persistence for authored character asset, visibility/shadow settings, clip, speed and play/pause
+- runtime GPU handles, pointers, animation time and evaluated pose deliberately rebuilt rather than serialized
+
+The current shadow pass intentionally uses the character bind-pose silhouette. Palette-aware animated shadows are a follow-up milestone.
+
 ## Priority
 
 Near term:
 
-1. Apply Play Changes Studio workflow
-2. semantic scene diff/merge UX
-3. built-in Save Game
-4. character GPU skinning + first complete Third-Person sample
-5. expose Seed Doctor findings + safe fixes in Studio
+1. one-transaction Undo for Apply Play Changes
+2. expose Seed Doctor findings + safe fixes in Studio
+3. Studio character import/authoring for Skinned Mesh + Animation Player
+4. movement-driven animation states and blending for the Third-Person sample
+5. built-in Save Game
+6. semantic scene diff/merge UX
 
 Later:
 
-6. stable live-code/module reload
-7. multiplayer authoring + prediction/rollback
-8. collaborative editing/version-control UX
-9. Time-Travel Gameplay Debugger
+7. stable live-code/module reload
+8. multiplayer authoring + prediction/rollback
+9. collaborative editing/version-control UX
+10. Time-Travel Gameplay Debugger
 
 The product question for every feature is:
 
