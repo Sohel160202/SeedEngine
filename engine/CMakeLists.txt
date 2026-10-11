@@ -18,6 +18,7 @@ add_library(SeedEngine STATIC
     src/scene/Hierarchy.cpp
     src/scene/Scene.cpp
     src/scene/SceneDiff.cpp
+    src/scene/SceneMerge.cpp
 )
 
 target_include_directories(SeedEngine
