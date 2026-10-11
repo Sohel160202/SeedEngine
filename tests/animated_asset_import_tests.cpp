@@ -1,5 +1,7 @@
 #include "seed/animation/AnimationSystem.h"
 #include "seed/assets/AssetImporter.h"
+#include "seed/assets/AssetRuntime.h"
+#include "seed/render/IRenderer.h"
 
 #include <cassert>
 #include <cmath>
@@ -8,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -41,6 +44,50 @@ bool near(float a, float b, float epsilon = 0.001f) {
     return std::fabs(a - b) <= epsilon;
 }
 
+class FakeRenderer final : public seed::IRenderer {
+public:
+    bool initialize(void*, const seed::RendererConfig& config) override {
+        m_width = config.width;
+        m_height = config.height;
+        return true;
+    }
+    void resize(std::uint32_t width, std::uint32_t height) override { m_width = width; m_height = height; }
+    std::uint32_t width() const noexcept override { return m_width; }
+    std::uint32_t height() const noexcept override { return m_height; }
+
+    seed::ShaderHandle create_shader(const seed::ShaderDesc&) override { return {++m_next}; }
+    void destroy_shader(seed::ShaderHandle) override {}
+    seed::MeshHandle create_mesh(const seed::MeshDesc&) override { return {++m_next}; }
+    void destroy_mesh(seed::MeshHandle) override {}
+    seed::TextureHandle create_texture(const seed::TextureDesc&) override { return {++m_next}; }
+    void destroy_texture(seed::TextureHandle) override {}
+
+    void begin_frame() override {}
+    void draw_sky(const seed::SkySettings&) override {}
+    bool begin_shadow_pass(const seed::Mat4&) override { return false; }
+    void draw_shadow_mesh(seed::MeshHandle, const seed::Mat4&) override {}
+    void end_shadow_pass() override {}
+    void draw_mesh(
+        seed::MeshHandle,
+        seed::ShaderHandle,
+        const seed::MaterialTextures&,
+        const seed::Vec4&,
+        const seed::MaterialSurface&,
+        bool,
+        const seed::Mat4&,
+        const seed::Mat4&,
+        const seed::SceneLighting&
+    ) override {}
+    void end_frame() override {}
+    std::string_view backend_name() const override { return "Fake"; }
+    void shutdown() override {}
+
+private:
+    std::uint32_t m_width{1};
+    std::uint32_t m_height{1};
+    std::uint32_t m_next{0};
+};
+
 } // namespace
 
 int main() {
@@ -53,13 +100,11 @@ int main() {
     std::vector<std::uint8_t> bytes;
     bytes.reserve(264);
 
-    // POSITION: three vertices.
     append_vec3(bytes, -0.5f, 0.0f, 0.0f);
     append_vec3(bytes,  0.5f, 0.0f, 0.0f);
     append_vec3(bytes,  0.0f, 1.0f, 0.0f);
     assert(bytes.size() == 36);
 
-    // JOINTS_0: first two vertices use Root, top vertex uses Child.
     const std::uint8_t joints[12] = {
         0,0,0,0,
         0,0,0,0,
@@ -68,21 +113,17 @@ int main() {
     bytes.insert(bytes.end(), std::begin(joints), std::end(joints));
     assert(bytes.size() == 48);
 
-    // WEIGHTS_0: one full influence per vertex.
     for (int i = 0; i < 3; ++i) append_vec4(bytes, 1.0f, 0.0f, 0.0f, 0.0f);
     assert(bytes.size() == 96);
 
-    // Triangle indices + 2-byte alignment padding.
     append_u16(bytes, 0); append_u16(bytes, 1); append_u16(bytes, 2);
     bytes.push_back(0); bytes.push_back(0);
     assert(bytes.size() == 104);
 
-    // Inverse bind matrices. Child bind pose is translated +1 Y, so inverse is -1 Y.
     append_identity(bytes, 0.0f);
     append_identity(bytes, -1.0f);
     assert(bytes.size() == 232);
 
-    // Animation input times and Root translation outputs.
     append_float(bytes, 0.0f); append_float(bytes, 1.0f);
     append_vec3(bytes, 0.0f, 0.0f, 0.0f);
     append_vec3(bytes, 1.0f, 0.0f, 0.0f);
@@ -190,7 +231,29 @@ int main() {
     assert(imported->external_files.size() == 1);
     assert(imported->external_files[0].generic_string() == "character.bin");
 
+    FakeRenderer renderer;
+    seed::AssetRuntime runtime(renderer);
+    runtime.set_project_root(root);
+    const std::string character_id = seed::AssetRuntime::make_character_asset_id("Character.gltf");
+    assert(character_id == "character:Character.gltf");
+    assert(seed::AssetRuntime::is_character_asset_id(character_id));
+    assert(seed::AssetRuntime::character_asset_path(character_id).value() == std::filesystem::path{"Character.gltf"});
+
+    error.clear();
+    const seed::AnimatedModelAssetResource* runtime_character = runtime.load_character(character_id, &error);
+    if (runtime_character == nullptr) std::cerr << error << '\n';
+    assert(runtime_character != nullptr);
+    assert(runtime_character->vertices.size() == 3);
+    assert(runtime_character->indices.size() == 3);
+    assert(runtime_character->skeleton.joints.size() == 2);
+    assert(runtime_character->animations.size() == 1);
+    assert(near(runtime_character->vertices[2].joints[0], 1.0f));
+    assert(near(runtime_character->vertices[2].weights[0], 1.0f));
+
+    // Runtime cache returns the same stable resource for repeat requests.
+    assert(runtime.load_character(character_id, &error) == runtime_character);
+
     std::filesystem::remove_all(root);
-    std::cout << "Seed animated glTF import tests passed.\n";
+    std::cout << "Seed animated glTF import + runtime asset tests passed.\n";
     return 0;
 }
