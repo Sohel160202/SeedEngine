@@ -18,6 +18,7 @@ enum class DoctorFixKind {
     AddInteractable,
     AddInventory,
     AddCharacterBody,
+    AddThirdPersonCamera,
 };
 
 struct DoctorFinding {
