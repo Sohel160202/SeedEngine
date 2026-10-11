@@ -13,7 +13,7 @@ namespace seed::studio {
 enum class StudioActionType {
     None, NewProject, OpenProject, Save, SaveAs, NewScene, ImportModel,
     CreateEmptyEntity, CreateCube, CreateDirectionalLight, CreateAmbientLight,
-    CreateSky, CreateFirstPersonPlayer, DuplicateSelected, DeleteSelected,
+    CreateSky, CreateFirstPersonPlayer, CreateThirdPersonPlayer, DuplicateSelected, DeleteSelected,
     FocusSelected, Undo, Redo, Play, Stop
 };
 
