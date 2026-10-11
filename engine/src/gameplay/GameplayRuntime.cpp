@@ -2,6 +2,8 @@
 
 #include "seed/gameplay/Components.h"
 #include "seed/physics/PhysicsComponents.h"
+#include "seed/render/RenderComponents.h"
+#include "seed/scene/Hierarchy.h"
 #include "seed/scene/Scene.h"
 
 #include <algorithm>
@@ -43,6 +45,10 @@ float maximum_scale(const TransformComponent& transform) {
     });
 }
 
+float yaw_from_direction(const Vec3& direction) {
+    return degrees(std::atan2(direction.x, -direction.z));
+}
+
 } // namespace
 
 bool GameplayRuntime::start(Scene& scene, EntityId player_entity) {
@@ -64,8 +70,25 @@ bool GameplayRuntime::start(Scene& scene, EntityId player_entity) {
     }
 
     m_player_entity = player_entity;
+    m_camera_entity = resolve_player_camera(scene);
     m_active = true;
-    m_status_message = "Play Mode running.";
+
+    const auto* controller = scene.get_component<PlayerControllerComponent>(player_entity);
+    if (controller != nullptr && controller->view_mode == PlayerViewMode::ThirdPerson) {
+        if (m_camera_entity != InvalidEntity) {
+            const TransformComponent camera_world = world_transform(scene, m_camera_entity);
+            m_third_person_yaw = camera_world.rotation_degrees.y;
+            const float min_pitch = std::min(controller->camera_min_pitch, controller->camera_max_pitch);
+            const float max_pitch = std::max(controller->camera_min_pitch, controller->camera_max_pitch);
+            m_third_person_pitch = std::clamp(camera_world.rotation_degrees.x, min_pitch, max_pitch);
+            update_third_person_camera(scene);
+            m_status_message = "Third-Person Play Mode running.";
+        } else {
+            m_status_message = "Third-Person Player is missing its game Camera.";
+        }
+    } else {
+        m_status_message = "First-Person Play Mode running.";
+    }
 
     if (scene.has_component<CharacterBodyComponent>(player_entity)) {
         PhysicsSystem::initialize_character(scene, player_entity, m_character_state);
@@ -90,6 +113,7 @@ bool GameplayRuntime::start(Scene& scene, EntityId player_entity) {
 void GameplayRuntime::stop() {
     m_active = false;
     m_player_entity = InvalidEntity;
+    m_camera_entity = InvalidEntity;
     m_interaction_target = InvalidEntity;
     m_forward = false;
     m_backward = false;
@@ -104,6 +128,8 @@ void GameplayRuntime::stop() {
     m_jump_requested = false;
     m_pending_look_x = 0.0f;
     m_pending_look_y = 0.0f;
+    m_third_person_yaw = 0.0f;
+    m_third_person_pitch = -12.0f;
     m_character_state = {};
     m_doors.clear();
     m_interaction_prompt.clear();
@@ -183,6 +209,42 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds) {
     }
 }
 
+EntityId GameplayRuntime::resolve_player_camera(Scene& scene) const {
+    if (m_player_entity == InvalidEntity || !scene.is_alive(m_player_entity)) {
+        return InvalidEntity;
+    }
+
+    if (const auto* camera = scene.get_component<CameraComponent>(m_player_entity);
+        camera != nullptr && camera->enabled && !camera->editor_only) {
+        return m_player_entity;
+    }
+
+    const std::string& player_id = scene.entity_persistent_id(m_player_entity);
+    EntityId child_camera = InvalidEntity;
+    scene.for_each<TransformComponent, CameraComponent>(
+        [&](EntityId entity, TransformComponent&, CameraComponent& camera) {
+            if (child_camera != InvalidEntity || !camera.enabled || camera.editor_only) return;
+            const auto* parent = scene.get_component<ParentComponent>(entity);
+            if (parent != nullptr && parent->parent_persistent_id == player_id) {
+                child_camera = entity;
+            }
+        }
+    );
+    if (child_camera != InvalidEntity) {
+        return child_camera;
+    }
+
+    EntityId primary_camera = InvalidEntity;
+    scene.for_each<TransformComponent, CameraComponent>(
+        [&](EntityId entity, TransformComponent&, CameraComponent& camera) {
+            if (primary_camera == InvalidEntity && camera.enabled && camera.primary && !camera.editor_only) {
+                primary_camera = entity;
+            }
+        }
+    );
+    return primary_camera;
+}
+
 void GameplayRuntime::update_player(Scene& scene, double delta_seconds) {
     auto* transform = scene.get_component<TransformComponent>(m_player_entity);
     auto* controller = scene.get_component<PlayerControllerComponent>(m_player_entity);
@@ -191,34 +253,46 @@ void GameplayRuntime::update_player(Scene& scene, double delta_seconds) {
         return;
     }
 
-    transform->rotation_degrees.y += m_pending_look_x * controller->look_sensitivity;
-    transform->rotation_degrees.x -= m_pending_look_y * controller->look_sensitivity;
-    transform->rotation_degrees.x = std::clamp(transform->rotation_degrees.x, -89.0f, 89.0f);
+    if (controller->view_mode == PlayerViewMode::ThirdPerson) {
+        m_third_person_yaw += m_pending_look_x * controller->look_sensitivity;
+        m_third_person_pitch -= m_pending_look_y * controller->look_sensitivity;
+        const float min_pitch = std::min(controller->camera_min_pitch, controller->camera_max_pitch);
+        const float max_pitch = std::max(controller->camera_min_pitch, controller->camera_max_pitch);
+        m_third_person_pitch = std::clamp(m_third_person_pitch, min_pitch, max_pitch);
+    } else {
+        transform->rotation_degrees.y += m_pending_look_x * controller->look_sensitivity;
+        transform->rotation_degrees.x -= m_pending_look_y * controller->look_sensitivity;
+        transform->rotation_degrees.x = std::clamp(transform->rotation_degrees.x, -89.0f, 89.0f);
+    }
     m_pending_look_x = 0.0f;
     m_pending_look_y = 0.0f;
 
     const float speed = controller->move_speed * (m_fast ? controller->fast_multiplier : 1.0f);
     const float distance = speed * static_cast<float>(delta_seconds);
+    const float movement_yaw = controller->view_mode == PlayerViewMode::ThirdPerson
+        ? m_third_person_yaw
+        : transform->rotation_degrees.y;
+    const Vec3 movement_rotation{0.0f, movement_yaw, 0.0f};
+    const Vec3 movement_forward = forward_from_euler(movement_rotation);
+    const Vec3 movement_right = right_from_euler(movement_rotation);
+
+    Vec3 wish{};
+    if (m_forward) wish += movement_forward;
+    if (m_backward) wish += movement_forward * -1.0f;
+    if (m_right) wish += movement_right;
+    if (m_left) wish += movement_right * -1.0f;
+    wish.y = 0.0f;
+    if (length(wish) > 1.0f) wish = normalize(wish);
+
+    if (controller->view_mode == PlayerViewMode::ThirdPerson &&
+        controller->orient_to_movement && length(wish) > 0.0001f) {
+        transform->rotation_degrees.x = 0.0f;
+        transform->rotation_degrees.y = yaw_from_direction(wish);
+        transform->rotation_degrees.z = 0.0f;
+    }
 
     auto* character_body = scene.get_component<CharacterBodyComponent>(m_player_entity);
     if (character_body != nullptr && character_body->enabled) {
-        // Physics characters walk along the ground plane. Looking up/down affects
-        // the camera and interaction ray, but never turns W into flying movement.
-        const Vec3 yaw_rotation{0.0f, transform->rotation_degrees.y, 0.0f};
-        const Vec3 forward = forward_from_euler(yaw_rotation);
-        const Vec3 right = right_from_euler(yaw_rotation);
-
-        Vec3 wish{};
-        if (m_forward) wish += forward;
-        if (m_backward) wish += forward * -1.0f;
-        if (m_right) wish += right;
-        if (m_left) wish += right * -1.0f;
-        wish.y = 0.0f;
-
-        if (length(wish) > 1.0f) {
-            wish = normalize(wish);
-        }
-
         PhysicsSystem::move_character(
             scene,
             m_player_entity,
@@ -228,35 +302,85 @@ void GameplayRuntime::update_player(Scene& scene, double delta_seconds) {
             m_character_state
         );
         m_jump_requested = false;
+        if (controller->view_mode == PlayerViewMode::ThirdPerson) {
+            update_third_person_camera(scene);
+        }
         return;
     }
 
-    // Compatibility path for scenes created before Character Body existed.
-    const Vec3 forward = forward_from_euler(transform->rotation_degrees);
-    const Vec3 right = right_from_euler(transform->rotation_degrees);
-    const Vec3 world_up{0.0f, 1.0f, 0.0f};
+    if (length(wish) > 0.0001f) {
+        transform->position += wish * distance;
+    }
 
-    if (m_forward) transform->position += forward * distance;
-    if (m_backward) transform->position += forward * -distance;
-    if (m_right) transform->position += right * distance;
-    if (m_left) transform->position += right * -distance;
-    if (m_up) transform->position += world_up * distance;
-    if (m_down) transform->position += world_up * -distance;
+    // Compatibility free-fly controls remain available for legacy first-person scenes.
+    if (controller->view_mode == PlayerViewMode::FirstPerson) {
+        const Vec3 world_up{0.0f, 1.0f, 0.0f};
+        if (m_up) transform->position += world_up * distance;
+        if (m_down) transform->position += world_up * -distance;
+    }
+
     m_jump_requested = false;
+    if (controller->view_mode == PlayerViewMode::ThirdPerson) {
+        update_third_person_camera(scene);
+    }
+}
+
+void GameplayRuntime::update_third_person_camera(Scene& scene) {
+    if (m_camera_entity == InvalidEntity || !scene.is_alive(m_camera_entity)) {
+        m_camera_entity = resolve_player_camera(scene);
+    }
+
+    auto* player_transform = scene.get_component<TransformComponent>(m_player_entity);
+    auto* camera_transform = scene.get_component<TransformComponent>(m_camera_entity);
+    const auto* controller = scene.get_component<PlayerControllerComponent>(m_player_entity);
+    if (player_transform == nullptr || camera_transform == nullptr || controller == nullptr) {
+        return;
+    }
+
+    const bool camera_is_child = parent_entity(scene, m_camera_entity) == m_player_entity;
+    if (camera_is_child) {
+        const float local_yaw = m_third_person_yaw - player_transform->rotation_degrees.y;
+        const Vec3 local_rotation{m_third_person_pitch, local_yaw, 0.0f};
+        const Vec3 local_forward = forward_from_euler(local_rotation);
+        const Vec3 local_right = right_from_euler(local_rotation);
+        camera_transform->position =
+            Vec3{0.0f, std::max(0.0f, controller->camera_height), 0.0f} -
+            local_forward * std::max(0.1f, controller->camera_distance) +
+            local_right * controller->camera_shoulder_offset;
+        camera_transform->rotation_degrees = local_rotation;
+    } else {
+        const Vec3 view_rotation{m_third_person_pitch, m_third_person_yaw, 0.0f};
+        const Vec3 view_forward = forward_from_euler(view_rotation);
+        const Vec3 view_right = right_from_euler(view_rotation);
+        const Vec3 anchor = player_transform->position + Vec3{0.0f, std::max(0.0f, controller->camera_height), 0.0f};
+        camera_transform->position =
+            anchor - view_forward * std::max(0.1f, controller->camera_distance) +
+            view_right * controller->camera_shoulder_offset;
+        camera_transform->rotation_degrees = view_rotation;
+    }
 }
 
 void GameplayRuntime::refresh_interaction_target(Scene& scene) {
     m_interaction_target = InvalidEntity;
     m_interaction_prompt.clear();
 
-    const auto* player_transform = scene.get_component<TransformComponent>(m_player_entity);
     const auto* controller = scene.get_component<PlayerControllerComponent>(m_player_entity);
-    if (player_transform == nullptr || controller == nullptr || !controller->enabled) {
+    if (controller == nullptr || !controller->enabled) {
         return;
     }
 
-    const Vec3 origin = player_transform->position;
-    const Vec3 forward = forward_from_euler(player_transform->rotation_degrees);
+    TransformComponent view_transform{};
+    if (m_camera_entity != InvalidEntity && scene.is_alive(m_camera_entity) &&
+        scene.has_component<TransformComponent>(m_camera_entity)) {
+        view_transform = world_transform(scene, m_camera_entity);
+    } else if (scene.has_component<TransformComponent>(m_player_entity)) {
+        view_transform = world_transform(scene, m_player_entity);
+    } else {
+        return;
+    }
+
+    const Vec3 origin = view_transform.position;
+    const Vec3 forward = forward_from_euler(view_transform.rotation_degrees);
     float best_projection = std::numeric_limits<float>::max();
 
     scene.for_each<TransformComponent, InteractableComponent>(
@@ -265,15 +389,16 @@ void GameplayRuntime::refresh_interaction_target(Scene& scene) {
                 return;
             }
 
-            const Vec3 to_target = transform.position - origin;
+            const TransformComponent target_world = world_transform(scene, entity);
+            const Vec3 to_target = target_world.position - origin;
             const float projection = dot(to_target, forward);
             if (projection <= 0.0f || projection > controller->interaction_distance) {
                 return;
             }
 
             const Vec3 closest_point = origin + forward * projection;
-            const float perpendicular_distance = length(transform.position - closest_point);
-            const float entity_radius = std::max(0.4f, maximum_scale(transform) * 0.65f);
+            const float perpendicular_distance = length(target_world.position - closest_point);
+            const float entity_radius = std::max(0.4f, maximum_scale(target_world) * 0.65f);
             const float allowed_radius = controller->interaction_radius + entity_radius;
             if (perpendicular_distance > allowed_radius || projection >= best_projection) {
                 return;
