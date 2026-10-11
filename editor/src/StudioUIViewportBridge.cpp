@@ -1,4 +1,5 @@
 #include "StudioUI.h"
+#include "SeedDoctorPanel.h"
 
 #include "seed/render/RenderComponents.h"
 #include "seed/gameplay/Components.h"
@@ -35,6 +36,15 @@ void StudioUI::draw(Scene& scene, const StudioDocumentInfo& document) {
     }
 
     draw(scene, document, viewport_camera);
+
+    // Seed Doctor lives beside, not inside, the core Studio layout. Validation
+    // remains engine-owned while this bridge gives creators a small always-
+    // available health chip and an explicit fix/review surface in Edit Mode.
+    static SeedDoctorPanel doctor_panel;
+    const SeedDoctorPanelResult doctor_result = doctor_panel.draw(scene, *this, !document.playing);
+    if (doctor_result.scene_changed) {
+        m_scene_edited = true;
+    }
 }
 
 } // namespace seed::studio
