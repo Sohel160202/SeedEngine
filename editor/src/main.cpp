@@ -1041,6 +1041,8 @@ int main(int argc, char** argv) {
             if (merge_result.decision == seed::studio::SemanticMergeReviewDecision::Apply) {
                 studio_ui.begin_external_history_transaction();
                 scene = merge_result.merged_scene;
+                const seed::SceneRevisionStore revisions(workspace.project_file.parent_path());
+                const auto saved_merge = revisions.create_revision(scene, "Merged revision");
                 bind_builtin_resources(scene, cube_mesh, mesh_shader);
                 std::string rebind_error;
                 const bool rebound = asset_runtime.bind_scene(
@@ -1052,11 +1054,17 @@ int main(int argc, char** argv) {
                 editor_camera = ensure_editor_camera(scene);
                 workspace.dirty = true;
                 has_pending_semantic_merge = false;
-                if (!rebound) {
+                if (!saved_merge.saved) {
                     workspace.status_message =
-                        "Semantic merge applied, but asset rebind reported: " + rebind_error;
+                        "Semantic merge applied, but merged revision could not be saved: " +
+                        saved_merge.error;
+                } else if (!rebound) {
+                    workspace.status_message =
+                        "Merged revision " + saved_merge.revision.id +
+                        " applied, but asset rebind reported: " + rebind_error;
                 } else {
-                    workspace.status_message = "Semantic merge applied.";
+                    workspace.status_message =
+                        "Merged revision " + saved_merge.revision.id + " applied.";
                 }
                 studio_ui.select_entity(first_content_entity(scene));
             } else if (merge_result.decision == seed::studio::SemanticMergeReviewDecision::Cancel) {
@@ -1092,14 +1100,19 @@ int main(int argc, char** argv) {
             }
             case seed::studio::StudioActionType::OpenSemanticMerge: {
                 if (playing || has_pending_play_changes || has_pending_semantic_merge) break;
+                if (workspace.project_file.empty()) {
+                    workspace.status_message = "Save the Seed project before merging revisions.";
+                    break;
+                }
                 seed::Scene base_scene;
                 seed::Scene ours_scene;
                 seed::Scene theirs_scene;
                 std::string error;
-                if (!seed::SceneSerializer::load(base_scene, action.path, &error) ||
-                    !seed::SceneSerializer::load(ours_scene, action.path2, &error) ||
-                    !seed::SceneSerializer::load(theirs_scene, action.path3, &error)) {
-                    workspace.status_message = "Semantic merge could not load scenes: " + error;
+                const seed::SceneRevisionStore revisions(workspace.project_file.parent_path());
+                if (!revisions.load_revision(base_scene, action.path, &error) ||
+                    !revisions.load_revision(ours_scene, action.path2, &error) ||
+                    !revisions.load_revision(theirs_scene, action.path3, &error)) {
+                    workspace.status_message = "Semantic merge could not load revisions: " + error;
                     break;
                 }
                 semantic_merge_review.open(base_scene, ours_scene, theirs_scene);
