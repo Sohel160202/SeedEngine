@@ -47,6 +47,13 @@ target_link_libraries(SeedAnimationScenePlaybackTests PRIVATE SeedEngine)
 target_compile_features(SeedAnimationScenePlaybackTests PRIVATE cxx_std_20)
 add_test(NAME SeedAnimationScenePlaybackTests COMMAND SeedAnimationScenePlaybackTests)
 
+add_executable(SeedAnimationPersistenceTests
+    animation_persistence_tests.cpp
+)
+target_link_libraries(SeedAnimationPersistenceTests PRIVATE SeedEngine)
+target_compile_features(SeedAnimationPersistenceTests PRIVATE cxx_std_20)
+add_test(NAME SeedAnimationPersistenceTests COMMAND SeedAnimationPersistenceTests)
+
 add_executable(SeedAssetImportTests
     asset_import_tests.cpp
 )
