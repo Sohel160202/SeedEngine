@@ -350,32 +350,47 @@ void GameplayRuntime::update_third_person_camera(Scene& scene) {
         m_camera_entity = resolve_player_camera(scene);
     }
 
-    auto* player_transform = scene.get_component<TransformComponent>(m_player_entity);
     auto* camera_transform = scene.get_component<TransformComponent>(m_camera_entity);
     const auto* controller = scene.get_component<PlayerControllerComponent>(m_player_entity);
-    if (player_transform == nullptr || camera_transform == nullptr || controller == nullptr) {
+    if (camera_transform == nullptr || controller == nullptr ||
+        !scene.has_component<TransformComponent>(m_player_entity)) {
         return;
     }
 
+    const TransformComponent player_world = world_transform(scene, m_player_entity);
+    const Vec3 view_rotation{m_third_person_pitch, m_third_person_yaw, 0.0f};
+    const Vec3 view_forward = forward_from_euler(view_rotation);
+    const Vec3 view_right = right_from_euler(view_rotation);
+    const Vec3 anchor = player_world.position +
+        Vec3{0.0f, std::max(0.0f, controller->camera_height), 0.0f};
+    const Vec3 desired =
+        anchor - view_forward * std::max(0.1f, controller->camera_distance) +
+        view_right * controller->camera_shoulder_offset;
+    const Vec3 clipped = PhysicsSystem::clip_camera_position(
+        scene,
+        m_player_entity,
+        anchor,
+        desired,
+        0.15f,
+        0.05f
+    );
+
     const bool camera_is_child = parent_entity(scene, m_camera_entity) == m_player_entity;
     if (camera_is_child) {
-        const float local_yaw = m_third_person_yaw - player_transform->rotation_degrees.y;
-        const Vec3 local_rotation{m_third_person_pitch, local_yaw, 0.0f};
-        const Vec3 local_forward = forward_from_euler(local_rotation);
-        const Vec3 local_right = right_from_euler(local_rotation);
-        camera_transform->position =
-            Vec3{0.0f, std::max(0.0f, controller->camera_height), 0.0f} -
-            local_forward * std::max(0.1f, controller->camera_distance) +
-            local_right * controller->camera_shoulder_offset;
-        camera_transform->rotation_degrees = local_rotation;
+        Mat4 inverse_parent{};
+        if (inverse_matrix(world_transform_matrix(scene, m_player_entity), inverse_parent)) {
+            const Vec4 local = inverse_parent * Vec4{clipped.x, clipped.y, clipped.z, 1.0f};
+            camera_transform->position = {local.x, local.y, local.z};
+        } else {
+            camera_transform->position = clipped - player_world.position;
+        }
+        camera_transform->rotation_degrees = {
+            m_third_person_pitch,
+            m_third_person_yaw - player_world.rotation_degrees.y,
+            0.0f
+        };
     } else {
-        const Vec3 view_rotation{m_third_person_pitch, m_third_person_yaw, 0.0f};
-        const Vec3 view_forward = forward_from_euler(view_rotation);
-        const Vec3 view_right = right_from_euler(view_rotation);
-        const Vec3 anchor = player_transform->position + Vec3{0.0f, std::max(0.0f, controller->camera_height), 0.0f};
-        camera_transform->position =
-            anchor - view_forward * std::max(0.1f, controller->camera_distance) +
-            view_right * controller->camera_shoulder_offset;
+        camera_transform->position = clipped;
         camera_transform->rotation_degrees = view_rotation;
     }
 }
@@ -412,8 +427,6 @@ void GameplayRuntime::refresh_interaction_target(Scene& scene) {
             const TransformComponent target_world = world_transform(scene, entity);
             const float entity_radius = std::max(0.4f, maximum_scale(target_world) * 0.65f);
 
-            // Interaction reach belongs to the Player, not to a third-person camera
-            // that may be several metres behind them.
             const float player_distance = length(target_world.position - player_world.position);
             if (player_distance > controller->interaction_distance + entity_radius) {
                 return;
