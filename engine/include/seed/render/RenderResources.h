@@ -9,6 +9,8 @@
 
 namespace seed {
 
+inline constexpr std::size_t MaxSkinJoints = 96;
+
 struct ShaderHandle {
     std::uint32_t value{0};
 
@@ -37,6 +39,20 @@ struct VertexPositionColor {
     std::array<float, 3> color{1.0f, 1.0f, 1.0f};
     std::array<float, 2> texcoord{};
     std::array<float, 3> normal{0.0f, 1.0f, 0.0f};
+};
+
+// Renderer-facing skinned vertex. Joint indices are represented as floats in
+// the backend-neutral contract so the current OpenGL 3.3 backend can consume
+// them with the same portable vertex-attribute path as other data. Shaders cast
+// them to integer palette indices. Seed import/runtime data keeps its compact
+// uint16 joint representation separately.
+struct SkinnedVertex {
+    std::array<float, 3> position{};
+    std::array<float, 3> color{1.0f, 1.0f, 1.0f};
+    std::array<float, 2> texcoord{};
+    std::array<float, 3> normal{0.0f, 1.0f, 0.0f};
+    std::array<float, 4> joints{};
+    std::array<float, 4> weights{1.0f, 0.0f, 0.0f, 0.0f};
 };
 
 struct MaterialSurface {
@@ -85,6 +101,11 @@ struct ShaderDesc {
 
 struct MeshDesc {
     std::span<const VertexPositionColor> vertices;
+    std::span<const std::uint32_t> indices;
+};
+
+struct SkinnedMeshDesc {
+    std::span<const SkinnedVertex> vertices;
     std::span<const std::uint32_t> indices;
 };
 
