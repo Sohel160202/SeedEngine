@@ -38,6 +38,8 @@ Vec4 vec4_from_json(const nlohmann::json& value, Vec4 fallback = {1.0f,1.0f,1.0f
 
 const char* door_motion_name(DoorMotion motion) { return motion == DoorMotion::Slide ? "slide" : "rotate"; }
 DoorMotion door_motion_from_name(const std::string& name) { return name == "slide" ? DoorMotion::Slide : DoorMotion::Rotate; }
+const char* player_view_mode_name(PlayerViewMode mode) { return mode == PlayerViewMode::ThirdPerson ? "third_person" : "first_person"; }
+PlayerViewMode player_view_mode_from_name(const std::string& name) { return name == "third_person" ? PlayerViewMode::ThirdPerson : PlayerViewMode::FirstPerson; }
 
 } // namespace
 
@@ -94,7 +96,21 @@ bool SceneSerializer::save(const Scene& scene, const std::filesystem::path& scen
                 components["Pickup"] = {{"item_id",pickup->item_id},{"display_name",pickup->display_name},{"quantity",pickup->quantity},{"destroy_on_pickup",pickup->destroy_on_pickup}};
             }
             if (const auto* player = scene.get_component<PlayerControllerComponent>(entity)) {
-                components["PlayerController"] = {{"move_speed",player->move_speed},{"fast_multiplier",player->fast_multiplier},{"look_sensitivity",player->look_sensitivity},{"interaction_distance",player->interaction_distance},{"interaction_radius",player->interaction_radius},{"enabled",player->enabled}};
+                components["PlayerController"] = {
+                    {"view_mode",player_view_mode_name(player->view_mode)},
+                    {"move_speed",player->move_speed},
+                    {"fast_multiplier",player->fast_multiplier},
+                    {"look_sensitivity",player->look_sensitivity},
+                    {"interaction_distance",player->interaction_distance},
+                    {"interaction_radius",player->interaction_radius},
+                    {"camera_distance",player->camera_distance},
+                    {"camera_height",player->camera_height},
+                    {"camera_shoulder_offset",player->camera_shoulder_offset},
+                    {"camera_min_pitch",player->camera_min_pitch},
+                    {"camera_max_pitch",player->camera_max_pitch},
+                    {"orient_to_movement",player->orient_to_movement},
+                    {"enabled",player->enabled}
+                };
             }
 
             entities.push_back({{"id",scene.entity_persistent_id(entity)},{"name",name},{"components",std::move(components)}});
@@ -189,7 +205,20 @@ bool SceneSerializer::load(Scene& scene, const std::filesystem::path& scene_file
             }
             if (components.contains("PlayerController")) {
                 const auto& value=components.at("PlayerController"); PlayerControllerComponent player;
-                player.move_speed=value.value("move_speed",4.0f);player.fast_multiplier=value.value("fast_multiplier",2.5f);player.look_sensitivity=value.value("look_sensitivity",0.12f);player.interaction_distance=value.value("interaction_distance",4.0f);player.interaction_radius=value.value("interaction_radius",1.25f);player.enabled=value.value("enabled",true);loaded_scene.add_component<PlayerControllerComponent>(entity,player);
+                player.view_mode=player_view_mode_from_name(value.value("view_mode",std::string{"first_person"}));
+                player.move_speed=value.value("move_speed",4.0f);
+                player.fast_multiplier=value.value("fast_multiplier",2.5f);
+                player.look_sensitivity=value.value("look_sensitivity",0.12f);
+                player.interaction_distance=value.value("interaction_distance",4.0f);
+                player.interaction_radius=value.value("interaction_radius",1.25f);
+                player.camera_distance=value.value("camera_distance",4.5f);
+                player.camera_height=value.value("camera_height",1.55f);
+                player.camera_shoulder_offset=value.value("camera_shoulder_offset",0.0f);
+                player.camera_min_pitch=value.value("camera_min_pitch",-60.0f);
+                player.camera_max_pitch=value.value("camera_max_pitch",70.0f);
+                player.orient_to_movement=value.value("orient_to_movement",true);
+                player.enabled=value.value("enabled",true);
+                loaded_scene.add_component<PlayerControllerComponent>(entity,player);
             }
         }
 
