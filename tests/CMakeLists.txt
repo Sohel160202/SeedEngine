@@ -89,6 +89,13 @@ target_link_libraries(SeedSceneDiffTests PRIVATE SeedEngine)
 target_compile_features(SeedSceneDiffTests PRIVATE cxx_std_20)
 add_test(NAME SeedSceneDiffTests COMMAND SeedSceneDiffTests)
 
+add_executable(SeedDoctorTests
+    seed_doctor_tests.cpp
+)
+target_link_libraries(SeedDoctorTests PRIVATE SeedEngine)
+target_compile_features(SeedDoctorTests PRIVATE cxx_std_20)
+add_test(NAME SeedDoctorTests COMMAND SeedDoctorTests)
+
 # Windowed OpenGL smoke executable. It is intentionally not a normal CTest
 # because headless Windows/macOS runners do not provide a display context.
 add_executable(SeedSkinningRendererSmoke

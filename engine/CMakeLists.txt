@@ -4,6 +4,7 @@ add_library(SeedEngine STATIC
     src/assets/AssetImporter.cpp
     src/assets/AssetRuntime.cpp
     src/core/Engine.cpp
+    src/diagnostics/SeedDoctor.cpp
     src/gameplay/GameplayRuntime.cpp
     src/physics/PhysicsQueries.cpp
     src/physics/PhysicsSystem.cpp

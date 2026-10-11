@@ -14,7 +14,10 @@ Goals:
 - show exactly what changed
 - apply individual properties, components or entities
 - distinguish runtime-only/transient state from authoring state
+- allow useful runtime-spawned objects to be promoted into authored scene objects
 - keep Undo/Redo integration
+
+Foundation status: Seed now has an engine-owned semantic `SceneDiff` model with persistent-entity matching, property-level changes, Safe / Review / Runtime State classification and selective application.
 
 ## 2. Human-readable Scene Diff + Merge
 
@@ -27,6 +30,8 @@ Goals:
 - resolve conflicts inside Seed Studio
 - preserve stable persistent entity IDs
 - integrate cleanly with Git/Perforce workflows later
+
+The same semantic `SceneDiff` foundation used for Play Mode should power this rather than creating a second diff system.
 
 ## 3. Gameplay Save System by Default
 
@@ -76,7 +81,49 @@ Examples:
 - Pickup can supply collider/interaction requirements
 - Quest/Dialogue/HUD systems expose game concepts, not framework internals
 
-## 7. Engine Dogfooding as a Product Rule
+## 7. Seed Doctor — Explain Why It Does Not Work
+
+A beginner should not need years of engine knowledge to discover that one checkbox, collision channel, ownership rule or missing dependency is why a feature fails.
+
+Seed Doctor should inspect the authored game semantically and explain problems in game-language.
+
+Examples:
+
+- `Door cannot be interacted with because Interactable is missing. Add it?`
+- `Third-Person camera can pass through this wall because the wall has no Solid Collision.`
+- `Pickup requires an item ID before it can be collected.`
+- `This replicated action is running on a client but requires authority.`
+
+Goals:
+
+- dependency graph for gameplay concepts
+- editor-time validation before Play
+- runtime diagnostics that identify the entity/component/property involved
+- one-click safe fixes where possible
+- plain-language explanation plus an advanced technical view
+- never silently change project behavior without showing what Seed fixed
+
+Foundation status: Seed now has an engine-owned `SeedDoctor` validator with stable finding codes, creator-facing and technical explanations, entity identity, severity, and explicit safe-fix actions. The first rules cover Door/Interactable dependencies, Pickup identity/quantity, Player Inventory/Character Body dependencies, and Third-Person camera setup.
+
+## 8. Time-Travel Gameplay Debugger
+
+Seed should eventually make game-state bugs reproducible instead of asking creators to trigger them again and hope they notice the right frame.
+
+A deterministic-enough recording layer can capture inputs, important gameplay events and semantic state changes while playing.
+
+Goals:
+
+- scrub backward through a recent Play session
+- inspect `what changed on this frame?`
+- follow an event chain such as Input → Interaction → Inventory → Door
+- breakpoint on a property/event change rather than only a source-code line
+- compare two runtime moments using the same semantic diff infrastructure
+- export a compact reproducible bug trace
+- support multiplayer traces later with authority/client timelines
+
+This is deliberately a long-term feature, but Seed's stable IDs and semantic scene/state model should be designed so it remains possible.
+
+## 9. Engine Dogfooding as a Product Rule
 
 Every major Seed release should be validated by building and shipping a complete Seed game with it.
 
@@ -86,16 +133,18 @@ A feature is not considered mature only because its API exists. It must work in 
 
 Near term:
 
-1. Apply Play Changes
-2. semantic scene diff
+1. Apply Play Changes Studio workflow
+2. semantic scene diff/merge UX
 3. built-in Save Game
-4. character animation + first complete Third-Person sample
+4. character GPU skinning + first complete Third-Person sample
+5. expose Seed Doctor findings + safe fixes in Studio
 
 Later:
 
-5. stable live-code/module reload
-6. multiplayer authoring + prediction/rollback
-7. collaborative editing/version-control UX
+6. stable live-code/module reload
+7. multiplayer authoring + prediction/rollback
+8. collaborative editing/version-control UX
+9. Time-Travel Gameplay Debugger
 
 The product question for every feature is:
 
