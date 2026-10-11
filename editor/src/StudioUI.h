@@ -78,7 +78,7 @@ private:
 
     void queue_action(StudioAction action);
     void draw_main_menu(const StudioDocumentInfo& document);
-    void draw_project_dialogs();
+    void draw_project_dialogs(const StudioDocumentInfo& document);
     void draw_world_panel(Scene& scene);
     void draw_inspector(Scene& scene, const StudioDocumentInfo& document);
     void draw_assets_panel(const StudioDocumentInfo& document);
