@@ -1,5 +1,7 @@
 #include "seed/assets/AssetRuntime.h"
 
+#include "seed/animation/AnimationComponents.h"
+#include "seed/animation/AnimationSystem.h"
 #include "seed/assets/AssetImporter.h"
 #include "seed/render/IRenderer.h"
 #include "seed/render/RenderComponents.h"
@@ -56,6 +58,35 @@ std::optional<std::filesystem::path> prefixed_asset_path(
     const std::string_view relative = value.substr(prefix.size());
     if (relative.empty()) return std::nullopt;
     return std::filesystem::path{relative};
+}
+
+void hydrate_material(
+    MaterialComponent& material,
+    ShaderHandle shader,
+    const std::string& asset_id,
+    TextureHandle base_color_texture,
+    TextureHandle metallic_roughness_texture,
+    TextureHandle normal_texture,
+    const Vec4& base_color,
+    float metallic,
+    float roughness,
+    float normal_scale
+) {
+    material.shader = shader;
+    material.asset_id = asset_id;
+    material.base_color_texture = base_color_texture;
+    material.metallic_roughness_texture = metallic_roughness_texture;
+    material.normal_texture = normal_texture;
+    if (!material.use_asset_defaults) return;
+
+    material.base_color = base_color;
+    material.metallic = metallic;
+    material.roughness = roughness;
+    material.normal_scale = normal_scale;
+    material.use_base_color_texture = static_cast<bool>(base_color_texture);
+    material.use_metallic_roughness_texture = static_cast<bool>(metallic_roughness_texture);
+    material.use_normal_texture = static_cast<bool>(normal_texture);
+    material.use_asset_defaults = false;
 }
 
 } // namespace
@@ -267,47 +298,96 @@ const AnimatedModelAssetResource* AssetRuntime::load_character(
 }
 
 bool AssetRuntime::bind_scene(Scene& scene, ShaderHandle material_shader, std::string* error) {
+    return bind_scene(scene, material_shader, {}, error);
+}
+
+bool AssetRuntime::bind_scene(
+    Scene& scene,
+    ShaderHandle material_shader,
+    ShaderHandle skinned_material_shader,
+    std::string* error
+) {
     bool success = true;
     std::string first_error;
 
     scene.for_each<MeshComponent>([&](EntityId entity, MeshComponent& mesh) {
-        if (!is_model_asset_id(mesh.asset_id)) {
-            return;
-        }
+        if (!is_model_asset_id(mesh.asset_id)) return;
 
         std::string load_error;
         const auto resource = load_model(mesh.asset_id, &load_error);
         if (!resource.has_value()) {
             success = false;
-            if (first_error.empty()) {
-                first_error = load_error;
-            }
+            if (first_error.empty()) first_error = load_error;
             mesh.mesh = {};
             return;
         }
 
         mesh.mesh = resource->mesh;
         if (auto* material = scene.get_component<MaterialComponent>(entity)) {
-            material->shader = material_shader;
-            material->asset_id = mesh.asset_id;
-            material->base_color_texture = resource->base_color_texture;
-            material->metallic_roughness_texture = resource->metallic_roughness_texture;
-            material->normal_texture = resource->normal_texture;
-            if (material->use_asset_defaults) {
-                material->base_color = resource->base_color;
-                material->metallic = resource->metallic;
-                material->roughness = resource->roughness;
-                material->normal_scale = resource->normal_scale;
-                material->use_base_color_texture = static_cast<bool>(resource->base_color_texture);
-                material->use_metallic_roughness_texture = static_cast<bool>(resource->metallic_roughness_texture);
-                material->use_normal_texture = static_cast<bool>(resource->normal_texture);
-                material->use_asset_defaults = false;
+            hydrate_material(
+                *material,
+                material_shader,
+                mesh.asset_id,
+                resource->base_color_texture,
+                resource->metallic_roughness_texture,
+                resource->normal_texture,
+                resource->base_color,
+                resource->metallic,
+                resource->roughness,
+                resource->normal_scale
+            );
+        }
+    });
+
+    scene.for_each<SkinnedMeshComponent>([&](EntityId entity, SkinnedMeshComponent& mesh) {
+        if (!is_character_asset_id(mesh.asset_id)) return;
+
+        std::string load_error;
+        const AnimatedModelAssetResource* resource = load_character(mesh.asset_id, &load_error);
+        if (resource == nullptr) {
+            success = false;
+            if (first_error.empty()) first_error = load_error;
+            mesh.mesh = {};
+            mesh.runtime_asset = nullptr;
+            return;
+        }
+
+        mesh.mesh = resource->mesh;
+        mesh.runtime_asset = resource;
+        if (skinned_material_shader && !mesh.mesh) {
+            success = false;
+            if (first_error.empty()) {
+                first_error = "Renderer does not support GPU skinned meshes for " + mesh.asset_id;
             }
+        }
+
+        auto* player = scene.get_component<AnimationPlayerComponent>(entity);
+        if (player == nullptr) {
+            player = &scene.add_component<AnimationPlayerComponent>(entity);
+        }
+        AnimationSystem::initialize_bind_pose(resource->skeleton, player->pose);
+        if (player->clip_name.empty() && !resource->animations.empty()) {
+            player->clip_name = resource->animations.front().name;
+        }
+
+        if (auto* material = scene.get_component<MaterialComponent>(entity)) {
+            hydrate_material(
+                *material,
+                skinned_material_shader,
+                mesh.asset_id,
+                resource->base_color_texture,
+                resource->metallic_roughness_texture,
+                resource->normal_texture,
+                resource->base_color,
+                resource->metallic,
+                resource->roughness,
+                resource->normal_scale
+            );
         }
     });
 
     if (!success) {
-        set_error(error, first_error.empty() ? "One or more Seed model assets failed to bind." : first_error);
+        set_error(error, first_error.empty() ? "One or more Seed assets failed to bind." : first_error);
     }
     return success;
 }
