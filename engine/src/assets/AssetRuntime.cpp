@@ -12,6 +12,7 @@ namespace seed {
 namespace {
 
 constexpr std::string_view ModelAssetPrefix{"model:"};
+constexpr std::string_view CharacterAssetPrefix{"character:"};
 
 void set_error(std::string* error, std::string message) {
     if (error != nullptr) {
@@ -36,6 +37,24 @@ void destroy_resource(IRenderer& renderer, ModelAssetResource& resource) {
     if (resource.normal_texture) renderer.destroy_texture(resource.normal_texture);
     if (resource.mesh) renderer.destroy_mesh(resource.mesh);
     resource = {};
+}
+
+void destroy_resource(IRenderer& renderer, AnimatedModelAssetResource& resource) {
+    if (resource.base_color_texture) renderer.destroy_texture(resource.base_color_texture);
+    if (resource.metallic_roughness_texture) renderer.destroy_texture(resource.metallic_roughness_texture);
+    if (resource.normal_texture) renderer.destroy_texture(resource.normal_texture);
+    resource = {};
+}
+
+std::optional<std::filesystem::path> prefixed_asset_path(
+    const std::string& asset_id,
+    std::string_view prefix
+) {
+    const std::string_view value{asset_id};
+    if (!value.starts_with(prefix)) return std::nullopt;
+    const std::string_view relative = value.substr(prefix.size());
+    if (relative.empty()) return std::nullopt;
+    return std::filesystem::path{relative};
 }
 
 } // namespace
@@ -64,16 +83,19 @@ bool AssetRuntime::is_model_asset_id(const std::string& asset_id) {
 }
 
 std::optional<std::filesystem::path> AssetRuntime::model_asset_path(const std::string& asset_id) {
-    if (!is_model_asset_id(asset_id)) {
-        return std::nullopt;
-    }
+    return prefixed_asset_path(asset_id, ModelAssetPrefix);
+}
 
-    const std::string_view value{asset_id};
-    const std::string_view relative = value.substr(ModelAssetPrefix.size());
-    if (relative.empty()) {
-        return std::nullopt;
-    }
-    return std::filesystem::path{relative};
+std::string AssetRuntime::make_character_asset_id(const std::filesystem::path& project_relative_path) {
+    return std::string{CharacterAssetPrefix} + project_relative_path.generic_string();
+}
+
+bool AssetRuntime::is_character_asset_id(const std::string& asset_id) {
+    return std::string_view{asset_id}.starts_with(CharacterAssetPrefix);
+}
+
+std::optional<std::filesystem::path> AssetRuntime::character_asset_path(const std::string& asset_id) {
+    return prefixed_asset_path(asset_id, CharacterAssetPrefix);
 }
 
 std::optional<ModelAssetResource> AssetRuntime::load_model(
@@ -147,6 +169,94 @@ std::optional<ModelAssetResource> AssetRuntime::load_model(
     return resource;
 }
 
+const AnimatedModelAssetResource* AssetRuntime::load_character(
+    const std::string& asset_id,
+    std::string* error
+) {
+    if (const auto found = m_characters.find(asset_id); found != m_characters.end()) {
+        return &found->second;
+    }
+
+    if (m_renderer == nullptr) {
+        set_error(error, "Seed AssetRuntime has no renderer.");
+        return nullptr;
+    }
+    if (m_project_root.empty()) {
+        set_error(error, "Seed AssetRuntime has no project root.");
+        return nullptr;
+    }
+
+    const auto relative_path = character_asset_path(asset_id);
+    if (!relative_path.has_value() || relative_path->is_absolute()) {
+        set_error(error, "Invalid Seed character asset ID: " + asset_id);
+        return nullptr;
+    }
+
+    const std::filesystem::path source_file = m_project_root / *relative_path;
+    std::string import_error;
+    auto imported = AssetImporter::import_animated_model(source_file, &import_error);
+    if (!imported.has_value()) {
+        set_error(error, import_error.empty() ? "Could not import animated character asset." : import_error);
+        return nullptr;
+    }
+
+    if (imported->skeleton.joints.size() > MaxSkinJoints) {
+        set_error(
+            error,
+            "Character has " + std::to_string(imported->skeleton.joints.size()) +
+                " joints, but Seed skinning v0 supports up to " + std::to_string(MaxSkinJoints) + "."
+        );
+        return nullptr;
+    }
+
+    AnimatedModelAssetResource resource;
+    resource.vertices.reserve(imported->vertices.size());
+    for (const auto& source : imported->vertices) {
+        SkinnedVertex vertex;
+        vertex.position = source.position;
+        vertex.color = source.color;
+        vertex.texcoord = source.texcoord;
+        vertex.normal = source.normal;
+        for (std::size_t influence = 0; influence < 4; ++influence) {
+            vertex.joints[influence] = static_cast<float>(source.joints[influence]);
+            vertex.weights[influence] = source.weights[influence];
+        }
+        resource.vertices.push_back(vertex);
+    }
+    resource.indices = std::move(imported->indices);
+    resource.skeleton = std::move(imported->skeleton);
+    resource.animations = std::move(imported->animations);
+    resource.base_color = imported->base_color;
+    resource.metallic = imported->metallic;
+    resource.roughness = imported->roughness;
+    resource.normal_scale = imported->normal_scale;
+
+    resource.base_color_texture = create_imported_texture(*m_renderer, imported->base_color_texture);
+    if (imported->base_color_texture.has_value() && !resource.base_color_texture) {
+        destroy_resource(*m_renderer, resource);
+        set_error(error, "Renderer could not create character base-color texture for " + asset_id);
+        return nullptr;
+    }
+
+    resource.metallic_roughness_texture = create_imported_texture(*m_renderer, imported->metallic_roughness_texture);
+    if (imported->metallic_roughness_texture.has_value() && !resource.metallic_roughness_texture) {
+        destroy_resource(*m_renderer, resource);
+        set_error(error, "Renderer could not create character metallic/roughness texture for " + asset_id);
+        return nullptr;
+    }
+
+    resource.normal_texture = create_imported_texture(*m_renderer, imported->normal_texture);
+    if (imported->normal_texture.has_value() && !resource.normal_texture) {
+        destroy_resource(*m_renderer, resource);
+        set_error(error, "Renderer could not create character normal texture for " + asset_id);
+        return nullptr;
+    }
+
+    auto [inserted, created] = m_characters.emplace(asset_id, std::move(resource));
+    (void)created;
+    return &inserted->second;
+}
+
 bool AssetRuntime::bind_scene(Scene& scene, ShaderHandle material_shader, std::string* error) {
     bool success = true;
     std::string first_error;
@@ -199,8 +309,13 @@ void AssetRuntime::clear() {
             (void)asset_id;
             destroy_resource(*m_renderer, resource);
         }
+        for (auto& [asset_id, resource] : m_characters) {
+            (void)asset_id;
+            destroy_resource(*m_renderer, resource);
+        }
     }
     m_models.clear();
+    m_characters.clear();
 }
 
 } // namespace seed
