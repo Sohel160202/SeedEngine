@@ -1,5 +1,9 @@
 #include "seed/animation/AnimationSystem.h"
 
+#include "seed/animation/AnimationComponents.h"
+#include "seed/assets/AssetRuntime.h"
+#include "seed/scene/Scene.h"
+
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -66,6 +70,21 @@ float clip_time(const AnimationClip& clip, float time_seconds) {
     float wrapped = std::fmod(time_seconds, duration);
     if (wrapped < 0.0f) wrapped += duration;
     return wrapped;
+}
+
+const AnimationClip* find_clip(
+    const AnimatedModelAssetResource& asset,
+    const std::string& requested_name
+) {
+    if (!requested_name.empty()) {
+        const auto found = std::find_if(
+            asset.animations.begin(),
+            asset.animations.end(),
+            [&](const AnimationClip& clip) { return clip.name == requested_name; }
+        );
+        if (found != asset.animations.end()) return &*found;
+    }
+    return asset.animations.empty() ? nullptr : &asset.animations.front();
 }
 
 } // namespace
@@ -213,6 +232,30 @@ void AnimationSystem::rebuild_matrices(
     for (std::size_t i = 0; i < count; ++i) {
         pose.skin_matrices[i] = pose.global_matrices[i] * skeleton.joints[i].inverse_bind_matrix;
     }
+}
+
+void AnimationSystem::update_scene(Scene& scene, float delta_seconds) {
+    scene.for_each<SkinnedMeshComponent, AnimationPlayerComponent>(
+        [&](EntityId, SkinnedMeshComponent& mesh, AnimationPlayerComponent& player) {
+            const AnimatedModelAssetResource* asset = mesh.runtime_asset;
+            if (asset == nullptr || asset->skeleton.joints.empty()) {
+                player.pose = {};
+                return;
+            }
+
+            const AnimationClip* clip = find_clip(*asset, player.clip_name);
+            if (clip == nullptr) {
+                initialize_bind_pose(asset->skeleton, player.pose);
+                return;
+            }
+
+            if (player.clip_name.empty()) player.clip_name = clip->name;
+            if (player.playing) {
+                player.time_seconds += delta_seconds * player.playback_speed;
+            }
+            evaluate_clip(asset->skeleton, *clip, player.time_seconds, player.pose);
+        }
+    );
 }
 
 } // namespace seed
