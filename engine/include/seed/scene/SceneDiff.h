@@ -12,6 +12,18 @@ namespace seed {
 
 class Scene;
 
+// Vec3/Vec4 do not need global equality semantics for Seed math yet, but
+// SceneChangeValue is a std::variant and therefore requires equality support
+// for every alternative. These exact operators are used only as the variant's
+// fallback; SceneDiffer itself uses epsilon-aware comparison for float vectors.
+inline bool operator==(const Vec3& a, const Vec3& b) noexcept {
+    return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+
+inline bool operator==(const Vec4& a, const Vec4& b) noexcept {
+    return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
+}
+
 enum class SceneChangeKind {
     EntityAdded,
     EntityRemoved,
