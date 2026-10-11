@@ -1,6 +1,6 @@
 # Seed Engine Roadmap
 
-This roadmap prioritizes **owning the engine architecture** while avoiding unnecessary reinvention of low-level libraries.
+Seed is being built as its **own beginner-first game engine**. We use focused low-level libraries where useful, but Seed owns the editor, runtime, scene/component model, project formats, gameplay systems, physics queries, animation data and renderer abstractions.
 
 ## Phase 0 — Seed Core
 
@@ -8,18 +8,14 @@ Status: **complete**
 
 Delivered:
 
-- C++20 engine library
-- CMake build
+- C++20 engine library + CMake
 - Seed Runtime executable
 - Seed Studio executable
-- runtime entity IDs
-- Scene ownership
+- runtime entity IDs + stable persistent IDs
 - typed component storage
-- basic gameplay component data
+- Seed Scene ownership
 - automated tests
 - Windows / Linux / macOS CI
-
-Exit condition: Seed Core compiles and tests on Windows, Linux and macOS.
 
 Result: **passed**.
 
@@ -27,187 +23,217 @@ Result: **passed**.
 
 Status: **complete for first desktop backend**
 
-Goal: Seed opens its own native application window and owns its input/event lifecycle.
-
 Delivered:
 
-- Seed-owned `IPlatform` interface
-- GLFW 3.5.1 backend hidden behind `IPlatform`
-- native desktop window creation
-- Seed-owned keyboard codes and button states
-- Seed-owned mouse button codes
-- mouse movement / wheel events
+- Seed-owned `IPlatform`
+- GLFW hidden behind the platform adapter
+- native desktop windows
+- Seed-owned keyboard / mouse event model
 - quit / resize / focus events
-- frame delta and frame index
-- application frame loop
-- Escape-to-close behavior in Seed Studio and Seed Runtime
-- headless engine mode for tests
-- backend code compiles on Windows, Linux and macOS
-- manual Seed Studio launch verification on Windows
+- frame timing and application loop
+- headless test mode
+- Windows / Linux / macOS builds
 
 Still useful later:
 
-- gamepad event translation
-- richer platform file-system/native-dialog helpers
-
-Exit condition: `SeedStudio` and `SeedRuntime` each open a Seed-owned window and run an engine frame loop.
+- gamepad translation
+- native file dialogs / richer OS helpers
 
 Result: **passed**.
 
 ## Phase 2 — Renderer Foundation
 
-Status: **first 3D foundation complete**
-
-Goal: first visible Seed-rendered 3D scene.
+Status: **substantial first renderer working**
 
 Delivered:
 
-- Seed-owned `IRenderer` interface
-- `RendererBackend` selection
-- renderer factory
+- Seed-owned `IRenderer`
 - first OpenGL backend
-- renderer lifecycle owned by Seed Core
 - runtime OpenGL entry-point loading
-- vertex/index buffers
-- shader abstraction and error reporting
-- indexed mesh drawing
-- depth testing
-- model/view/projection matrices
+- vertex/index buffers + shaders
+- Camera / Mesh / Material scene components
 - Seed math layer
-- Camera / Mesh / Material components
 - scene-driven `RenderSystem`
-- explicit Seed Studio viewport camera
-- first 3D Seed Cube
-- interactive editor fly camera
-- manual 3D verification on Windows
+- editor viewport camera
+- PBR-style material inputs
+- base-color, metallic/roughness and normal maps
+- sky/environment lighting
+- directional lighting + shadow map pass
+- imported static glTF meshes/materials
+- Linux renderer smoke test in CI
+- renderer-neutral `SkinnedVertex` / `SkinnedMeshDesc` resource definition staged for character skinning
 
-Exit condition: Seed Runtime/Studio render entities from Seed Scene data.
+Next renderer milestone:
 
-Result for the first renderer foundation: **passed**.
+- OpenGL skinned-mesh vertex layout
+- joint palette upload
+- animated material vertex shader
+- skinned shadow pass
+- runtime skinned-mesh drawing
 
-Future renderer work will continue throughout development: textures, lighting, render targets, materials, batching, additional backends and production rendering features.
+## Phase 3 — Projects + Assets + Scene Persistence
 
-## Phase 3 — Projects + Scene Persistence
-
-Status: **initial persistence milestone complete**
-
-Goal: Seed projects become persistent and portable.
-
-Delivered:
-
-- Seed-owned `.seedproject`
-- Seed-owned `.seedscene`
-- human-readable, versioned JSON representation
-- stable UUID-style persistent entity IDs separate from runtime `EntityId`
-- stable asset IDs separate from runtime GPU handles
-- project name + startup scene
-- Transform persistence
-- Camera persistence
-- Mesh / Material asset references
-- Interactable / Door / Health / Inventory persistence
-- safe scene load into temporary scene before replacement
-- built-in resource rebinding after load
-- editor-only viewport camera excluded from game scene data
-- automated project + scene round-trip tests
-- Studio Save / Save As / Open Project workflow
-
-Next inside Phase 3:
-
-- asset database
-- model import pipeline
-- texture import pipeline
-- migrations/version upgrades
-- prefab-style reusable objects
-- native path/file dialog helpers
-
-Exit condition: create a scene, save it, close Seed, reopen it, and reproduce the same world.
-
-Automated result: **passed**. Manual Windows persistence verification is the next check.
-
-## Phase 4 — Seed Studio v0
-
-Status: **active; first editor slice working**
-
-Goal: Seed has its own visual editor.
+Status: **working**
 
 Delivered:
+
+- `.seedproject`
+- `.seedscene`
+- human-readable versioned JSON
+- Transform / Camera / lighting / hierarchy persistence
+- gameplay component persistence
+- Seed model asset IDs: `model:`
+- Seed animated-character asset IDs: `character:`
+- static `.gltf` / `.glb` import
+- PBR material/texture import
+- animated `.gltf` / `.glb` CPU import
+- external `.gltf` dependency discovery
+- stable runtime asset cache
+- animated character cache containing skinned vertices, Skeleton, clips and material data
+
+Next:
+
+- asset metadata database
+- source/reimport tracking
+- prefabs / reusable objects
+- format migrations
+- native file-picker helpers
+
+## Phase 4 — Seed Studio
+
+Status: **working editor, actively expanding**
+
+Delivered includes:
 
 - Seed-styled editor shell
 - 3D viewport
 - World hierarchy
 - Inspector
+- Assets panel / import workflow
 - live transform editing
-- Camera editing
-- Mesh / Material inspection
-- Assets placeholder panel
-- Create Empty Entity
-- Create Cube
-- Duplicate entity (`Ctrl+D`)
-- Delete entity (`Del`)
-- New Project / Open Project
-- New Scene
-- Save / Save As
-- dirty-document indicator
-- persistent-ID inspection
-- protected editor-only viewport camera
-
-Next:
-
-- rename entity
 - transform gizmos
-- real asset browser
-- selection outline
-- play/stop
-- undo/redo
-- dockable/resizable layout
+- create / duplicate / delete
+- project / scene open-save flow
+- Play / Stop
+- Undo / Redo
+- editor-only viewport camera
+- imported model authoring
+- Add Gameplay workflow
 
-Exit condition: build and edit a simple 3D scene without touching code.
+Next editor polish:
+
+- entity rename UX
+- selection outline
+- cleaner player/camera discovery
+- dedicated **Create → Player → Third Person** action
+- richer asset browser/reimport status
+- dock/layout polish
 
 ## Phase 5 — Gameplay Authoring
 
-Status: **next product-defining milestone**
+Status: **first product-defining slice working**
 
-Goal: Seed becomes meaningfully easier than traditional engines.
+Delivered:
 
-Next work:
-
-- make `+ Add Gameplay` functional
+- functional **+ Add Gameplay** workflow
 - Interactable
 - Health
-- Door / Lock
 - Inventory
-- Pickup / Key
-- Player preset
-- beginner-readable validation
-- events/actions
-- save/load gameplay components through `.seedscene`
+- Pickup
+- Door / Lock / Key requirements
+- gameplay persistence
+- First-Person Player
+- Third-Person Player
+- automatic Player dependencies
+- beginner-readable Player inspector
+- Play Mode integration
 
-Exit condition: reproduce the original **Key → Inventory → Locked Door** prototype entirely inside Seed Studio using Seed-native systems.
+The original Seed proof loop can now be represented natively:
+
+```text
+Player
+  ↓
+Pick up Key
+  ↓
+Inventory receives item
+  ↓
+Locked Door checks requirement
+  ↓
+Door opens
+```
+
+Next:
+
+- reusable item definitions
+- dialogue
+- quests
+- event/action rules
+- saveable gameplay state
+- beginner-facing validation/fix actions across more systems
 
 ## Phase 6 — First Adventure
 
-Goal: build the first complete game in Seed.
+Status: **active**
 
-Planned work:
+### Third-Person foundation — delivered
 
-- third-person controller
-- camera
-- collision + physics integration
+- Seed-native Third-Person view mode
+- camera-relative movement
+- sprint
+- gravity / jumping / grounding
+- character collision
+- character rotates toward travel direction
+- orbit yaw/pitch
+- configurable camera distance / height / shoulder offset
+- camera-aware interaction targeting
+- interaction reach measured from the character, not the camera
+- Seed Physics camera-wall probe
+- orbit camera automatically collapses in front of solid geometry
+- Third-Person settings persist in `.seedscene`
+- cross-platform regression tests
+
+### Animation foundation — delivered
+
+Seed now owns:
+
+- Skeleton / Joint data
+- bind-local transforms
+- inverse-bind matrices
+- animation clips and per-joint tracks
+- translation / rotation / scale keys
+- quaternion interpolation
+- looping / clamped clips
+- hierarchy pose solving
+- skin matrix palette generation
+- animated glTF skin import
+- `JOINTS_0` / `WEIGHTS_0` import
+- four influences per vertex
+- LINEAR glTF animation channels
+- runtime `character:` asset cache
+- 96-joint skinning-v0 limit enforced before rendering
+- generated animated-character test fixture in CI
+
+Important: **animated characters are not visually skinned by the renderer yet.** The CPU/runtime pipeline is complete enough for the next renderer milestone, but GPU deformation is still next.
+
+### First Adventure still needs
+
+- renderer GPU skinning
+- visible animated character component
+- Idle / Walk / Run / Jump / Fall locomotion preset
+- animation blending
 - dialogue
 - quests
-- enemy AI
+- enemy AI/navigation
 - audio
-- HUD/UI
+- game HUD/UI
 - game save/load
-- build/export
+- build/export workflow
 
-Exit condition: a small polished third-person adventure made without writing game code.
+Exit condition: a small polished third-person adventure built in Seed Studio without writing game code.
 
 ## Phase 7 — Seed Logic
 
 Goal: let beginners build custom gameplay without conventional programming.
-
-Model:
 
 ```text
 WHEN Player enters Forest
@@ -218,19 +244,19 @@ AND Play WolfHowl
 AND Update Quest
 ```
 
-Seed Logic must compile/translate into inspectable runtime behavior rather than opaque generated code.
+Seed Logic should translate into inspectable Seed runtime behavior rather than opaque generated code.
 
 ## Long-term
 
-- extensible renderer backends
-- plugin/SDK model
+- additional renderer backends
+- plugin / SDK model
 - multiplayer
 - navigation
-- animation systems
+- richer animation graphs
 - visual effects
 - packaging for more platforms
 - template/game-kit ecosystem
-- Game Director project overview
+- Game Director overview
 - optional AI-assisted authoring built on visible Seed systems
 
 ## Product test
