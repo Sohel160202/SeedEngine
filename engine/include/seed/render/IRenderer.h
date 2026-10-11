@@ -4,6 +4,7 @@
 #include "seed/render/RenderResources.h"
 
 #include <cstdint>
+#include <span>
 #include <string_view>
 
 namespace seed {
@@ -41,6 +42,16 @@ public:
     virtual void destroy_shader(ShaderHandle shader) = 0;
 
     virtual MeshHandle create_mesh(const MeshDesc& desc) = 0;
+
+    // Optional backend capability. Headless/test renderers can remain unaware of
+    // skinning, while production backends opt in. Returning an empty handle is
+    // the explicit "not supported" result rather than forcing animation data to
+    // know which renderer is active.
+    virtual MeshHandle create_skinned_mesh(const SkinnedMeshDesc& desc) {
+        (void)desc;
+        return {};
+    }
+
     virtual void destroy_mesh(MeshHandle mesh) = 0;
 
     virtual TextureHandle create_texture(const TextureDesc& desc) = 0;
@@ -64,6 +75,34 @@ public:
         const Mat4& view_projection,
         const SceneLighting& lighting
     ) = 0;
+
+    // Optional palette-aware draw path. The first OpenGL implementation uses a
+    // uniform mat4 palette capped by MaxSkinJoints. Other backends can use
+    // storage/uniform buffers without changing Seed Animation or gameplay data.
+    virtual void draw_skinned_mesh(
+        MeshHandle mesh,
+        ShaderHandle shader,
+        const MaterialTextures& textures,
+        const Vec4& base_color,
+        const MaterialSurface& surface,
+        bool receive_shadows,
+        const Mat4& model,
+        const Mat4& view_projection,
+        const SceneLighting& lighting,
+        std::span<const Mat4> joint_palette
+    ) {
+        (void)mesh;
+        (void)shader;
+        (void)textures;
+        (void)base_color;
+        (void)surface;
+        (void)receive_shadows;
+        (void)model;
+        (void)view_projection;
+        (void)lighting;
+        (void)joint_palette;
+    }
+
     virtual void end_frame() = 0;
 
     virtual std::string_view backend_name() const = 0;

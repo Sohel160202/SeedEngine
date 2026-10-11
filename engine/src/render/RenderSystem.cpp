@@ -1,5 +1,6 @@
 #include "seed/render/RenderSystem.h"
 
+#include "seed/animation/AnimationComponents.h"
 #include "seed/gameplay/Components.h"
 #include "seed/render/IRenderer.h"
 #include "seed/render/RenderComponents.h"
@@ -32,6 +33,22 @@ EntityId resolve_gameplay_camera(Scene& scene, EntityId candidate) {
         }
     );
     return child_camera != InvalidEntity ? child_camera : candidate;
+}
+
+MaterialTextures material_textures(const MaterialComponent& material) {
+    return {
+        .base_color = material.use_base_color_texture ? material.base_color_texture : TextureHandle{},
+        .metallic_roughness = material.use_metallic_roughness_texture ? material.metallic_roughness_texture : TextureHandle{},
+        .normal = material.use_normal_texture ? material.normal_texture : TextureHandle{},
+    };
+}
+
+MaterialSurface material_surface(const MaterialComponent& material) {
+    return {
+        .metallic = std::clamp(material.metallic, 0.0f, 1.0f),
+        .roughness = std::clamp(material.roughness, 0.04f, 1.0f),
+        .normal_scale = std::clamp(material.normal_scale, 0.0f, 4.0f),
+    };
 }
 
 } // namespace
@@ -152,6 +169,18 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
                     renderer.draw_shadow_mesh(mesh.mesh, world_transform_matrix(scene, entity));
                 }
             );
+
+            // Skinning v0 intentionally casts the imported bind-pose silhouette
+            // until the dedicated palette-aware shadow shader lands. This keeps
+            // characters participating in lighting without coupling the first
+            // visible deformation milestone to a second shader path.
+            scene.for_each<TransformComponent, SkinnedMeshComponent>(
+                [&](EntityId entity, TransformComponent&, SkinnedMeshComponent& mesh) {
+                    if (!mesh.visible || !mesh.cast_shadows || !mesh.mesh) return;
+                    renderer.draw_shadow_mesh(mesh.mesh, world_transform_matrix(scene, entity));
+                }
+            );
+
             renderer.end_shadow_pass();
             lighting.shadows_enabled = true;
         }
@@ -163,21 +192,32 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
             renderer.draw_mesh(
                 mesh.mesh,
                 material.shader,
-                MaterialTextures{
-                    .base_color = material.use_base_color_texture ? material.base_color_texture : TextureHandle{},
-                    .metallic_roughness = material.use_metallic_roughness_texture ? material.metallic_roughness_texture : TextureHandle{},
-                    .normal = material.use_normal_texture ? material.normal_texture : TextureHandle{},
-                },
+                material_textures(material),
                 material.base_color,
-                MaterialSurface{
-                    .metallic = std::clamp(material.metallic, 0.0f, 1.0f),
-                    .roughness = std::clamp(material.roughness, 0.04f, 1.0f),
-                    .normal_scale = std::clamp(material.normal_scale, 0.0f, 4.0f),
-                },
+                material_surface(material),
                 mesh.receive_shadows,
                 world_transform_matrix(scene, entity),
                 view_projection,
                 lighting
+            );
+        }
+    );
+
+    scene.for_each<TransformComponent, SkinnedMeshComponent, AnimationPlayerComponent, MaterialComponent>(
+        [&](EntityId entity, TransformComponent&, SkinnedMeshComponent& mesh,
+            AnimationPlayerComponent& animation, MaterialComponent& material) {
+            if (!mesh.visible || !mesh.mesh || !material.shader || animation.pose.skin_matrices.empty()) return;
+            renderer.draw_skinned_mesh(
+                mesh.mesh,
+                material.shader,
+                material_textures(material),
+                material.base_color,
+                material_surface(material),
+                mesh.receive_shadows,
+                world_transform_matrix(scene, entity),
+                view_projection,
+                lighting,
+                animation.pose.skin_matrices
             );
         }
     );
