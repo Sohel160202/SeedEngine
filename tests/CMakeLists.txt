@@ -33,6 +33,13 @@ target_link_libraries(SeedCameraCollisionTests PRIVATE SeedEngine)
 target_compile_features(SeedCameraCollisionTests PRIVATE cxx_std_20)
 add_test(NAME SeedCameraCollisionTests COMMAND SeedCameraCollisionTests)
 
+add_executable(SeedAnimationTests
+    animation_tests.cpp
+)
+target_link_libraries(SeedAnimationTests PRIVATE SeedEngine)
+target_compile_features(SeedAnimationTests PRIVATE cxx_std_20)
+add_test(NAME SeedAnimationTests COMMAND SeedAnimationTests)
+
 add_executable(SeedAssetImportTests
     asset_import_tests.cpp
 )
