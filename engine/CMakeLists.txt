@@ -14,6 +14,7 @@ add_library(SeedEngine STATIC
     src/render/RendererFactory.cpp
     src/render/RenderSystem.cpp
     src/save/SaveGame.cpp
+    src/save/SaveGameService.cpp
     src/scene/Hierarchy.cpp
     src/scene/Scene.cpp
     src/scene/SceneDiff.cpp
