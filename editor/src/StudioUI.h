@@ -42,6 +42,8 @@ enum class GizmoTool { Select, Move, Rotate, Scale };
 
 class StudioUI {
 public:
+    StudioUI();
+
     bool initialize(void* window_handle);
     void shutdown();
     void begin_frame();
@@ -57,6 +59,14 @@ public:
     bool scene_edit_active() const noexcept;
     bool wants_mouse() const noexcept;
     bool wants_keyboard() const noexcept;
+
+    // Play Changes Review and future semantic merge tools can begin one external
+    // authoring transaction without owning a second undo system. The pre-change
+    // Studio baseline becomes one Undo entry and the normal history frame logic
+    // adopts the post-change scene on the following frame.
+    void begin_external_history_transaction();
+    static StudioUI* active_instance() noexcept;
+
     ~StudioUI();
 
 private:
