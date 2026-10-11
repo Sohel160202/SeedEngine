@@ -10,6 +10,31 @@
 #include <cmath>
 
 namespace seed {
+namespace {
+
+EntityId resolve_gameplay_camera(Scene& scene, EntityId candidate) {
+    if (candidate == InvalidEntity || !scene.is_alive(candidate)) return candidate;
+
+    const auto* controller = scene.get_component<PlayerControllerComponent>(candidate);
+    if (controller == nullptr || controller->view_mode != PlayerViewMode::ThirdPerson) {
+        return candidate;
+    }
+
+    const std::string& player_id = scene.entity_persistent_id(candidate);
+    EntityId child_camera = InvalidEntity;
+    scene.for_each<TransformComponent, CameraComponent>(
+        [&](EntityId entity, TransformComponent&, CameraComponent& camera) {
+            if (child_camera != InvalidEntity || !camera.enabled || camera.editor_only) return;
+            const auto* parent = scene.get_component<ParentComponent>(entity);
+            if (parent != nullptr && parent->parent_persistent_id == player_id) {
+                child_camera = entity;
+            }
+        }
+    );
+    return child_camera != InvalidEntity ? child_camera : candidate;
+}
+
+} // namespace
 
 bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_entity) {
     CameraComponent* camera = nullptr;
@@ -35,6 +60,16 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
     }
 
     if (camera == nullptr || resolved_camera == InvalidEntity) return false;
+
+    const EntityId gameplay_camera = resolve_gameplay_camera(scene, resolved_camera);
+    if (gameplay_camera != resolved_camera) {
+        auto* resolved_component = scene.get_component<CameraComponent>(gameplay_camera);
+        if (resolved_component != nullptr && resolved_component->enabled &&
+            scene.has_component<TransformComponent>(gameplay_camera)) {
+            resolved_camera = gameplay_camera;
+            camera = resolved_component;
+        }
+    }
 
     const TransformComponent camera_world = world_transform(scene, resolved_camera);
     const float aspect = static_cast<float>(renderer.width()) /
