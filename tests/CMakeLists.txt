@@ -1,3 +1,14 @@
+# Seed's tests intentionally use assert() as lightweight executable checks.
+# Multi-config generators such as Visual Studio define NDEBUG for Release, which
+# would otherwise compile those checks (and any expression inside them) away.
+# Keep assertions active in every CI configuration so Windows/Linux/macOS are
+# actually exercising the same test behavior.
+if(MSVC)
+    add_compile_options(/UNDEBUG)
+else()
+    add_compile_options(-UNDEBUG)
+endif()
+
 add_executable(SeedCoreTests
     scene_tests.cpp
 )
