@@ -84,6 +84,17 @@ public:
     // Rebind imported static model resources after scene load or Play cloning.
     bool bind_scene(Scene& scene, ShaderHandle material_shader, std::string* error = nullptr);
 
+    // Extended binding path used by production Studio/Runtime once a skinned
+    // material shader exists. Static meshes still use material_shader; Seed
+    // character entities receive skinned_material_shader plus hydrated runtime
+    // asset/pose state.
+    bool bind_scene(
+        Scene& scene,
+        ShaderHandle material_shader,
+        ShaderHandle skinned_material_shader,
+        std::string* error
+    );
+
     void clear();
 
 private:
