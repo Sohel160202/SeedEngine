@@ -13,6 +13,7 @@
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/project/ProjectSerializer.h"
 #include "seed/project/SceneSerializer.h"
+#include "seed/project/SceneRevision.h"
 #include "seed/render/RenderComponents.h"
 #include "seed/render/RenderSystem.h"
 #include "seed/render/SkinnedShaders.h"
@@ -641,6 +642,9 @@ seed::studio::StudioDocumentInfo document_info(
     info.dirty = workspace.dirty;
     info.has_project = !workspace.project_file.empty();
     info.playing = playing;
+    if (info.has_project) {
+        info.revisions = seed::SceneRevisionStore(workspace.project_file.parent_path()).list();
+    }
 
     std::set<std::string> imported_assets;
     editor_scene.for_each<seed::MeshComponent>([&](seed::EntityId, const seed::MeshComponent& mesh) {
@@ -1119,6 +1123,50 @@ int main(int argc, char** argv) {
                     camera_input.looking = false;
                 }
                 break;
+            case seed::studio::StudioActionType::SaveRevision: {
+                if (has_pending_play_changes || has_pending_semantic_merge ||
+                    workspace.project_file.empty()) {
+                    workspace.status_message = "Save the Seed project before creating a revision.";
+                    break;
+                }
+                const seed::SceneRevisionStore revisions(workspace.project_file.parent_path());
+                const auto saved = revisions.create_revision(scene, action.path);
+                workspace.status_message = saved.saved
+                    ? "Saved revision " + saved.revision.id + ": " + saved.revision.label
+                    : "Revision save failed: " + saved.error;
+                break;
+            }
+            case seed::studio::StudioActionType::LoadRevision: {
+                if (playing || has_pending_play_changes || has_pending_semantic_merge ||
+                    workspace.project_file.empty()) {
+                    break;
+                }
+                seed::SceneRevisionStore revisions(workspace.project_file.parent_path());
+                seed::Scene restored;
+                std::string error;
+                if (!revisions.load_revision(restored, action.path, &error)) {
+                    workspace.status_message = "Revision restore failed: " + error;
+                    break;
+                }
+                studio_ui.begin_external_history_transaction();
+                scene = std::move(restored);
+                bind_builtin_resources(scene, cube_mesh, mesh_shader);
+                std::string rebind_error;
+                const bool rebound = asset_runtime.bind_scene(
+                    scene,
+                    mesh_shader,
+                    skinned_mesh_shader,
+                    &rebind_error
+                );
+                editor_camera = ensure_editor_camera(scene);
+                workspace.dirty = true;
+                studio_ui.select_entity(first_content_entity(scene));
+                workspace.status_message = rebound
+                    ? "Restored revision " + action.path + "."
+                    : "Restored revision " + action.path +
+                        ", but asset rebind reported: " + rebind_error;
+                break;
+            }
             case seed::studio::StudioActionType::Save:
                 if (!has_pending_play_changes) save_workspace(workspace, scene);
                 break;
