@@ -4,6 +4,7 @@
 #include "seed/gameplay/Components.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
+#include "seed/save/PersistenceComponents.h"
 #include "seed/scene/Scene.h"
 
 #include <nlohmann/json.hpp>
@@ -183,6 +184,9 @@ bool SceneSerializer::save(
                     {"max_fall_speed", character->max_fall_speed},
                     {"enabled", character->enabled},
                 };
+            }
+            if (const auto* persistent = scene.get_component<PersistentComponent>(entity)) {
+                components["Persistent"] = {{"enabled", persistent->enabled}};
             }
             if (const auto* interactable = scene.get_component<InteractableComponent>(entity)) {
                 components["Interactable"] = {
@@ -444,6 +448,12 @@ bool SceneSerializer::load(
                 character.max_fall_speed = value.value("max_fall_speed", 30.0f);
                 character.enabled = value.value("enabled", true);
                 loaded_scene.add_component<CharacterBodyComponent>(entity, character);
+            }
+            if (components.contains("Persistent")) {
+                const auto& value = components.at("Persistent");
+                PersistentComponent persistent;
+                persistent.enabled = value.value("enabled", true);
+                loaded_scene.add_component<PersistentComponent>(entity, persistent);
             }
             if (components.contains("Interactable")) {
                 const auto& value = components.at("Interactable");
