@@ -214,6 +214,29 @@ EntityId GameplayRuntime::resolve_player_camera(Scene& scene) const {
         return InvalidEntity;
     }
 
+    const auto* controller = scene.get_component<PlayerControllerComponent>(m_player_entity);
+    const bool wants_third_person =
+        controller != nullptr && controller->view_mode == PlayerViewMode::ThirdPerson;
+
+    // Third Person deliberately prefers a child camera even when the Player root
+    // carries Studio's compatibility Camera marker.
+    if (wants_third_person) {
+        const std::string& player_id = scene.entity_persistent_id(m_player_entity);
+        EntityId child_camera = InvalidEntity;
+        scene.for_each<TransformComponent, CameraComponent>(
+            [&](EntityId entity, TransformComponent&, CameraComponent& camera) {
+                if (child_camera != InvalidEntity || !camera.enabled || camera.editor_only) return;
+                const auto* parent = scene.get_component<ParentComponent>(entity);
+                if (parent != nullptr && parent->parent_persistent_id == player_id) {
+                    child_camera = entity;
+                }
+            }
+        );
+        if (child_camera != InvalidEntity) {
+            return child_camera;
+        }
+    }
+
     if (const auto* camera = scene.get_component<CameraComponent>(m_player_entity);
         camera != nullptr && camera->enabled && !camera->editor_only) {
         return m_player_entity;
@@ -312,7 +335,6 @@ void GameplayRuntime::update_player(Scene& scene, double delta_seconds) {
         transform->position += wish * distance;
     }
 
-    // Compatibility free-fly controls remain available for legacy first-person scenes.
     if (controller->view_mode == PlayerViewMode::FirstPerson) {
         const Vec3 world_up{0.0f, 1.0f, 0.0f};
         if (m_up) transform->position += world_up * distance;
