@@ -1,5 +1,6 @@
 add_library(SeedEngine STATIC
     src/animation/AnimationSystem.cpp
+    src/assets/AnimatedAssetImporter.cpp
     src/assets/AssetImporter.cpp
     src/assets/AssetRuntime.cpp
     src/core/Engine.cpp
