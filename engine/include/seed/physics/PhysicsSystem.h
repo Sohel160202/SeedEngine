@@ -24,6 +24,19 @@ public:
         double delta_seconds,
         CharacterState& state
     );
+
+    // Clips a desired camera position against Seed solid BoxColliders. `start`
+    // is normally the player's camera anchor and `desired` is the orbit result.
+    // The query expands solids by `probe_radius` so the camera keeps a small
+    // safety volume rather than behaving like an infinitely thin ray.
+    static Vec3 clip_camera_position(
+        const Scene& scene,
+        EntityId ignored_entity,
+        const Vec3& start,
+        const Vec3& desired,
+        float probe_radius = 0.15f,
+        float surface_padding = 0.05f
+    );
 };
 
 } // namespace seed
