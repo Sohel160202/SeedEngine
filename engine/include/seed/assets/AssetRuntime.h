@@ -27,11 +27,11 @@ struct ModelAssetResource {
     float normal_scale{1.0f};
 };
 
-// Runtime-ready CPU/GPU data for an animated Seed character. The current
-// renderer does not yet upload the skinned vertex stream as a GPU mesh, but the
-// asset model is complete and renderer-agnostic: skeletons/clips live in Seed,
-// while material textures use ordinary renderer handles.
+// Runtime-ready Seed character data. CPU animation ownership stays here even
+// when a renderer uploads the vertex stream, so skeleton/clip behavior remains
+// completely independent of OpenGL or any future backend.
 struct AnimatedModelAssetResource {
+    MeshHandle mesh{};
     std::vector<SkinnedVertex> vertices;
     std::vector<std::uint32_t> indices;
     Skeleton skeleton;
@@ -73,9 +73,9 @@ public:
         std::string* error = nullptr
     );
 
-    // Loads skinned vertices, skeleton, clips and PBR material resources. GPU
-    // skinned-mesh upload is intentionally a renderer milestone, so this object
-    // currently remains CPU-resident except for ordinary material textures.
+    // Loads skinned vertices, skeleton, clips and PBR material resources. If the
+    // active renderer supports create_skinned_mesh(), mesh is populated too.
+    // Unsupported/headless renderers still receive the complete CPU asset.
     const AnimatedModelAssetResource* load_character(
         const std::string& asset_id,
         std::string* error = nullptr
