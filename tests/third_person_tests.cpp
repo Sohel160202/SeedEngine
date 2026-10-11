@@ -29,6 +29,7 @@ int main() {
     seed::PlayerControllerComponent controller;
     controller.view_mode = seed::PlayerViewMode::ThirdPerson;
     controller.move_speed = 5.0f;
+    controller.interaction_distance = 4.0f;
     controller.camera_distance = 5.0f;
     controller.camera_height = 1.7f;
     controller.camera_shoulder_offset = 0.35f;
@@ -51,6 +52,20 @@ int main() {
     scene.add_component<seed::CameraComponent>(camera, camera_component);
     assert(seed::set_parent(scene, camera, player, false));
 
+    // Third-person targeting should aim from the camera but enforce reach from
+    // the character. The near object is reachable even though the camera is 5m
+    // behind the player; the far object must not become reachable just because
+    // it sits on the camera ray.
+    const auto nearby = scene.create_entity("Nearby Interactable");
+    auto& nearby_transform = scene.add_component<seed::TransformComponent>(nearby);
+    nearby_transform.position = {0.0f, 1.0f, -2.0f};
+    scene.add_component<seed::InteractableComponent>(nearby, "Use Nearby", true);
+
+    const auto far_away = scene.create_entity("Far Interactable");
+    auto& far_transform = scene.add_component<seed::TransformComponent>(far_away);
+    far_transform.position = {0.0f, 1.0f, -10.0f};
+    scene.add_component<seed::InteractableComponent>(far_away, "Use Far", true);
+
     seed::GameplayRuntime runtime;
     assert(runtime.start(scene, player));
     assert(runtime.active());
@@ -62,6 +77,7 @@ int main() {
     assert(updated_camera != nullptr);
     assert(updated_camera->position.y > 1.0f);
     assert(updated_camera->position.z > 4.0f);
+    assert(runtime.interaction_target() == nearby);
 
     seed::PlatformEvent press_w;
     press_w.type = seed::PlatformEventType::Key;
