@@ -14,13 +14,15 @@ enum class StudioActionType {
     None, NewProject, OpenProject, Save, SaveAs, NewScene, ImportModel,
     CreateEmptyEntity, CreateCube, CreateDirectionalLight, CreateAmbientLight,
     CreateSky, CreateFirstPersonPlayer, CreateThirdPersonPlayer, DuplicateSelected, DeleteSelected,
-    FocusSelected, Undo, Redo, Play, Stop
+    FocusSelected, Undo, Redo, Play, Stop, OpenSemanticMerge
 };
 
 struct StudioAction {
     StudioActionType type{StudioActionType::None};
     std::string path;
     std::string project_name;
+    std::string path2;
+    std::string path3;
 };
 
 struct StudioDocumentInfo {
@@ -97,6 +99,7 @@ private:
     bool m_show_open_project_dialog{false};
     bool m_show_save_as_dialog{false};
     bool m_show_import_model_dialog{false};
+    bool m_show_semantic_merge_dialog{false};
     bool m_last_document_playing{false};
 
     GizmoTool m_gizmo_tool{GizmoTool::Move};
@@ -118,6 +121,9 @@ private:
     std::array<char,512> m_project_folder_buffer{};
     std::array<char,512> m_project_file_buffer{};
     std::array<char,512> m_import_model_file_buffer{};
+    std::array<char,512> m_merge_base_file_buffer{};
+    std::array<char,512> m_merge_ours_file_buffer{};
+    std::array<char,512> m_merge_theirs_file_buffer{};
 };
 
 } // namespace seed::studio
