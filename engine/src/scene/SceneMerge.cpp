@@ -19,8 +19,6 @@ struct ChangeKey {
 };
 
 ChangeKey key_for(const SceneChange& change) {
-    // Entity rename and parent changes are singular semantic targets. Component
-    // and property changes retain their component/property identity.
     return {change.entity_persistent_id, change.component, change.property, change.kind};
 }
 
@@ -70,12 +68,6 @@ SceneMergeConflict make_conflict(
     conflict.theirs_value = theirs.after_value;
     conflict.description = describe_conflict(ours, theirs);
     return conflict;
-}
-
-bool branch_removes_entity(const SceneDiff& diff, const std::string& persistent_id) {
-    return std::any_of(diff.changes.begin(), diff.changes.end(), [&](const SceneChange& change) {
-        return change.entity_persistent_id == persistent_id && is_entity_removal(change);
-    });
 }
 
 bool branch_modifies_entity(const SceneDiff& diff, const std::string& persistent_id) {
@@ -139,7 +131,6 @@ SceneMergeResult SceneMerger::merge(
         if (!conflicted_ours.contains(i)) ours_by_key.emplace(key_for(ours_diff.changes[i]), i);
     }
 
-    std::set<std::size_t> identical_theirs;
     for (std::size_t j = 0; j < theirs_diff.changes.size(); ++j) {
         if (conflicted_theirs.contains(j)) continue;
         const auto& theirs = theirs_diff.changes[j];
@@ -148,10 +139,7 @@ SceneMergeResult SceneMerger::merge(
 
         const std::size_t i = it->second;
         const auto& ours = ours_diff.changes[i];
-        if (equivalent_change(ours, theirs)) {
-            identical_theirs.insert(j);
-            continue;
-        }
+        if (equivalent_change(ours, theirs)) continue;
 
         const auto kind = (is_entity_addition(ours) && is_entity_addition(theirs))
             ? SceneMergeConflictKind::EntityAddedDifferently
@@ -161,7 +149,10 @@ SceneMergeResult SceneMerger::merge(
         conflicted_theirs.insert(j);
     }
 
-    // Apply non-conflicting ours changes to the base copy.
+    // Both diffs are relative to the common base. Apply only those original
+    // branch deltas to the merged base copy. Re-diffing the partially merged
+    // scene against the other branch would incorrectly interpret already-
+    // merged changes as reversions requested by that branch.
     std::vector<std::size_t> ours_to_apply;
     for (std::size_t i = 0; i < ours_diff.changes.size(); ++i) {
         if (!conflicted_ours.contains(i)) ours_to_apply.push_back(i);
@@ -172,31 +163,14 @@ SceneMergeResult SceneMerger::merge(
         for (const auto index : ours_to_apply) result.auto_merged_changes.push_back(ours_diff.changes[index]);
     }
 
-    // Re-diff against the partially merged scene before applying theirs. This
-    // preserves SceneDiffer's semantic application rules while allowing truly
-    // independent changes from both descendants to compose.
-    const SceneDiff remaining_theirs = SceneDiffer::compare(result.merged_scene, theirs_scene);
-    if (!remaining_theirs.empty()) {
-        std::vector<std::size_t> indices;
-        indices.reserve(remaining_theirs.size());
-        for (std::size_t i = 0; i < remaining_theirs.size(); ++i) {
-            const auto& candidate = remaining_theirs.changes[i];
-            bool blocked = false;
-            for (const auto& conflict : result.conflicts) {
-                if (candidate.entity_persistent_id != conflict.entity_persistent_id) continue;
-                if (conflict.kind == SceneMergeConflictKind::EntityRemovedVsModified ||
-                    (candidate.component == conflict.component && candidate.property == conflict.property)) {
-                    blocked = true;
-                    break;
-                }
-            }
-            if (!blocked) indices.push_back(i);
-        }
-        if (!indices.empty()) {
-            const auto applied = SceneDiffer::apply(result.merged_scene, theirs_scene, remaining_theirs, indices);
-            (void)applied;
-            for (const auto index : indices) result.auto_merged_changes.push_back(remaining_theirs.changes[index]);
-        }
+    std::vector<std::size_t> theirs_to_apply;
+    for (std::size_t j = 0; j < theirs_diff.changes.size(); ++j) {
+        if (!conflicted_theirs.contains(j)) theirs_to_apply.push_back(j);
+    }
+    if (!theirs_to_apply.empty()) {
+        const auto applied = SceneDiffer::apply(result.merged_scene, theirs_scene, theirs_diff, theirs_to_apply);
+        (void)applied;
+        for (const auto index : theirs_to_apply) result.auto_merged_changes.push_back(theirs_diff.changes[index]);
     }
 
     return result;
