@@ -1,4 +1,5 @@
 #include "PlayChangesReview.h"
+#include "SemanticMergeReview.h"
 #include "StudioShaders.h"
 #include "StudioUI.h"
 
@@ -772,6 +773,8 @@ int main(int argc, char** argv) {
     seed::SceneDiff pending_play_diff;
     bool has_pending_play_changes = false;
     seed::studio::PlayChangesReview play_changes_review;
+    seed::studio::SemanticMergeReview semantic_merge_review;
+    bool has_pending_semantic_merge = false;
 
     auto clear_play_review = [&]() {
         play_scene.clear();
@@ -873,13 +876,13 @@ int main(int argc, char** argv) {
                 event.button_state == seed::ButtonState::Pressed) {
                 if (playing) {
                     stop_requested = true;
-                } else if (!has_pending_play_changes) {
+                } else if (!has_pending_play_changes && !has_pending_semantic_merge) {
                     engine.request_exit();
                 }
                 continue;
             }
 
-            if (has_pending_play_changes) continue;
+            if (has_pending_play_changes || has_pending_semantic_merge) continue;
 
             if (playing) {
                 const bool keyboard_event = event.type == seed::PlatformEventType::Key;
@@ -946,7 +949,7 @@ int main(int argc, char** argv) {
                 play_scene,
                 static_cast<float>(engine.delta_seconds())
             );
-        } else if (!has_pending_play_changes) {
+        } else if (!has_pending_play_changes && !has_pending_semantic_merge) {
             if (ui_wants_keyboard) clear_movement_input(camera_input);
             if (camera_transform) {
                 update_camera_movement(
@@ -1027,6 +1030,37 @@ int main(int argc, char** argv) {
             }
         }
 
+        if (has_pending_semantic_merge) {
+            const seed::studio::SemanticMergeReviewResult merge_result =
+                semantic_merge_review.draw();
+
+            if (merge_result.decision == seed::studio::SemanticMergeReviewDecision::Apply) {
+                studio_ui.begin_external_history_transaction();
+                scene = merge_result.merged_scene;
+                bind_builtin_resources(scene, cube_mesh, mesh_shader);
+                std::string rebind_error;
+                const bool rebound = asset_runtime.bind_scene(
+                    scene,
+                    mesh_shader,
+                    skinned_mesh_shader,
+                    &rebind_error
+                );
+                editor_camera = ensure_editor_camera(scene);
+                workspace.dirty = true;
+                has_pending_semantic_merge = false;
+                if (!rebound) {
+                    workspace.status_message =
+                        "Semantic merge applied, but asset rebind reported: " + rebind_error;
+                } else {
+                    workspace.status_message = "Semantic merge applied.";
+                }
+                studio_ui.select_entity(first_content_entity(scene));
+            } else if (merge_result.decision == seed::studio::SemanticMergeReviewDecision::Cancel) {
+                has_pending_semantic_merge = false;
+                workspace.status_message = "Semantic merge cancelled.";
+            }
+        }
+
         const auto action = studio_ui.take_action();
         if (!(playing && action.type != seed::studio::StudioActionType::Stop &&
               action.type != seed::studio::StudioActionType::Play &&
@@ -1052,8 +1086,25 @@ int main(int argc, char** argv) {
                 }
                 break;
             }
+            case seed::studio::StudioActionType::OpenSemanticMerge: {
+                if (playing || has_pending_play_changes || has_pending_semantic_merge) break;
+                seed::Scene base_scene;
+                seed::Scene ours_scene;
+                seed::Scene theirs_scene;
+                std::string error;
+                if (!seed::SceneSerializer::load(base_scene, action.path, &error) ||
+                    !seed::SceneSerializer::load(ours_scene, action.path2, &error) ||
+                    !seed::SceneSerializer::load(theirs_scene, action.path3, &error)) {
+                    workspace.status_message = "Semantic merge could not load scenes: " + error;
+                    break;
+                }
+                semantic_merge_review.open(base_scene, ours_scene, theirs_scene);
+                has_pending_semantic_merge = true;
+                workspace.status_message = "Semantic merge review opened.";
+                break;
+            }
             case seed::studio::StudioActionType::OpenProject:
-                if (has_pending_play_changes) break;
+                if (has_pending_play_changes || has_pending_semantic_merge) break;
                 if (open_workspace(
                         workspace,
                         scene,

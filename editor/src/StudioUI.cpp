@@ -101,6 +101,7 @@ bool StudioUI::initialize(void* window_handle) {
     if (!ImGui_ImplOpenGL3_Init("#version 330 core")) { ImGui_ImplGlfw_Shutdown(); ImGui::DestroyContext(); return false; }
     copy_text(m_project_name_buffer,"My Seed Game"); copy_text(m_project_folder_buffer,"SeedProjects");
     copy_text(m_project_file_buffer,"SeedProjects/My_Seed_Game.seedproject"); copy_text(m_import_model_file_buffer,"");
+    copy_text(m_merge_base_file_buffer,"Base.seedscene"); copy_text(m_merge_ours_file_buffer,"Ours.seedscene"); copy_text(m_merge_theirs_file_buffer,"Theirs.seedscene");
     m_initialized = true; return true;
 }
 
@@ -189,6 +190,7 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         if (ImGui::BeginMenu("Player")) { if (ImGui::MenuItem("First Person")) queue_action({.type=StudioActionType::CreateFirstPersonPlayer}); ImGui::MenuItem("Third Person",nullptr,false,false); ImGui::EndMenu(); }
         ImGui::EndMenu();
     }
+    if (ImGui::BeginMenu("Tools", !document.playing)) { if (ImGui::MenuItem("Semantic Merge Review...")) m_show_semantic_merge_dialog=true; ImGui::EndMenu(); }
     if (ImGui::BeginMenu("Build")) { if (document.playing) { if (ImGui::MenuItem("Stop","F5")) queue_action({.type=StudioActionType::Stop}); } else if (ImGui::MenuItem("Play","F5")) queue_action({.type=StudioActionType::Play}); ImGui::Separator(); ImGui::MenuItem("Build Game...",nullptr,false,false); ImGui::EndMenu(); }
     std::string label=document.project_name+" — "+document.scene_name; if(document.dirty)label+=" *"; if(document.playing)label+="   [PLAY]";
     const float width=ImGui::CalcTextSize(label.c_str()).x; ImGui::SameLine(std::max(450.0f,ImGui::GetWindowWidth()-width-18.0f)); if(document.playing)ImGui::Text("%s",label.c_str());else ImGui::TextDisabled("%s",label.c_str()); ImGui::EndMainMenuBar();
@@ -200,8 +202,8 @@ void StudioUI::draw_project_dialogs() {
     if(m_show_open_project_dialog){center_next_dialog();if(ImGui::Begin("Open Seed Project",&m_show_open_project_dialog,flags)){ImGui::InputText("Project File",m_project_file_buffer.data(),m_project_file_buffer.size());if(ImGui::Button("Open",{110,0})){queue_action({.type=StudioActionType::OpenProject,.path=m_project_file_buffer.data()});m_show_open_project_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_open_project_dialog=false;}ImGui::End();}
     if(m_show_save_as_dialog){center_next_dialog();if(ImGui::Begin("Save Seed Project As",&m_show_save_as_dialog,flags)){ImGui::InputText("Project Name",m_project_name_buffer.data(),m_project_name_buffer.size());ImGui::InputText("Project Folder",m_project_folder_buffer.data(),m_project_folder_buffer.size());if(ImGui::Button("Save",{110,0})){queue_action({.type=StudioActionType::SaveAs,.path=m_project_folder_buffer.data(),.project_name=m_project_name_buffer.data()});m_show_save_as_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_save_as_dialog=false;}ImGui::End();}
     if(m_show_import_model_dialog){center_next_dialog();if(ImGui::Begin("Import 3D Model",&m_show_import_model_dialog,flags)){ImGui::TextUnformatted("Import a static glTF 2.0 model into this Seed project");ImGui::InputText("Model File",m_import_model_file_buffer.data(),m_import_model_file_buffer.size());ImGui::TextDisabled("Seed import v1: first triangle primitive + PBR texture maps.");if(ImGui::Button("Import",{110,0})&&m_import_model_file_buffer[0]!='\0'){queue_action({.type=StudioActionType::ImportModel,.path=m_import_model_file_buffer.data()});m_show_import_model_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_import_model_dialog=false;}ImGui::End();}
+    if(m_show_semantic_merge_dialog){center_next_dialog();if(ImGui::Begin("Semantic Merge Review",&m_show_semantic_merge_dialog,flags)){ImGui::TextUnformatted("Choose three .seedscene files to compare semantically.");ImGui::InputText("Base Scene",m_merge_base_file_buffer.data(),m_merge_base_file_buffer.size());ImGui::InputText("Ours Scene",m_merge_ours_file_buffer.data(),m_merge_ours_file_buffer.size());ImGui::InputText("Theirs Scene",m_merge_theirs_file_buffer.data(),m_merge_theirs_file_buffer.size());if(ImGui::Button("Review",{110,0})&&m_merge_base_file_buffer[0]!=0&&m_merge_ours_file_buffer[0]!=0&&m_merge_theirs_file_buffer[0]!=0){queue_action({.type=StudioActionType::OpenSemanticMerge,.path=m_merge_base_file_buffer.data(),.path2=m_merge_ours_file_buffer.data(),.path3=m_merge_theirs_file_buffer.data()});m_show_semantic_merge_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_semantic_merge_dialog=false;}ImGui::End();}
 }
-
 void StudioUI::draw_world_panel(Scene& scene) {
     const ImGuiIO& io=ImGui::GetIO();const float menu=ImGui::GetFrameHeight();const float height=std::max(120.0f,io.DisplaySize.y-menu-BottomPanelHeight);
     ImGui::SetNextWindowPos({0,menu},ImGuiCond_Always);ImGui::SetNextWindowSize({LeftPanelWidth,height},ImGuiCond_Always);
