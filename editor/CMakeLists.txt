@@ -1,7 +1,7 @@
 add_library(SeedStudioUI STATIC
     src/StudioUI.cpp
     src/StudioUIViewportBridge.cpp
-    src/GameplayAuthoring.cpp
+    src/GameplayAuthoringV2.cpp
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
