@@ -4,6 +4,7 @@
 #include "seed/render/RenderResources.h"
 
 #include <cstdint>
+#include <span>
 #include <string_view>
 
 namespace seed {
@@ -41,6 +42,7 @@ public:
     virtual void destroy_shader(ShaderHandle shader) = 0;
 
     virtual MeshHandle create_mesh(const MeshDesc& desc) = 0;
+    virtual MeshHandle create_skinned_mesh(const SkinnedMeshDesc& desc) = 0;
     virtual void destroy_mesh(MeshHandle mesh) = 0;
 
     virtual TextureHandle create_texture(const TextureDesc& desc) = 0;
@@ -51,6 +53,11 @@ public:
 
     virtual bool begin_shadow_pass(const Mat4& light_view_projection) = 0;
     virtual void draw_shadow_mesh(MeshHandle mesh, const Mat4& model) = 0;
+    virtual void draw_shadow_skinned_mesh(
+        MeshHandle mesh,
+        const Mat4& model,
+        std::span<const Mat4> joint_palette
+    ) = 0;
     virtual void end_shadow_pass() = 0;
 
     virtual void draw_mesh(
@@ -64,6 +71,20 @@ public:
         const Mat4& view_projection,
         const SceneLighting& lighting
     ) = 0;
+
+    virtual void draw_skinned_mesh(
+        MeshHandle mesh,
+        ShaderHandle shader,
+        const MaterialTextures& textures,
+        const Vec4& base_color,
+        const MaterialSurface& surface,
+        bool receive_shadows,
+        const Mat4& model,
+        const Mat4& view_projection,
+        const SceneLighting& lighting,
+        std::span<const Mat4> joint_palette
+    ) = 0;
+
     virtual void end_frame() = 0;
 
     virtual std::string_view backend_name() const = 0;
