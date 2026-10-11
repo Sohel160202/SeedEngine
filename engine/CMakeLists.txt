@@ -25,6 +25,11 @@ target_include_directories(SeedEngine
 
 target_compile_features(SeedEngine PUBLIC cxx_std_20)
 
+# TinyGLTF is used as a read-only import adapter throughout Seed. Keep every
+# translation unit on the same feature set as the implementation unit so inline
+# TinyGLTF constructors never reference the disabled image-writer callback.
+target_compile_definitions(SeedEngine PRIVATE TINYGLTF_NO_STB_IMAGE_WRITE)
+
 target_link_libraries(SeedEngine
     PRIVATE
         glfw
