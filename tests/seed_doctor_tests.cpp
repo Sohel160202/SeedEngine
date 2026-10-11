@@ -38,6 +38,9 @@ int main() {
     const seed::EntityId player = scene.create_entity("Player", "player-1");
     seed::PlayerControllerComponent player_controller;
     player_controller.view_mode = seed::PlayerViewMode::ThirdPerson;
+    player_controller.camera_distance = 5.0f;
+    player_controller.camera_height = 1.7f;
+    player_controller.camera_shoulder_offset = 0.25f;
     scene.add_component<seed::PlayerControllerComponent>(player, player_controller);
     scene.add_component<seed::TransformComponent>(player);
 
@@ -65,7 +68,7 @@ int main() {
     assert(body_finding != nullptr);
     assert(body_finding->safe_fix == seed::DoctorFixKind::AddCharacterBody);
     assert(camera_finding != nullptr);
-    assert(camera_finding->safe_fix == seed::DoctorFixKind::None);
+    assert(camera_finding->safe_fix == seed::DoctorFixKind::AddThirdPersonCamera);
 
     auto fix_result = seed::SeedDoctor::apply_safe_fix(scene, *door_finding);
     assert(fix_result.applied);
@@ -79,14 +82,21 @@ int main() {
     assert(fix_result.applied);
     assert(scene.has_component<seed::CharacterBodyComponent>(player));
 
-    // Add the missing third-person camera in the authored way Seed expects.
-    const seed::EntityId camera = scene.create_entity("Player Camera", "camera-1");
-    scene.add_component<seed::TransformComponent>(camera);
-    seed::CameraComponent camera_component;
-    camera_component.primary = false;
-    camera_component.editor_only = false;
-    scene.add_component<seed::CameraComponent>(camera, camera_component);
-    scene.add_component<seed::ParentComponent>(camera, seed::ParentComponent{.parent_persistent_id = "player-1"});
+    fix_result = seed::SeedDoctor::apply_safe_fix(scene, *camera_finding);
+    assert(fix_result.applied);
+
+    seed::EntityId camera = seed::InvalidEntity;
+    scene.for_each<seed::CameraComponent>([&](seed::EntityId entity, const seed::CameraComponent& component) {
+        if (camera != seed::InvalidEntity || !component.enabled || component.editor_only) return;
+        const auto* parent = scene.get_component<seed::ParentComponent>(entity);
+        if (parent != nullptr && parent->parent_persistent_id == "player-1") camera = entity;
+    });
+    assert(camera != seed::InvalidEntity);
+    const auto* camera_transform = scene.get_component<seed::TransformComponent>(camera);
+    assert(camera_transform != nullptr);
+    assert(camera_transform->position.x == 0.25f);
+    assert(camera_transform->position.y == 1.7f);
+    assert(camera_transform->position.z == 5.0f);
 
     findings = seed::SeedDoctor::inspect(scene);
     assert(find_code(findings, "gameplay.door.missing_interactable") == nullptr);
