@@ -3,6 +3,7 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -130,6 +131,7 @@ struct OpenGLShaderResource {
     int shadow_map_location{-1};
     int receive_shadows_location{-1};
     int shadows_enabled_location{-1};
+    int joint_matrices_location{-1};
 };
 
 struct OpenGLMeshResource {
@@ -231,6 +233,7 @@ public:
         resource.shadow_map_location = m_get_uniform_location(program, "uShadowMap");
         resource.receive_shadows_location = m_get_uniform_location(program, "uReceiveShadows");
         resource.shadows_enabled_location = m_get_uniform_location(program, "uShadowsEnabled");
+        resource.joint_matrices_location = m_get_uniform_location(program, "uJointMatrices[0]");
 
         const ShaderHandle handle{m_next_shader_id++};
         m_shaders.emplace(handle.value, resource);
@@ -261,10 +264,41 @@ public:
         m_bind_buffer(GlElementArrayBuffer, resource.index_buffer);
         m_buffer_data(GlElementArrayBuffer, static_cast<std::ptrdiff_t>(desc.indices.size_bytes()), desc.indices.data(), GlStaticDraw);
 
-        enable_vertex_attribute(0, 3, offsetof(VertexPositionColor, position));
-        enable_vertex_attribute(1, 3, offsetof(VertexPositionColor, color));
-        enable_vertex_attribute(2, 2, offsetof(VertexPositionColor, texcoord));
-        enable_vertex_attribute(3, 3, offsetof(VertexPositionColor, normal));
+        enable_vertex_attribute(0, 3, offsetof(VertexPositionColor, position), sizeof(VertexPositionColor));
+        enable_vertex_attribute(1, 3, offsetof(VertexPositionColor, color), sizeof(VertexPositionColor));
+        enable_vertex_attribute(2, 2, offsetof(VertexPositionColor, texcoord), sizeof(VertexPositionColor));
+        enable_vertex_attribute(3, 3, offsetof(VertexPositionColor, normal), sizeof(VertexPositionColor));
+
+        m_bind_vertex_array(0);
+        m_bind_buffer(GlArrayBuffer, 0);
+
+        const MeshHandle handle{m_next_mesh_id++};
+        m_meshes.emplace(handle.value, resource);
+        return handle;
+    }
+
+    MeshHandle create_skinned_mesh(const SkinnedMeshDesc& desc) override {
+        if (!m_window || desc.vertices.empty() || desc.indices.empty()) return {};
+        glfwMakeContextCurrent(m_window);
+
+        OpenGLMeshResource resource{};
+        m_gen_vertex_arrays(1, &resource.vertex_array);
+        m_gen_buffers(1, &resource.vertex_buffer);
+        m_gen_buffers(1, &resource.index_buffer);
+        resource.index_count = static_cast<int>(desc.indices.size());
+
+        m_bind_vertex_array(resource.vertex_array);
+        m_bind_buffer(GlArrayBuffer, resource.vertex_buffer);
+        m_buffer_data(GlArrayBuffer, static_cast<std::ptrdiff_t>(desc.vertices.size_bytes()), desc.vertices.data(), GlStaticDraw);
+        m_bind_buffer(GlElementArrayBuffer, resource.index_buffer);
+        m_buffer_data(GlElementArrayBuffer, static_cast<std::ptrdiff_t>(desc.indices.size_bytes()), desc.indices.data(), GlStaticDraw);
+
+        enable_vertex_attribute(0, 3, offsetof(SkinnedVertex, position), sizeof(SkinnedVertex));
+        enable_vertex_attribute(1, 3, offsetof(SkinnedVertex, color), sizeof(SkinnedVertex));
+        enable_vertex_attribute(2, 2, offsetof(SkinnedVertex, texcoord), sizeof(SkinnedVertex));
+        enable_vertex_attribute(3, 3, offsetof(SkinnedVertex, normal), sizeof(SkinnedVertex));
+        enable_vertex_attribute(4, 4, offsetof(SkinnedVertex, joints), sizeof(SkinnedVertex));
+        enable_vertex_attribute(5, 4, offsetof(SkinnedVertex, weights), sizeof(SkinnedVertex));
 
         m_bind_vertex_array(0);
         m_bind_buffer(GlArrayBuffer, 0);
@@ -377,6 +411,128 @@ public:
         const Mat4& view_projection,
         const SceneLighting& lighting
     ) override {
+        draw_mesh_internal(mesh, shader, textures, base_color, surface, receive_shadows, model, view_projection, lighting);
+    }
+
+    void draw_skinned_mesh(
+        MeshHandle mesh,
+        ShaderHandle shader,
+        const MaterialTextures& textures,
+        const Vec4& base_color,
+        const MaterialSurface& surface,
+        bool receive_shadows,
+        const Mat4& model,
+        const Mat4& view_projection,
+        const SceneLighting& lighting,
+        std::span<const Mat4> joint_palette
+    ) override {
+        const auto shader_found = m_shaders.find(shader.value);
+        if (shader_found == m_shaders.end() || joint_palette.empty()) return;
+
+        const auto& resource = shader_found->second;
+        if (resource.joint_matrices_location < 0) return;
+
+        const std::size_t count = std::min(joint_palette.size(), MaxSkinJoints);
+        m_use_program(resource.program);
+        m_uniform_matrix4fv(
+            resource.joint_matrices_location,
+            static_cast<int>(count),
+            GlFalse,
+            joint_palette.front().data()
+        );
+
+        // Material/static lighting submission is shared. glUseProgram() does not
+        // clear uploaded uniform values, so the palette remains active while the
+        // normal Seed material path submits the draw.
+        draw_mesh_internal(mesh, shader, textures, base_color, surface, receive_shadows, model, view_projection, lighting);
+    }
+
+    void end_frame() override {
+        if (m_window) glfwSwapBuffers(m_window);
+    }
+
+    std::string_view backend_name() const override { return "Seed OpenGL"; }
+
+    void shutdown() override {
+        if (m_window) {
+            glfwMakeContextCurrent(m_window);
+
+            for (const auto& [id, resource] : m_textures) {
+                (void)id;
+                if (resource.texture != 0 && m_delete_textures) m_delete_textures(1, &resource.texture);
+            }
+            for (const auto& [id, resource] : m_meshes) {
+                (void)id;
+                destroy_mesh_resource(resource);
+            }
+            for (const auto& [id, resource] : m_shaders) {
+                (void)id;
+                if (resource.program != 0 && m_delete_program) m_delete_program(resource.program);
+            }
+
+            if (m_shadow_framebuffer != 0 && m_delete_framebuffers) m_delete_framebuffers(1, &m_shadow_framebuffer);
+            if (m_shadow_depth_texture != 0 && m_delete_textures) m_delete_textures(1, &m_shadow_depth_texture);
+            if (m_shadow_program != 0 && m_delete_program) m_delete_program(m_shadow_program);
+            if (m_sky_program != 0 && m_delete_program) m_delete_program(m_sky_program);
+            if (m_sky_vertex_array != 0 && m_delete_vertex_arrays) m_delete_vertex_arrays(1, &m_sky_vertex_array);
+        }
+
+        m_textures.clear();
+        m_meshes.clear();
+        m_shaders.clear();
+        m_shadow_framebuffer = 0;
+        m_shadow_depth_texture = 0;
+        m_shadow_program = 0;
+        m_sky_program = 0;
+        m_sky_vertex_array = 0;
+        m_shadow_pass_active = false;
+
+        if (m_window && glfwGetCurrentContext() == m_window) glfwMakeContextCurrent(nullptr);
+        m_window = nullptr;
+        clear_function_pointers();
+    }
+
+    ~OpenGLRenderer() override { shutdown(); }
+
+private:
+    template <typename Function>
+    static Function load(const char* name) {
+        return reinterpret_cast<Function>(glfwGetProcAddress(name));
+    }
+
+    void enable_vertex_attribute(unsigned int index, int count, std::size_t offset, std::size_t stride) {
+        m_enable_vertex_attrib_array(index);
+        m_vertex_attrib_pointer(
+            index,
+            count,
+            GlFloat,
+            GlFalse,
+            static_cast<int>(stride),
+            reinterpret_cast<const void*>(offset)
+        );
+    }
+
+    void set_matrix(int location, const Mat4& matrix) {
+        if (location >= 0) m_uniform_matrix4fv(location, 1, GlFalse, matrix.data());
+    }
+
+    const OpenGLTextureResource* find_texture(TextureHandle handle) const {
+        if (!handle) return nullptr;
+        const auto found = m_textures.find(handle.value);
+        return found == m_textures.end() ? nullptr : &found->second;
+    }
+
+    void draw_mesh_internal(
+        MeshHandle mesh,
+        ShaderHandle shader,
+        const MaterialTextures& textures,
+        const Vec4& base_color,
+        const MaterialSurface& surface,
+        bool receive_shadows,
+        const Mat4& model,
+        const Mat4& view_projection,
+        const SceneLighting& lighting
+    ) {
         const auto mesh_found = m_meshes.find(mesh.value);
         const auto shader_found = m_shaders.find(shader.value);
         if (mesh_found == m_meshes.end() || shader_found == m_shaders.end()) return;
@@ -463,74 +619,6 @@ public:
         }
         m_active_texture(GlTexture0);
         m_use_program(0);
-    }
-
-    void end_frame() override {
-        if (m_window) glfwSwapBuffers(m_window);
-    }
-
-    std::string_view backend_name() const override { return "Seed OpenGL"; }
-
-    void shutdown() override {
-        if (m_window) {
-            glfwMakeContextCurrent(m_window);
-
-            for (const auto& [id, resource] : m_textures) {
-                (void)id;
-                if (resource.texture != 0 && m_delete_textures) m_delete_textures(1, &resource.texture);
-            }
-            for (const auto& [id, resource] : m_meshes) {
-                (void)id;
-                destroy_mesh_resource(resource);
-            }
-            for (const auto& [id, resource] : m_shaders) {
-                (void)id;
-                if (resource.program != 0 && m_delete_program) m_delete_program(resource.program);
-            }
-
-            if (m_shadow_framebuffer != 0 && m_delete_framebuffers) m_delete_framebuffers(1, &m_shadow_framebuffer);
-            if (m_shadow_depth_texture != 0 && m_delete_textures) m_delete_textures(1, &m_shadow_depth_texture);
-            if (m_shadow_program != 0 && m_delete_program) m_delete_program(m_shadow_program);
-            if (m_sky_program != 0 && m_delete_program) m_delete_program(m_sky_program);
-            if (m_sky_vertex_array != 0 && m_delete_vertex_arrays) m_delete_vertex_arrays(1, &m_sky_vertex_array);
-        }
-
-        m_textures.clear();
-        m_meshes.clear();
-        m_shaders.clear();
-        m_shadow_framebuffer = 0;
-        m_shadow_depth_texture = 0;
-        m_shadow_program = 0;
-        m_sky_program = 0;
-        m_sky_vertex_array = 0;
-        m_shadow_pass_active = false;
-
-        if (m_window && glfwGetCurrentContext() == m_window) glfwMakeContextCurrent(nullptr);
-        m_window = nullptr;
-        clear_function_pointers();
-    }
-
-    ~OpenGLRenderer() override { shutdown(); }
-
-private:
-    template <typename Function>
-    static Function load(const char* name) {
-        return reinterpret_cast<Function>(glfwGetProcAddress(name));
-    }
-
-    void enable_vertex_attribute(unsigned int index, int count, std::size_t offset) {
-        m_enable_vertex_attrib_array(index);
-        m_vertex_attrib_pointer(index, count, GlFloat, GlFalse, static_cast<int>(sizeof(VertexPositionColor)), reinterpret_cast<const void*>(offset));
-    }
-
-    void set_matrix(int location, const Mat4& matrix) {
-        if (location >= 0) m_uniform_matrix4fv(location, 1, GlFalse, matrix.data());
-    }
-
-    const OpenGLTextureResource* find_texture(TextureHandle handle) const {
-        if (!handle) return nullptr;
-        const auto found = m_textures.find(handle.value);
-        return found == m_textures.end() ? nullptr : &found->second;
     }
 
     unsigned int compile_shader(unsigned int type, std::string_view source, const char* label) {
