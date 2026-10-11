@@ -10,6 +10,7 @@ add_library(SeedEngine STATIC
     src/physics/PhysicsSystem.cpp
     src/platform/PlatformFactory.cpp
     src/project/ProjectSerializer.cpp
+    src/project/SceneRevision.cpp
     src/project/SceneSerializer.cpp
     src/render/RendererFactory.cpp
     src/render/RenderSystem.cpp
