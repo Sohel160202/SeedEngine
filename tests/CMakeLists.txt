@@ -47,6 +47,13 @@ target_link_libraries(SeedAssetImportTests PRIVATE SeedEngine)
 target_compile_features(SeedAssetImportTests PRIVATE cxx_std_20)
 add_test(NAME SeedAssetImportTests COMMAND SeedAssetImportTests)
 
+add_executable(SeedAnimatedAssetImportTests
+    animated_asset_import_tests.cpp
+)
+target_link_libraries(SeedAnimatedAssetImportTests PRIVATE SeedEngine)
+target_compile_features(SeedAnimatedAssetImportTests PRIVATE cxx_std_20)
+add_test(NAME SeedAnimatedAssetImportTests COMMAND SeedAnimatedAssetImportTests)
+
 add_executable(SeedLightingPersistenceTests
     lighting_persistence_tests.cpp
 )
