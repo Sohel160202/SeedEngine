@@ -1,4 +1,5 @@
 #include "StudioUI.h"
+#include "SeedDoctorPanel.h"
 
 #include "seed/render/RenderComponents.h"
 #include "seed/gameplay/Components.h"
@@ -35,6 +36,14 @@ void StudioUI::draw(Scene& scene, const StudioDocumentInfo& document) {
     }
 
     draw(scene, document, viewport_camera);
+
+    // Seed Doctor is an authoring tool, not a runtime HUD. Keep its presentation
+    // entirely in Studio while the validation rules remain engine-owned.
+    static SeedDoctorPanel doctor_panel;
+    const SeedDoctorPanelResult doctor_result = doctor_panel.draw(scene, *this, !document.playing);
+    if (doctor_result.scene_changed) {
+        m_scene_edited = true;
+    }
 }
 
 } // namespace seed::studio
