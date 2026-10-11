@@ -103,6 +103,8 @@ Goals:
 - plain-language explanation plus an advanced technical view
 - never silently change project behavior without showing what Seed fixed
 
+Foundation status: Seed now has an engine-owned `SeedDoctor` validator with stable finding codes, creator-facing and technical explanations, entity identity, severity, and explicit safe-fix actions. The first rules cover Door/Interactable dependencies, Pickup identity/quantity, Player Inventory/Character Body dependencies, and Third-Person camera setup.
+
 ## 8. Time-Travel Gameplay Debugger
 
 Seed should eventually make game-state bugs reproducible instead of asking creators to trigger them again and hope they notice the right frame.
@@ -135,7 +137,7 @@ Near term:
 2. semantic scene diff/merge UX
 3. built-in Save Game
 4. character GPU skinning + first complete Third-Person sample
-5. first Seed Doctor validation rules
+5. expose Seed Doctor findings + safe fixes in Studio
 
 Later:
 
