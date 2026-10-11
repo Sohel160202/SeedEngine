@@ -89,6 +89,11 @@ target_link_libraries(SeedSceneMergeResolutionTests PRIVATE SeedEngine)
 target_compile_features(SeedSceneMergeResolutionTests PRIVATE cxx_std_20)
 add_test(NAME SeedSceneMergeResolutionTests COMMAND SeedSceneMergeResolutionTests)
 
+add_executable(SeedSceneRevisionTests scene_revision_tests.cpp)
+target_link_libraries(SeedSceneRevisionTests PRIVATE SeedEngine)
+target_compile_features(SeedSceneRevisionTests PRIVATE cxx_std_20)
+add_test(NAME SeedSceneRevisionTests COMMAND SeedSceneRevisionTests)
+
 add_executable(SeedDoctorTests seed_doctor_tests.cpp)
 target_link_libraries(SeedDoctorTests PRIVATE SeedEngine)
 target_compile_features(SeedDoctorTests PRIVATE cxx_std_20)

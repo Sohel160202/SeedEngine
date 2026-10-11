@@ -101,7 +101,7 @@ bool StudioUI::initialize(void* window_handle) {
     if (!ImGui_ImplOpenGL3_Init("#version 330 core")) { ImGui_ImplGlfw_Shutdown(); ImGui::DestroyContext(); return false; }
     copy_text(m_project_name_buffer,"My Seed Game"); copy_text(m_project_folder_buffer,"SeedProjects");
     copy_text(m_project_file_buffer,"SeedProjects/My_Seed_Game.seedproject"); copy_text(m_import_model_file_buffer,"");
-    copy_text(m_merge_base_file_buffer,"Base.seedscene"); copy_text(m_merge_ours_file_buffer,"Ours.seedscene"); copy_text(m_merge_theirs_file_buffer,"Theirs.seedscene");
+    copy_text(m_merge_base_file_buffer,"Base.seedscene"); copy_text(m_merge_ours_file_buffer,"Ours.seedscene"); copy_text(m_merge_theirs_file_buffer,"Theirs.seedscene"); copy_text(m_revision_label_buffer,"Before major change");
     m_initialized = true; return true;
 }
 
@@ -120,7 +120,7 @@ void StudioUI::draw(Scene& scene, const StudioDocumentInfo& document, EntityId v
     if (!document.playing) begin_history_frame(scene, document);
 
     draw_main_menu(document);
-    if (!document.playing) draw_project_dialogs();
+    if (!document.playing) draw_project_dialogs(document);
     draw_world_panel(scene); draw_inspector(scene, document); draw_assets_panel(document); draw_viewport_frame(scene, document, viewport_camera);
 
     const ImGuiIO& io = ImGui::GetIO();
@@ -190,19 +190,20 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         if (ImGui::BeginMenu("Player")) { if (ImGui::MenuItem("First Person")) queue_action({.type=StudioActionType::CreateFirstPersonPlayer}); ImGui::MenuItem("Third Person",nullptr,false,false); ImGui::EndMenu(); }
         ImGui::EndMenu();
     }
-    if (ImGui::BeginMenu("Tools", !document.playing)) { if (ImGui::MenuItem("Semantic Merge Review...")) m_show_semantic_merge_dialog=true; ImGui::EndMenu(); }
+    if (ImGui::BeginMenu("Tools", !document.playing)) { if (ImGui::MenuItem("Save Scene Revision...", nullptr, false, document.has_project)) { copy_text(m_revision_label_buffer, "Before major change"); m_show_revision_dialog=true; } if (ImGui::MenuItem("Scene History...", nullptr, false, document.has_project)) m_show_revision_dialog=true; ImGui::Separator(); if (ImGui::MenuItem("Semantic Merge Review...")) m_show_semantic_merge_dialog=true; ImGui::EndMenu(); }
     if (ImGui::BeginMenu("Build")) { if (document.playing) { if (ImGui::MenuItem("Stop","F5")) queue_action({.type=StudioActionType::Stop}); } else if (ImGui::MenuItem("Play","F5")) queue_action({.type=StudioActionType::Play}); ImGui::Separator(); ImGui::MenuItem("Build Game...",nullptr,false,false); ImGui::EndMenu(); }
     std::string label=document.project_name+" — "+document.scene_name; if(document.dirty)label+=" *"; if(document.playing)label+="   [PLAY]";
     const float width=ImGui::CalcTextSize(label.c_str()).x; ImGui::SameLine(std::max(450.0f,ImGui::GetWindowWidth()-width-18.0f)); if(document.playing)ImGui::Text("%s",label.c_str());else ImGui::TextDisabled("%s",label.c_str()); ImGui::EndMainMenuBar();
 }
 
-void StudioUI::draw_project_dialogs() {
+void StudioUI::draw_project_dialogs(const StudioDocumentInfo& document) {
     const ImGuiWindowFlags flags=ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_AlwaysAutoResize;
     if(m_show_new_project_dialog){center_next_dialog();if(ImGui::Begin("New Seed Project",&m_show_new_project_dialog,flags)){ImGui::InputText("Project Name",m_project_name_buffer.data(),m_project_name_buffer.size());ImGui::InputText("Project Folder",m_project_folder_buffer.data(),m_project_folder_buffer.size());if(ImGui::Button("Create",{110,0})){queue_action({.type=StudioActionType::NewProject,.path=m_project_folder_buffer.data(),.project_name=m_project_name_buffer.data()});m_show_new_project_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_new_project_dialog=false;}ImGui::End();}
     if(m_show_open_project_dialog){center_next_dialog();if(ImGui::Begin("Open Seed Project",&m_show_open_project_dialog,flags)){ImGui::InputText("Project File",m_project_file_buffer.data(),m_project_file_buffer.size());if(ImGui::Button("Open",{110,0})){queue_action({.type=StudioActionType::OpenProject,.path=m_project_file_buffer.data()});m_show_open_project_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_open_project_dialog=false;}ImGui::End();}
     if(m_show_save_as_dialog){center_next_dialog();if(ImGui::Begin("Save Seed Project As",&m_show_save_as_dialog,flags)){ImGui::InputText("Project Name",m_project_name_buffer.data(),m_project_name_buffer.size());ImGui::InputText("Project Folder",m_project_folder_buffer.data(),m_project_folder_buffer.size());if(ImGui::Button("Save",{110,0})){queue_action({.type=StudioActionType::SaveAs,.path=m_project_folder_buffer.data(),.project_name=m_project_name_buffer.data()});m_show_save_as_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_save_as_dialog=false;}ImGui::End();}
     if(m_show_import_model_dialog){center_next_dialog();if(ImGui::Begin("Import 3D Model",&m_show_import_model_dialog,flags)){ImGui::TextUnformatted("Import a static glTF 2.0 model into this Seed project");ImGui::InputText("Model File",m_import_model_file_buffer.data(),m_import_model_file_buffer.size());ImGui::TextDisabled("Seed import v1: first triangle primitive + PBR texture maps.");if(ImGui::Button("Import",{110,0})&&m_import_model_file_buffer[0]!='\0'){queue_action({.type=StudioActionType::ImportModel,.path=m_import_model_file_buffer.data()});m_show_import_model_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_import_model_dialog=false;}ImGui::End();}
     if(m_show_semantic_merge_dialog){center_next_dialog();if(ImGui::Begin("Semantic Merge Review",&m_show_semantic_merge_dialog,flags)){ImGui::TextUnformatted("Choose three .seedscene files to compare semantically.");ImGui::InputText("Base Scene",m_merge_base_file_buffer.data(),m_merge_base_file_buffer.size());ImGui::InputText("Ours Scene",m_merge_ours_file_buffer.data(),m_merge_ours_file_buffer.size());ImGui::InputText("Theirs Scene",m_merge_theirs_file_buffer.data(),m_merge_theirs_file_buffer.size());if(ImGui::Button("Review",{110,0})&&m_merge_base_file_buffer[0]!=0&&m_merge_ours_file_buffer[0]!=0&&m_merge_theirs_file_buffer[0]!=0){queue_action({.type=StudioActionType::OpenSemanticMerge,.path=m_merge_base_file_buffer.data(),.path2=m_merge_ours_file_buffer.data(),.path3=m_merge_theirs_file_buffer.data()});m_show_semantic_merge_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_semantic_merge_dialog=false;}ImGui::End();}
+    if(m_show_revision_dialog){center_next_dialog();if(ImGui::Begin("Scene History",&m_show_revision_dialog,flags)){ImGui::TextUnformatted("Create an immutable revision or restore a previous authored scene.");ImGui::InputText("Revision Label",m_revision_label_buffer.data(),m_revision_label_buffer.size());if(ImGui::Button("Save Revision",{130,0})&&m_revision_label_buffer[0]!=0){queue_action({.type=StudioActionType::SaveRevision,.path=m_revision_label_buffer.data()});m_show_revision_dialog=false;}ImGui::SameLine();if(ImGui::Button("Close",{110,0}))m_show_revision_dialog=false;ImGui::Separator();if(document.revisions.empty())ImGui::TextDisabled("No scene revisions yet.");for(const auto& revision:document.revisions){ImGui::PushID(revision.id.c_str());ImGui::Text("%s",revision.label.c_str());ImGui::SameLine();ImGui::TextDisabled("%s  •  %zu entities",revision.id.c_str(),revision.entity_count);ImGui::SameLine(ImGui::GetWindowWidth()-125.0f);if(ImGui::Button("Restore",{95,0})){queue_action({.type=StudioActionType::LoadRevision,.path=revision.id});m_show_revision_dialog=false;}ImGui::PopID();}}ImGui::End();}
 }
 void StudioUI::draw_world_panel(Scene& scene) {
     const ImGuiIO& io=ImGui::GetIO();const float menu=ImGui::GetFrameHeight();const float height=std::max(120.0f,io.DisplaySize.y-menu-BottomPanelHeight);

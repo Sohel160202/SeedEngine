@@ -1,6 +1,7 @@
 #pragma once
 
 #include "seed/core/Types.h"
+#include "seed/project/SceneRevision.h"
 #include "seed/scene/Scene.h"
 
 #include <array>
@@ -14,7 +15,7 @@ enum class StudioActionType {
     None, NewProject, OpenProject, Save, SaveAs, NewScene, ImportModel,
     CreateEmptyEntity, CreateCube, CreateDirectionalLight, CreateAmbientLight,
     CreateSky, CreateFirstPersonPlayer, CreateThirdPersonPlayer, DuplicateSelected, DeleteSelected,
-    FocusSelected, Undo, Redo, Play, Stop, OpenSemanticMerge
+    FocusSelected, Undo, Redo, Play, Stop, OpenSemanticMerge, SaveRevision, LoadRevision
 };
 
 struct StudioAction {
@@ -33,6 +34,7 @@ struct StudioDocumentInfo {
     std::string gameplay_status;
     std::vector<std::pair<std::string, int>> gameplay_inventory;
     std::vector<std::string> project_assets;
+    std::vector<SceneRevision> revisions;
     bool dirty{true};
     bool has_project{false};
     bool playing{false};
@@ -76,7 +78,7 @@ private:
 
     void queue_action(StudioAction action);
     void draw_main_menu(const StudioDocumentInfo& document);
-    void draw_project_dialogs();
+    void draw_project_dialogs(const StudioDocumentInfo& document);
     void draw_world_panel(Scene& scene);
     void draw_inspector(Scene& scene, const StudioDocumentInfo& document);
     void draw_assets_panel(const StudioDocumentInfo& document);
@@ -100,6 +102,7 @@ private:
     bool m_show_save_as_dialog{false};
     bool m_show_import_model_dialog{false};
     bool m_show_semantic_merge_dialog{false};
+    bool m_show_revision_dialog{false};
     bool m_last_document_playing{false};
 
     GizmoTool m_gizmo_tool{GizmoTool::Move};
@@ -124,6 +127,7 @@ private:
     std::array<char,512> m_merge_base_file_buffer{};
     std::array<char,512> m_merge_ours_file_buffer{};
     std::array<char,512> m_merge_theirs_file_buffer{};
+    std::array<char,192> m_revision_label_buffer{};
 };
 
 } // namespace seed::studio
