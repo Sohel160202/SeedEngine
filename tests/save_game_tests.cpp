@@ -4,8 +4,8 @@
 #include "seed/save/SaveGame.h"
 #include "seed/scene/Scene.h"
 
-#include <cassert>
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -14,6 +14,12 @@ namespace {
 
 bool near(float a, float b, float epsilon = 0.001f) {
     return std::fabs(a - b) <= epsilon;
+}
+
+void require(bool condition, const char* message) {
+    if (condition) return;
+    std::cerr << "SeedSaveGameTests FAILED: " << message << '\n';
+    std::exit(EXIT_FAILURE);
 }
 
 } // namespace
@@ -43,30 +49,33 @@ int main() {
     scene.add_component<seed::HealthComponent>(transient);
 
     const seed::SaveCaptureResult captured = seed::SaveGameSystem::capture(scene, "slot_alpha", 7);
-    assert(captured.snapshot.format_version == seed::SeedSaveFormatVersion);
-    assert(captured.snapshot.slot == "slot_alpha");
-    assert(captured.snapshot.game_schema_version == 7);
-    assert(captured.snapshot.entities.size() == 1);
-    assert(captured.snapshot.entities.front().persistent_id == "player-save-id");
-    assert(captured.snapshot.entities.front().transform.has_value());
-    assert(captured.snapshot.entities.front().health.has_value());
-    assert(captured.snapshot.entities.front().inventory.has_value());
+    require(captured.snapshot.format_version == seed::SeedSaveFormatVersion, "capture format version");
+    require(captured.snapshot.slot == "slot_alpha", "capture slot");
+    require(captured.snapshot.game_schema_version == 7, "capture game schema version");
+    require(captured.snapshot.entities.size() == 1, "capture only Persistent entities");
+    require(captured.snapshot.entities.front().persistent_id == "player-save-id", "capture stable entity ID");
+    require(captured.snapshot.entities.front().transform.has_value(), "capture Transform");
+    require(captured.snapshot.entities.front().health.has_value(), "capture Health");
+    require(captured.snapshot.entities.front().inventory.has_value(), "capture Inventory");
 
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "seed_save_game_tests";
+    std::error_code cleanup_error;
+    std::filesystem::remove_all(root, cleanup_error);
     std::filesystem::create_directories(root);
     const std::filesystem::path save_file = root / "slot_alpha.seedsave";
     const std::filesystem::path scene_file = root / "persistent_marker.seedscene";
 
     std::string error;
-    assert(seed::SaveGameSystem::write_file(captured.snapshot, save_file, &error));
-    assert(error.empty());
+    require(seed::SaveGameSystem::write_file(captured.snapshot, save_file, &error), "write .seedsave file");
+    require(error.empty(), "write .seedsave should not report error");
 
     const auto loaded = seed::SaveGameSystem::read_file(save_file, &error);
-    assert(loaded.has_value());
-    assert(loaded->slot == "slot_alpha");
-    assert(loaded->game_schema_version == 7);
-    assert(loaded->entities.size() == 1);
+    require(loaded.has_value(), "read .seedsave file");
+    require(error.empty(), "read .seedsave should not report error");
+    require(loaded->slot == "slot_alpha", "round-trip slot");
+    require(loaded->game_schema_version == 7, "round-trip game schema version");
+    require(loaded->entities.size() == 1, "round-trip entity count");
 
     // Change authored balance and runtime state after the save. Restore should
     // apply progress semantically and clamp saved Health to the CURRENT authored
@@ -74,7 +83,9 @@ int main() {
     auto* runtime_transform = scene.get_component<seed::TransformComponent>(player);
     auto* runtime_health = scene.get_component<seed::HealthComponent>(player);
     auto* runtime_inventory = scene.get_component<seed::InventoryComponent>(player);
-    assert(runtime_transform && runtime_health && runtime_inventory);
+    require(runtime_transform != nullptr, "runtime Transform exists");
+    require(runtime_health != nullptr, "runtime Health exists");
+    require(runtime_inventory != nullptr, "runtime Inventory exists");
 
     runtime_transform->position = {100.0f, 100.0f, 100.0f};
     runtime_health->maximum = 30.0f;
@@ -88,42 +99,51 @@ int main() {
     with_stale_entity.entities.push_back(stale);
 
     const seed::SaveApplyResult applied = seed::SaveGameSystem::apply(scene, with_stale_entity);
-    assert(applied.entities_applied == 1);
-    assert(applied.entities_skipped == 1);
-    assert(applied.properties_applied == 3);
-    assert(!applied.warnings.empty());
+    require(applied.entities_applied == 1, "restore one matching Persistent entity");
+    require(applied.entities_skipped == 1, "skip one stale entity");
+    require(applied.properties_applied == 3, "restore Transform + Health + Inventory");
+    require(!applied.warnings.empty(), "stale entity produces warning");
 
-    assert(near(runtime_transform->position.x, 4.0f));
-    assert(near(runtime_transform->position.y, 1.5f));
-    assert(near(runtime_transform->position.z, -7.0f));
-    assert(near(runtime_health->maximum, 30.0f));
-    assert(near(runtime_health->current, 30.0f));
-    assert(runtime_inventory->items.at("CabinKey") == 1);
-    assert(runtime_inventory->items.at("Coin") == 12);
+    require(near(runtime_transform->position.x, 4.0f), "restore Transform X");
+    require(near(runtime_transform->position.y, 1.5f), "restore Transform Y");
+    require(near(runtime_transform->position.z, -7.0f), "restore Transform Z");
+    require(near(runtime_health->maximum, 30.0f), "restore does not overwrite authored Health maximum");
+    require(near(runtime_health->current, 30.0f), "restore clamps Health current to authored maximum");
+    require(runtime_inventory->items.contains("CabinKey"), "restore CabinKey inventory entry");
+    require(runtime_inventory->items.at("CabinKey") == 1, "restore CabinKey quantity");
+    require(runtime_inventory->items.contains("Coin"), "restore Coin inventory entry");
+    require(runtime_inventory->items.at("Coin") == 12, "restore Coin quantity");
 
     // Persistent is an authored declaration, so it must survive .seedscene
     // save/load independently from runtime .seedsave progress.
-    assert(seed::SceneSerializer::save(scene, scene_file, &error));
+    require(seed::SceneSerializer::save(scene, scene_file, &error), "save scene with Persistent marker");
+    require(error.empty(), "scene save should not report error");
+
     seed::Scene reloaded_scene;
-    assert(seed::SceneSerializer::load(reloaded_scene, scene_file, &error));
+    require(seed::SceneSerializer::load(reloaded_scene, scene_file, &error), "reload scene with Persistent marker");
+    require(error.empty(), "scene reload should not report error");
+
     const seed::EntityId reloaded_player =
         reloaded_scene.find_entity_by_persistent_id("player-save-id");
-    assert(reloaded_player != seed::InvalidEntity);
+    require(reloaded_player != seed::InvalidEntity, "reloaded Player stable ID");
     const auto* persistent =
         reloaded_scene.get_component<seed::PersistentComponent>(reloaded_player);
-    assert(persistent != nullptr);
-    assert(persistent->enabled);
+    require(persistent != nullptr, "Persistent marker survives scene round-trip");
+    require(persistent->enabled, "Persistent enabled state survives scene round-trip");
 
     // Removing the authored Persistent declaration prevents old save data from
     // mutating this entity. Seed reports the mismatch instead of guessing.
-    assert(reloaded_scene.remove_component<seed::PersistentComponent>(reloaded_player));
+    require(
+        reloaded_scene.remove_component<seed::PersistentComponent>(reloaded_player),
+        "remove Persistent marker"
+    );
     const seed::SaveApplyResult no_longer_persistent =
         seed::SaveGameSystem::apply(reloaded_scene, *loaded);
-    assert(no_longer_persistent.entities_applied == 0);
-    assert(no_longer_persistent.entities_skipped == 1);
-    assert(!no_longer_persistent.warnings.empty());
+    require(no_longer_persistent.entities_applied == 0, "do not restore entity no longer marked Persistent");
+    require(no_longer_persistent.entities_skipped == 1, "count non-Persistent restore as skipped");
+    require(!no_longer_persistent.warnings.empty(), "non-Persistent restore produces warning");
 
-    std::filesystem::remove_all(root);
+    std::filesystem::remove_all(root, cleanup_error);
     std::cout << "Seed Save Game semantic round-trip tests passed.\n";
     return 0;
 }
