@@ -1,5 +1,6 @@
 #include "seed/diagnostics/SeedDoctor.h"
 
+#include "seed/animation/AnimationComponents.h"
 #include "seed/gameplay/Components.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
@@ -16,6 +17,10 @@ bool blank(const std::string& value) {
     return value.empty() || std::all_of(value.begin(), value.end(), [](unsigned char c) {
         return std::isspace(c) != 0;
     });
+}
+
+bool starts_with(const std::string& value, const char* prefix) {
+    return value.rfind(prefix, 0) == 0;
 }
 
 void add_finding(
@@ -160,6 +165,76 @@ std::vector<DoctorFinding> SeedDoctor::inspect(const Scene& scene) {
             DoctorSeverity::Warning,
             "This entity is marked Persistent, but Seed Save Game v0 has no supported runtime state to save on it yet.",
             "PersistentComponent is enabled, but this entity has no TransformComponent, HealthComponent, or InventoryComponent. Seed will report and skip it during capture rather than writing an empty save entry.",
+            DoctorFixKind::None
+        );
+    });
+
+    // Animated-character validation intentionally checks only authored facts.
+    // AssetRuntime automatically adds/initializes AnimationPlayerComponent for a
+    // valid character asset during binding, so Doctor must not produce a noisy
+    // false warning simply because that runtime hydration has not happened yet.
+    scene.for_each<SkinnedMeshComponent>([&](EntityId entity, const SkinnedMeshComponent& mesh) {
+        if (blank(mesh.asset_id)) {
+            add_finding(
+                findings,
+                scene,
+                entity,
+                "animation.character.missing_asset",
+                DoctorSeverity::Error,
+                "Animated Character has no character asset assigned.",
+                "SkinnedMeshComponent.asset_id is empty. Seed needs a persistent character: asset ID before AssetRuntime can hydrate the GPU mesh, skeleton and animation clips.",
+                DoctorFixKind::None
+            );
+        } else if (!starts_with(mesh.asset_id, "character:")) {
+            add_finding(
+                findings,
+                scene,
+                entity,
+                "animation.character.invalid_asset_type",
+                DoctorSeverity::Error,
+                "Animated Character is using the wrong asset type.",
+                "SkinnedMeshComponent expects a character: asset ID. A model: asset is static and cannot provide the skeleton/clip data required by the animated-character path.",
+                DoctorFixKind::None
+            );
+        }
+
+        if (!scene.has_component<TransformComponent>(entity)) {
+            add_finding(
+                findings,
+                scene,
+                entity,
+                "animation.character.missing_transform",
+                DoctorSeverity::Error,
+                "Animated Character has no Transform, so it cannot be placed or rendered in the world.",
+                "RenderSystem requires TransformComponent together with SkinnedMeshComponent, AnimationPlayerComponent and MaterialComponent.",
+                DoctorFixKind::None
+            );
+        }
+
+        if (!scene.has_component<MaterialComponent>(entity)) {
+            add_finding(
+                findings,
+                scene,
+                entity,
+                "animation.character.missing_material",
+                DoctorSeverity::Error,
+                "Animated Character has no Material, so the skinned renderer has nothing to draw it with.",
+                "RenderSystem requires MaterialComponent for the skinned PBR shader. Seed does not auto-fix this yet because imported character textures/material defaults must be hydrated through AssetRuntime.",
+                DoctorFixKind::None
+            );
+        }
+    });
+
+    scene.for_each<AnimationPlayerComponent>([&](EntityId entity, const AnimationPlayerComponent&) {
+        if (scene.has_component<SkinnedMeshComponent>(entity)) return;
+        add_finding(
+            findings,
+            scene,
+            entity,
+            "animation.player.missing_skinned_mesh",
+            DoctorSeverity::Warning,
+            "Animation Player has no Skinned Mesh to animate.",
+            "AnimationSystem evaluates a character pose from SkinnedMeshComponent.runtime_asset. Without a Skinned Mesh there is no skeleton source for this Animation Player.",
             DoctorFixKind::None
         );
     });
