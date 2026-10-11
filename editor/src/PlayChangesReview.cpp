@@ -1,4 +1,5 @@
 #include "PlayChangesReview.h"
+#include "StudioUI.h"
 
 #include <imgui.h>
 
@@ -235,6 +236,14 @@ PlayChangesReviewResult PlayChangesReview::draw(const SceneDiff& diff) {
                     result.selected_change_indices.push_back(i);
                 }
             }
+
+            // The semantic apply happens in Studio's main loop immediately after
+            // this modal returns. Begin one external history transaction here so
+            // all selected Play changes become a single native Ctrl+Z operation.
+            if (StudioUI* studio = StudioUI::active_instance(); studio != nullptr) {
+                studio->begin_external_history_transaction();
+            }
+
             ImGui::CloseCurrentPopup();
             reset();
         }
