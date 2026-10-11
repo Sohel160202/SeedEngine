@@ -12,6 +12,7 @@
 #include "seed/gameplay/Components.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
+#include "seed/save/PersistenceComponents.h"
 #include "seed/scene/Hierarchy.h"
 #include "seed/scene/Scene.h"
 
@@ -213,6 +214,48 @@ bool draw_third_person_player(Scene& scene, EntityId entity) {
     return changed;
 }
 
+bool draw_persistent_state(Scene& scene, EntityId entity) {
+    auto* persistent = scene.get_component<PersistentComponent>(entity);
+    if (persistent == nullptr) return false;
+
+    bool changed = false;
+    ImGui::PushID("SeedPersistentState");
+    if (ImGui::CollapsingHeader("Save Game — Persistent", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::PushTextWrapPos();
+        ImGui::TextDisabled("Seed Save Game uses this entity's stable ID and automatically captures supported runtime state. No custom serialization code is required.");
+        ImGui::PopTextWrapPos();
+
+        changed |= ImGui::Checkbox("Persistent Enabled", &persistent->enabled);
+        ImGui::SeparatorText("Saved by Seed v0");
+
+        bool has_supported_state = false;
+        if (scene.has_component<TransformComponent>(entity)) {
+            ImGui::BulletText("Transform — position, rotation, scale");
+            has_supported_state = true;
+        }
+        if (scene.has_component<HealthComponent>(entity)) {
+            ImGui::BulletText("Health — current value (restored against the current authored maximum)");
+            has_supported_state = true;
+        }
+        if (scene.has_component<InventoryComponent>(entity)) {
+            ImGui::BulletText("Inventory — item IDs and quantities");
+            has_supported_state = true;
+        }
+
+        if (!has_supported_state) {
+            ImGui::TextWrapped("This entity is Persistent, but Seed Save Game v0 does not recognize any runtime state on it yet.");
+        }
+
+        ImGui::Spacing();
+        if (ImGui::SmallButton("Remove Persistent")) {
+            scene.remove_component<PersistentComponent>(entity);
+            changed = true;
+        }
+    }
+    ImGui::PopID();
+    return changed;
+}
+
 } // namespace
 
 bool draw_gameplay_components(Scene& scene, EntityId entity) {
@@ -235,22 +278,22 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
     if (third_person) {
         scene.add_component<PlayerControllerComponent>(entity, third_person_copy);
         changed |= draw_third_person_player(scene, entity);
-        return changed;
+    } else {
+        player = scene.get_component<PlayerControllerComponent>(entity);
+        if (player != nullptr && player->view_mode == PlayerViewMode::FirstPerson) {
+            ImGui::PushID("SeedPlayerModeExtension");
+            if (ImGui::Button("Convert Player to Third Person")) {
+                convert_to_third_person(scene, entity);
+                changed = true;
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Creates a Seed-managed orbit camera and changes movement to camera-relative third person.");
+            }
+            ImGui::PopID();
+        }
     }
 
-    player = scene.get_component<PlayerControllerComponent>(entity);
-    if (player != nullptr && player->view_mode == PlayerViewMode::FirstPerson) {
-        ImGui::PushID("SeedPlayerModeExtension");
-        if (ImGui::Button("Convert Player to Third Person")) {
-            convert_to_third_person(scene, entity);
-            changed = true;
-        }
-        if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Creates a Seed-managed orbit camera and changes movement to camera-relative third person.");
-        }
-        ImGui::PopID();
-    }
-
+    changed |= draw_persistent_state(scene, entity);
     return changed;
 }
 
@@ -269,6 +312,18 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         ImGui::SetTooltip("Playable third-person Player. Orbit Camera + Inventory + Character Body are automatic.");
+    }
+
+    const bool has_persistent = scene.has_component<PersistentComponent>(entity);
+    ImGui::Separator();
+    ImGui::BeginDisabled(has_persistent);
+    if (ImGui::MenuItem(has_persistent ? "Persistent / Save Game [Added]" : "Persistent / Save Game")) {
+        scene.add_component<PersistentComponent>(entity);
+        changed = true;
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("Marks this entity for Seed's built-in Save Game system using its stable persistent ID.");
     }
 
     return changed;
