@@ -39,7 +39,6 @@ void append_unique(std::vector<std::size_t>& indices, std::size_t index) {
 void collect_conflict_changes(
     const SceneDiff& diff,
     const SceneMergeConflict& conflict,
-    SceneMergeResolutionChoice choice,
     std::vector<std::size_t>& indices
 ) {
     if (conflict.kind == SceneMergeConflictKind::EntityRemovedVsModified) {
@@ -89,9 +88,9 @@ SceneMergeResolutionResult SceneMergeResolver::resolve(
         }
 
         if (choice == SceneMergeResolutionChoice::Ours) {
-            collect_conflict_changes(ours_diff, conflict, choice, ours_indices);
+            collect_conflict_changes(ours_diff, conflict, ours_indices);
         } else {
-            collect_conflict_changes(theirs_diff, conflict, choice, theirs_indices);
+            collect_conflict_changes(theirs_diff, conflict, theirs_indices);
         }
         result.resolved_conflicts.push_back(conflict);
     }
