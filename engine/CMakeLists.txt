@@ -13,6 +13,7 @@ add_library(SeedEngine STATIC
     src/project/SceneSerializer.cpp
     src/render/RendererFactory.cpp
     src/render/RenderSystem.cpp
+    src/save/SaveGame.cpp
     src/scene/Hierarchy.cpp
     src/scene/Scene.cpp
     src/scene/SceneDiff.cpp
