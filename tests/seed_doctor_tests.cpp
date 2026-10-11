@@ -2,6 +2,7 @@
 #include "seed/gameplay/Components.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
+#include "seed/save/PersistenceComponents.h"
 #include "seed/scene/Scene.h"
 
 #include <cassert>
@@ -44,6 +45,10 @@ int main() {
     scene.add_component<seed::PlayerControllerComponent>(player, player_controller);
     scene.add_component<seed::TransformComponent>(player);
 
+    const seed::EntityId empty_persistent =
+        scene.create_entity("Empty Persistent", "empty-persistent-1");
+    scene.add_component<seed::PersistentComponent>(empty_persistent);
+
     std::vector<seed::DoctorFinding> findings = seed::SeedDoctor::inspect(scene);
 
     const auto* door_finding = find_code(findings, "gameplay.door.missing_interactable");
@@ -52,6 +57,7 @@ int main() {
     const auto* inventory_finding = find_code(findings, "gameplay.player.missing_inventory");
     const auto* body_finding = find_code(findings, "physics.player.missing_character_body");
     const auto* camera_finding = find_code(findings, "camera.third_person.missing_child_camera");
+    const auto* persistent_finding = find_code(findings, "save.persistent.no_supported_state");
 
     assert(door_finding != nullptr);
     assert(door_finding->severity == seed::DoctorSeverity::Error);
@@ -69,6 +75,11 @@ int main() {
     assert(body_finding->safe_fix == seed::DoctorFixKind::AddCharacterBody);
     assert(camera_finding != nullptr);
     assert(camera_finding->safe_fix == seed::DoctorFixKind::AddThirdPersonCamera);
+
+    assert(persistent_finding != nullptr);
+    assert(persistent_finding->severity == seed::DoctorSeverity::Warning);
+    assert(persistent_finding->safe_fix == seed::DoctorFixKind::None);
+    assert(persistent_finding->entity_persistent_id == "empty-persistent-1");
 
     auto fix_result = seed::SeedDoctor::apply_safe_fix(scene, *door_finding);
     assert(fix_result.applied);
@@ -98,11 +109,16 @@ int main() {
     assert(camera_transform->position.y == 1.7f);
     assert(camera_transform->position.z == 5.0f);
 
+    // Add a supported v0 state to prove Doctor clears the persistence warning
+    // without inventing any other component or guessing creator intent.
+    scene.add_component<seed::HealthComponent>(empty_persistent);
+
     findings = seed::SeedDoctor::inspect(scene);
     assert(find_code(findings, "gameplay.door.missing_interactable") == nullptr);
     assert(find_code(findings, "gameplay.player.missing_inventory") == nullptr);
     assert(find_code(findings, "physics.player.missing_character_body") == nullptr);
     assert(find_code(findings, "camera.third_person.missing_child_camera") == nullptr);
+    assert(find_code(findings, "save.persistent.no_supported_state") == nullptr);
 
     // Creator-review findings remain until the creator supplies intent.
     assert(find_code(findings, "gameplay.pickup.missing_item_id") != nullptr);
