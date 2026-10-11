@@ -4,6 +4,8 @@
 
 namespace seed {
 
+class Scene;
+
 class AnimationSystem {
 public:
     static Quaternion normalize_quaternion(const Quaternion& value) noexcept;
@@ -31,6 +33,11 @@ public:
         const Skeleton& skeleton,
         SkeletonPose& pose
     );
+
+    // Advances every Seed Animation Player whose Skinned Mesh has been hydrated
+    // by AssetRuntime. Missing clips fall back to the first imported clip; assets
+    // with no clips remain in bind pose.
+    static void update_scene(Scene& scene, float delta_seconds);
 };
 
 } // namespace seed
