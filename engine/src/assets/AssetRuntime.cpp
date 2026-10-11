@@ -43,6 +43,7 @@ void destroy_resource(IRenderer& renderer, AnimatedModelAssetResource& resource)
     if (resource.base_color_texture) renderer.destroy_texture(resource.base_color_texture);
     if (resource.metallic_roughness_texture) renderer.destroy_texture(resource.metallic_roughness_texture);
     if (resource.normal_texture) renderer.destroy_texture(resource.normal_texture);
+    if (resource.mesh) renderer.destroy_mesh(resource.mesh);
     resource = {};
 }
 
@@ -230,6 +231,14 @@ const AnimatedModelAssetResource* AssetRuntime::load_character(
     resource.metallic = imported->metallic;
     resource.roughness = imported->roughness;
     resource.normal_scale = imported->normal_scale;
+
+    // Optional capability: headless/fake renderers return an empty handle while
+    // retaining the complete CPU asset. OpenGL and future production backends
+    // can upload the exact same Seed-owned vertex stream.
+    resource.mesh = m_renderer->create_skinned_mesh({
+        .vertices = resource.vertices,
+        .indices = resource.indices,
+    });
 
     resource.base_color_texture = create_imported_texture(*m_renderer, imported->base_color_texture);
     if (imported->base_color_texture.has_value() && !resource.base_color_texture) {
