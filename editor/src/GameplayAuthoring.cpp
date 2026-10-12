@@ -574,6 +574,85 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
         ImGui::PopID();
     }
 
+    if (auto* gameplay_rules = scene.get_component<GameplayRulesComponent>(entity)) {
+        ImGui::PushID("SeedGameplayRules");
+        if (ImGui::CollapsingHeader("Gameplay Rules", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description(
+                "Create readable no-code behavior: when this object emits an event, Seed performs an action."
+            );
+            int remove_index = -1;
+            for (std::size_t index = 0; index < gameplay_rules->rules.size(); ++index) {
+                auto& rule = gameplay_rules->rules[index];
+                ImGui::PushID(static_cast<int>(index));
+                ImGui::SeparatorText(("Rule " + std::to_string(index + 1)).c_str());
+
+                const char* triggers[] = {
+                    "Interact", "DialogueStarted", "PickupCollected",
+                    "DoorOpened", "Hit", "Death", "Talked"
+                };
+                int trigger_index = 0;
+                for (int candidate = 0; candidate < static_cast<int>(std::size(triggers)); ++candidate) {
+                    if (rule.when_event == triggers[candidate]) {
+                        trigger_index = candidate;
+                        break;
+                    }
+                }
+                if (ImGui::Combo("When", &trigger_index, triggers, static_cast<int>(std::size(triggers)))) {
+                    rule.when_event = triggers[trigger_index];
+                    changed = true;
+                }
+
+                const char* actions[] = {
+                    "Publish Event", "Start Quest", "Complete Quest",
+                    "Give Item", "Apply Damage"
+                };
+                int action_index = 0;
+                for (int candidate = 0; candidate < static_cast<int>(std::size(actions)); ++candidate) {
+                    if (rule.action == actions[candidate]) {
+                        action_index = candidate;
+                        break;
+                    }
+                }
+                if (ImGui::Combo("Then", &action_index, actions, static_cast<int>(std::size(actions)))) {
+                    rule.action = actions[action_index];
+                    changed = true;
+                }
+
+                changed |= edit_string("Value", rule.action_value);
+                if (rule.action == "Give Item" || rule.action == "Apply Damage") {
+                    if (ImGui::DragInt("Amount", &rule.quantity, 1.0f, 1, 9999)) {
+                        rule.quantity = std::max(1, rule.quantity);
+                        changed = true;
+                    }
+                } else {
+                    changed |= edit_string("Required Item", rule.required_item);
+                }
+                changed |= ImGui::Checkbox("Run Once", &rule.once);
+                ImGui::TextDisabled("Runtime: %s", rule.fired ? "Triggered" : "Waiting");
+
+                if (ImGui::SmallButton("Remove Rule")) {
+                    remove_index = static_cast<int>(index);
+                }
+                ImGui::PopID();
+            }
+            if (remove_index >= 0) {
+                gameplay_rules->rules.erase(
+                    gameplay_rules->rules.begin() + remove_index
+                );
+                changed = true;
+            }
+            if (ImGui::Button("Add Rule")) {
+                gameplay_rules->rules.push_back({});
+                changed = true;
+            }
+            if (remove_component_button("Remove Gameplay Rules")) {
+                scene.remove_component<GameplayRulesComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
     return changed;
 }
 
@@ -599,6 +678,7 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     const bool has_door = scene.has_component<DoorComponent>(entity);
     const bool has_dialogue = scene.has_component<DialogueComponent>(entity);
     const bool has_quest = scene.has_component<QuestComponent>(entity);
+    const bool has_rules = scene.has_component<GameplayRulesComponent>(entity);
 
     ImGui::BeginDisabled(has_player);
     if (ImGui::MenuItem(has_player ? "Player — First Person [Added]" : "Player — First Person")) {
@@ -671,6 +751,15 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
         FeedbackCueComponent feedback_cues;
         feedback_cues.bindings.push_back({});
         scene.add_component<FeedbackCueComponent>(entity, std::move(feedback_cues));
+        changed = true;
+    }
+    ImGui::EndDisabled();
+
+    ImGui::BeginDisabled(has_rules);
+    if (ImGui::MenuItem(has_rules ? "Gameplay Rules [Added]" : "Gameplay Rules")) {
+        GameplayRulesComponent gameplay_rules;
+        gameplay_rules.rules.push_back({});
+        scene.add_component<GameplayRulesComponent>(entity, std::move(gameplay_rules));
         changed = true;
     }
     ImGui::EndDisabled();
