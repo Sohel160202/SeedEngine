@@ -436,6 +436,18 @@ void GameplayRuntime::refresh_interaction_target(Scene& scene) {
     m_interaction_target = InvalidEntity;
     m_interaction_prompt.clear();
 
+    if (m_dialogue_active) {
+        if (scene.is_alive(m_dialogue_entity)) {
+            m_interaction_target = m_dialogue_entity;
+            m_interaction_prompt = "[E] Next";
+        } else {
+            m_dialogue_active = false;
+            m_dialogue_entity = InvalidEntity;
+            m_dialogue_line_index = 0;
+        }
+        return;
+    }
+
     const auto* controller = scene.get_component<PlayerControllerComponent>(m_player_entity);
     if (controller == nullptr || !controller->enabled || !scene.has_component<TransformComponent>(m_player_entity)) {
         return;
@@ -646,6 +658,11 @@ void GameplayRuntime::advance_dialogue(Scene& scene) {
     }
 
     const std::string quest_id = dialogue->quest_id_to_start;
+    if (!dialogue->repeatable) {
+        if (auto* interactable = scene.get_component<InteractableComponent>(m_dialogue_entity)) {
+            interactable->enabled = false;
+        }
+    }
     m_dialogue_active = false;
     m_dialogue_entity = InvalidEntity;
     m_dialogue_line_index = 0;
