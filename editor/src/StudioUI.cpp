@@ -184,8 +184,8 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         }
         if (ImGui::MenuItem("Save","Ctrl+S")) { if (document.has_project) queue_action({.type=StudioActionType::Save}); else m_show_save_as_dialog=true; }
         if (ImGui::MenuItem("Save As...","Ctrl+Shift+S")) m_show_save_as_dialog=true;
-        if (ImGui::MenuItem("Save Selected as Prefab...", nullptr, false, document.has_project && m_selected_entity != InvalidEntity)) { m_prefab_dialog_is_save = true; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; }
-        if (ImGui::MenuItem("Instantiate Prefab...", nullptr, false, document.has_project)) { m_prefab_dialog_is_save = false; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; }
+        if (ImGui::MenuItem("Save Selected as Prefab...", nullptr, false, document.has_project && m_selected_entity != InvalidEntity)) { m_prefab_dialog_is_save = true; m_prefab_dialog_is_refresh = false; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; }
+        if (ImGui::MenuItem("Instantiate Prefab...", nullptr, false, document.has_project)) { m_prefab_dialog_is_save = false; m_prefab_dialog_is_refresh = false; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; }
         ImGui::Separator();
         ImGui::BeginDisabled(!document.has_project); if (ImGui::MenuItem("Import 3D Model...")) m_show_import_model_dialog=true; ImGui::EndDisabled(); ImGui::EndMenu();
     }
@@ -212,7 +212,7 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         }
         ImGui::EndMenu();
     }
-    if (ImGui::BeginMenu("Tools", !document.playing)) { if (ImGui::MenuItem("Save Scene Revision...", nullptr, false, document.has_project)) { copy_text(m_revision_label_buffer, "Before major change"); m_show_revision_dialog=true; } if (ImGui::MenuItem("Scene History...", nullptr, false, document.has_project)) m_show_revision_dialog=true; ImGui::Separator(); if (ImGui::MenuItem("Semantic Merge Review...", nullptr, false, document.has_project)) { m_merge_base_revision_index = document.revisions.size() > 2 ? 2 : -1; m_merge_ours_revision_index = document.revisions.size() > 1 ? 1 : -1; m_merge_theirs_revision_index = document.revisions.empty() ? -1 : 0; m_show_semantic_merge_dialog=true; } ImGui::EndMenu(); }
+    if (ImGui::BeginMenu("Tools", !document.playing)) { if (ImGui::MenuItem("Save Scene Revision...", nullptr, false, document.has_project)) { copy_text(m_revision_label_buffer, "Before major change"); m_show_revision_dialog=true; } if (ImGui::MenuItem("Scene History...", nullptr, false, document.has_project)) m_show_revision_dialog=true; ImGui::Separator(); if (ImGui::MenuItem("Refresh Linked Prefab...", nullptr, false, document.has_project)) { m_prefab_dialog_is_save = false; m_prefab_dialog_is_refresh = true; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; } ImGui::Separator(); if (ImGui::MenuItem("Semantic Merge Review...", nullptr, false, document.has_project)) { m_merge_base_revision_index = document.revisions.size() > 2 ? 2 : -1; m_merge_ours_revision_index = document.revisions.size() > 1 ? 1 : -1; m_merge_theirs_revision_index = document.revisions.empty() ? -1 : 0; m_show_semantic_merge_dialog=true; } ImGui::EndMenu(); }
     if (ImGui::BeginMenu("Build")) {
         if (document.playing) {
             if (ImGui::MenuItem("Stop", "F5")) queue_action({.type=StudioActionType::Stop});
@@ -280,16 +280,18 @@ void StudioUI::draw_project_dialogs(const StudioDocumentInfo& document) {
     if(m_show_import_model_dialog){center_next_dialog();if(ImGui::Begin("Import 3D Model",&m_show_import_model_dialog,flags)){ImGui::TextUnformatted("Import a static or animated glTF 2.0 model into this Seed project");ImGui::InputText("Model File",m_import_model_file_buffer.data(),m_import_model_file_buffer.size());ImGui::TextDisabled("Seed detects animated characters automatically and applies PBR texture maps when available.");if(ImGui::Button("Import",{110,0})&&m_import_model_file_buffer[0]!='\0'){queue_action({.type=StudioActionType::ImportModel,.path=m_import_model_file_buffer.data()});m_show_import_model_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_import_model_dialog=false;}ImGui::End();}
     if(m_show_prefab_dialog){
         center_next_dialog();
-        const char* title = m_prefab_dialog_is_save ? "Save Entity as Prefab" : "Instantiate Prefab";
+        const char* title = m_prefab_dialog_is_refresh ? "Refresh Linked Prefab" : (m_prefab_dialog_is_save ? "Save Entity as Prefab" : "Instantiate Prefab");
         if(ImGui::Begin(title, &m_show_prefab_dialog, flags)){
-            ImGui::TextWrapped("%s", m_prefab_dialog_is_save
-                ? "Save the selected beginner-friendly object as a reusable .seedprefab."
-                : "Choose a .seedprefab file inside this project and add a fresh instance to the scene.");
+            ImGui::TextWrapped("%s", m_prefab_dialog_is_refresh
+                ? "Reload every linked instance of this prefab in the current scene."
+                : (m_prefab_dialog_is_save
+                    ? "Save the selected beginner-friendly object as a reusable .seedprefab."
+                    : "Choose a .seedprefab file inside this project and add a fresh instance to the scene."));
             ImGui::InputText("Prefab File", m_prefab_file_buffer.data(), m_prefab_file_buffer.size());
             if(ImGui::Button(m_prefab_dialog_is_save ? "Save" : "Instantiate", {130,0})
                 && m_prefab_file_buffer[0] != '\0'){
                 queue_action({
-                    .type = m_prefab_dialog_is_save ? StudioActionType::SavePrefab : StudioActionType::InstantiatePrefab,
+                    .type = m_prefab_dialog_is_refresh ? StudioActionType::RefreshLinkedPrefabs : (m_prefab_dialog_is_save ? StudioActionType::SavePrefab : StudioActionType::InstantiatePrefab),
                     .path = m_prefab_file_buffer.data()
                 });
                 m_show_prefab_dialog = false;

@@ -3,6 +3,7 @@
 #include "seed/core/Types.h"
 
 #include <filesystem>
+#include <cstddef>
 #include <string>
 
 namespace seed {
@@ -15,6 +16,13 @@ public:
         const Scene& scene,
         EntityId entity,
         const std::filesystem::path& prefab_file,
+        std::string* error = nullptr
+    );
+
+    static bool refresh_linked_instances(
+        Scene& scene,
+        const std::filesystem::path& prefab_file,
+        std::size_t* refreshed_instances = nullptr,
         std::string* error = nullptr
     );
 

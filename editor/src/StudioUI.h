@@ -16,7 +16,7 @@ enum class StudioActionType {
     CreateEmptyEntity, CreateCube, CreateDirectionalLight, CreateAmbientLight,
     CreateSky, CreateFirstPersonPlayer, CreateThirdPersonPlayer, CreateBeginnerPreset, BuildGame, OpenExample, DuplicateSelected, DeleteSelected,
     FocusSelected, Undo, Redo, Play, Stop, OpenSemanticMerge, SaveRevision, LoadRevision,
-    SavePrefab, InstantiatePrefab
+    SavePrefab, InstantiatePrefab, RefreshLinkedPrefabs
 };
 
 struct StudioAction {
@@ -109,6 +109,7 @@ private:
     bool m_show_import_model_dialog{false};
     bool m_show_prefab_dialog{false};
     bool m_prefab_dialog_is_save{true};
+    bool m_prefab_dialog_is_refresh{false};
     bool m_show_semantic_merge_dialog{false};
     bool m_show_revision_dialog{false};
     bool m_show_beginner_guide_dialog{false};
