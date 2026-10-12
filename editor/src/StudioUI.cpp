@@ -254,7 +254,7 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
                             std::snprintf(name,sizeof(name),"%s",event.name.c_str());
                             if(ImGui::InputText("Name",name,sizeof(name))){event.name=name;c=true;}
                             c|=ImGui::DragFloat("Time",&event.time_seconds,0.01f,0.0f,1000.0f,"%.2f s");
-                            if(ImGui::Button("Remove")){a->events.erase(a->events.begin()+static_cast<std::ptrdiff_t>(i));c=true;ImGui::PopID();break;}
+                            if(ImGui::Button("Remove")){a->events.erase(a->events.begin()+i);c=true;ImGui::PopID();break;}
                             ImGui::PopID();
                         }
                         if(ImGui::Button("Add Event")){a->events.push_back({.clip_name=a->clip_name,.name="Event",.time_seconds=0.0f});c=true;}
