@@ -206,7 +206,43 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
 
 void StudioUI::draw_project_dialogs(const StudioDocumentInfo& document) {
     const ImGuiWindowFlags flags=ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_AlwaysAutoResize;
-    if(m_show_new_project_dialog){center_next_dialog();if(ImGui::Begin("New Seed Project",&m_show_new_project_dialog,flags)){ImGui::InputText("Project Name",m_project_name_buffer.data(),m_project_name_buffer.size());ImGui::InputText("Project Folder",m_project_folder_buffer.data(),m_project_folder_buffer.size());if(ImGui::Button("Create",{110,0})){queue_action({.type=StudioActionType::NewProject,.path=m_project_folder_buffer.data(),.project_name=m_project_name_buffer.data()});m_show_new_project_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_new_project_dialog=false;}ImGui::End();}
+    if(m_show_new_project_dialog){
+        center_next_dialog();
+        if(ImGui::Begin("New Seed Project",&m_show_new_project_dialog,flags)){
+            ImGui::TextWrapped("Start with a ready-made game structure. You can change everything later.");
+            ImGui::InputText("Project Name",m_project_name_buffer.data(),m_project_name_buffer.size());
+            ImGui::InputText("Project Folder",m_project_folder_buffer.data(),m_project_folder_buffer.size());
+
+            const char* templates[] = {
+                "Empty World",
+                "Third-Person Adventure",
+                "First-Person Exploration",
+                "Collect and Open"
+            };
+            ImGui::Combo("Starting Point",&m_project_template_index,templates,4);
+            const char* descriptions[] = {
+                "A clean scene with a camera, light, sky, and starter cube.",
+                "A ready player, ground, lighting, health, and interaction scene.",
+                "A first-person player and exploration-ready world.",
+                "A player, collectible key, locked door, inventory, and quest."
+            };
+            ImGui::TextDisabled("%s",descriptions[std::clamp(m_project_template_index,0,3)]);
+
+            if(ImGui::Button("Create",{110,0})){
+                const char* ids[] = {"empty","third_person_adventure","first_person_exploration","collect_and_open"};
+                queue_action({
+                    .type=StudioActionType::NewProject,
+                    .path=m_project_folder_buffer.data(),
+                    .project_name=m_project_name_buffer.data(),
+                    .path2=ids[std::clamp(m_project_template_index,0,3)]
+                });
+                m_show_new_project_dialog=false;
+            }
+            ImGui::SameLine();
+            if(ImGui::Button("Cancel",{110,0}))m_show_new_project_dialog=false;
+        }
+        ImGui::End();
+    }
     if(m_show_open_project_dialog){center_next_dialog();if(ImGui::Begin("Open Seed Project",&m_show_open_project_dialog,flags)){ImGui::InputText("Project File",m_project_file_buffer.data(),m_project_file_buffer.size());if(ImGui::Button("Open",{110,0})){queue_action({.type=StudioActionType::OpenProject,.path=m_project_file_buffer.data()});m_show_open_project_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_open_project_dialog=false;}ImGui::End();}
     if(m_show_save_as_dialog){center_next_dialog();if(ImGui::Begin("Save Seed Project As",&m_show_save_as_dialog,flags)){ImGui::InputText("Project Name",m_project_name_buffer.data(),m_project_name_buffer.size());ImGui::InputText("Project Folder",m_project_folder_buffer.data(),m_project_folder_buffer.size());if(ImGui::Button("Save",{110,0})){queue_action({.type=StudioActionType::SaveAs,.path=m_project_folder_buffer.data(),.project_name=m_project_name_buffer.data()});m_show_save_as_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_save_as_dialog=false;}ImGui::End();}
     if(m_show_import_model_dialog){center_next_dialog();if(ImGui::Begin("Import 3D Model",&m_show_import_model_dialog,flags)){ImGui::TextUnformatted("Import a static glTF 2.0 model into this Seed project");ImGui::InputText("Model File",m_import_model_file_buffer.data(),m_import_model_file_buffer.size());ImGui::TextDisabled("Seed import v1: first triangle primitive + PBR texture maps.");if(ImGui::Button("Import",{110,0})&&m_import_model_file_buffer[0]!='\0'){queue_action({.type=StudioActionType::ImportModel,.path=m_import_model_file_buffer.data()});m_show_import_model_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_import_model_dialog=false;}ImGui::End();}
