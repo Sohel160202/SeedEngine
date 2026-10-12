@@ -123,7 +123,7 @@ void StudioUI::draw(Scene& scene, const StudioDocumentInfo& document, EntityId v
 
     draw_main_menu(document);
     if (!document.playing) draw_project_dialogs(document);
-    draw_world_panel(scene); draw_inspector(scene, document); draw_assets_panel(document); draw_viewport_frame(scene, document, viewport_camera);
+    draw_world_panel(scene); draw_inspector(scene, document); draw_assets_panel(scene, document); draw_viewport_frame(scene, document, viewport_camera);
 
     const ImGuiIO& io = ImGui::GetIO();
     if (!io.WantTextInput) {
@@ -308,7 +308,23 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
     const ImGuiIO& io=ImGui::GetIO();const float menu=ImGui::GetFrameHeight();const float height=std::max(120.0f,io.DisplaySize.y-menu-BottomPanelHeight);ImGui::SetNextWindowPos({io.DisplaySize.x-RightPanelWidth,menu},ImGuiCond_Always);ImGui::SetNextWindowSize({RightPanelWidth,height},ImGuiCond_Always);
     if(ImGui::Begin("Inspector",nullptr,fixed_panel_flags())){
         if(m_selected_entity==InvalidEntity||!scene.is_alive(m_selected_entity)){ImGui::TextDisabled("Select an entity from World or click one in the viewport.");ImGui::End();return;}
-        ImGui::TextUnformatted(scene.entity_name(m_selected_entity).c_str());ImGui::TextDisabled("Runtime Entity #%llu",static_cast<unsigned long long>(m_selected_entity));const auto&id=scene.entity_persistent_id(m_selected_entity);ImGui::TextDisabled("Persistent %.8s...",id.c_str());if(const EntityId p=parent_entity(scene,m_selected_entity);p!=InvalidEntity)ImGui::TextDisabled("Parent: %s",scene.entity_name(p).c_str());if(document.playing)ImGui::TextDisabled("Play Mode — Inspector is read-only.");ImGui::Separator();
+        ImGui::TextUnformatted(scene.entity_name(m_selected_entity).c_str());ImGui::TextDisabled("Runtime Entity #%llu",static_cast<unsigned long long>(m_selected_entity));const auto&id=scene.entity_persistent_id(m_selected_entity);ImGui::TextDisabled("Persistent %.8s...",id.c_str());if(ImGui::BeginDragDropTarget()){
+            if(const ImGuiPayload* payload=ImGui::AcceptDragDropPayload("SEED_ASSET")){
+                const std::string asset_id(static_cast<const char*>(payload->Data));
+                const bool skinned=scene.has_component<SkinnedMeshComponent>(m_selected_entity)||scene.has_component<AnimationPlayerComponent>(m_selected_entity)||scene.has_component<PlayerControllerComponent>(m_selected_entity);
+                if(skinned){
+                    auto* mesh=scene.get_component<SkinnedMeshComponent>(m_selected_entity);
+                    if(mesh==nullptr) mesh=&scene.add_component<SkinnedMeshComponent>(m_selected_entity);
+                    mesh->asset_id=asset_id; mesh->visible=true;
+                }else{
+                    auto* mesh=scene.get_component<MeshComponent>(m_selected_entity);
+                    if(mesh==nullptr) mesh=&scene.add_component<MeshComponent>(m_selected_entity);
+                    mesh->asset_id=asset_id; mesh->visible=true;
+                }
+                m_scene_edited=true;
+            }
+            ImGui::EndDragDropTarget();
+        }if(const EntityId p=parent_entity(scene,m_selected_entity);p!=InvalidEntity)ImGui::TextDisabled("Parent: %s",scene.entity_name(p).c_str());if(document.playing)ImGui::TextDisabled("Play Mode — Inspector is read-only.");ImGui::Separator();
         const bool editor_only=editor_only_entity(scene,m_selected_entity);ImGui::BeginDisabled(document.playing);
         if(auto*t=scene.get_component<TransformComponent>(m_selected_entity)){if(ImGui::CollapsingHeader("Transform",ImGuiTreeNodeFlags_DefaultOpen)){if(parent_entity(scene,m_selected_entity)!=InvalidEntity)ImGui::TextDisabled("Local transform relative to parent");bool c=false;c|=ImGui::DragFloat3("Position",&t->position.x,0.05f);c|=ImGui::DragFloat3("Rotation",&t->rotation_degrees.x,0.5f);c|=ImGui::DragFloat3("Scale",&t->scale.x,0.02f,0.01f,100.0f);if(c&&!editor_only)m_scene_edited=true;}}
         if(auto*c=scene.get_component<CameraComponent>(m_selected_entity)){if(ImGui::CollapsingHeader("Camera",ImGuiTreeNodeFlags_DefaultOpen)){bool ch=false;if(c->editor_only)ImGui::TextDisabled("Seed Studio viewport camera — not saved");ch|=ImGui::Checkbox("Primary",&c->primary);ch|=ImGui::Checkbox("Enabled",&c->enabled);ch|=ImGui::DragFloat("Field of View",&c->field_of_view_degrees,0.25f,20,150,"%.1f deg");ch|=ImGui::DragFloat("Near Plane",&c->near_plane,0.01f,0.01f,10,"%.2f");ch|=ImGui::DragFloat("Far Plane",&c->far_plane,1,10,10000,"%.0f");if(ch&&!c->editor_only)m_scene_edited=true;}}
@@ -338,7 +354,7 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
     ImGui::End();
 }
 
-void StudioUI::draw_assets_panel(const StudioDocumentInfo& document) {
+void StudioUI::draw_assets_panel(Scene& scene, const StudioDocumentInfo& document) {
     const ImGuiIO& io=ImGui::GetIO();ImGui::SetNextWindowPos({0,io.DisplaySize.y-BottomPanelHeight},ImGuiCond_Always);ImGui::SetNextWindowSize({io.DisplaySize.x,BottomPanelHeight},ImGuiCond_Always);
     if(ImGui::Begin("Assets",nullptr,fixed_panel_flags())){
         ImGui::TextDisabled(document.playing ? "PLAY MODE" : "PROJECT ASSETS");
@@ -404,7 +420,13 @@ void StudioUI::draw_assets_panel(const StudioDocumentInfo& document) {
                 ImGui::TextUnformatted("Imported Model");
                 ImGui::SameLine(180);
                 ImGui::TextDisabled("%s",a.c_str());
+                if(ImGui::BeginDragDropSource()){
+                    ImGui::SetDragDropPayload("SEED_ASSET",a.c_str(),a.size()+1);
+                    ImGui::Text("Assign %s",a.c_str());
+                    ImGui::EndDragDropSource();
+                }
             }
+            ImGui::TextDisabled("Drag an imported model onto the selected entity in Inspector.");
             if(!document.status_message.empty())
                 ImGui::TextWrapped("%s",document.status_message.c_str());
         }
