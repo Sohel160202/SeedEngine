@@ -196,6 +196,16 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         if (ImGui::BeginMenu("Environment")) { if (ImGui::MenuItem("Sky")) queue_action({.type=StudioActionType::CreateSky}); ImGui::EndMenu(); }
         if (ImGui::BeginMenu("Light")) { if (ImGui::MenuItem("Directional Light")) queue_action({.type=StudioActionType::CreateDirectionalLight}); if (ImGui::MenuItem("Ambient Light")) queue_action({.type=StudioActionType::CreateAmbientLight}); ImGui::EndMenu(); }
         if (ImGui::BeginMenu("Player")) { if (ImGui::MenuItem("First Person")) queue_action({.type=StudioActionType::CreateFirstPersonPlayer}); if (ImGui::MenuItem("Third Person")) queue_action({.type=StudioActionType::CreateThirdPersonPlayer}); ImGui::EndMenu(); }
+        ImGui::Separator();
+        if (ImGui::BeginMenu("Beginner Presets")) {
+            if (ImGui::MenuItem("Player — First Person")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="player_first"});
+            if (ImGui::MenuItem("Player — Third Person")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="player_third"});
+            if (ImGui::MenuItem("Enemy")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="enemy"});
+            if (ImGui::MenuItem("Pickup")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="pickup"});
+            if (ImGui::MenuItem("Door")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="door"});
+            if (ImGui::MenuItem("Quest")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="quest"});
+            ImGui::EndMenu();
+        }
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Tools", !document.playing)) { if (ImGui::MenuItem("Save Scene Revision...", nullptr, false, document.has_project)) { copy_text(m_revision_label_buffer, "Before major change"); m_show_revision_dialog=true; } if (ImGui::MenuItem("Scene History...", nullptr, false, document.has_project)) m_show_revision_dialog=true; ImGui::Separator(); if (ImGui::MenuItem("Semantic Merge Review...", nullptr, false, document.has_project)) { m_merge_base_revision_index = document.revisions.size() > 2 ? 2 : -1; m_merge_ours_revision_index = document.revisions.size() > 1 ? 1 : -1; m_merge_theirs_revision_index = document.revisions.empty() ? -1 : 0; m_show_semantic_merge_dialog=true; } ImGui::EndMenu(); }
