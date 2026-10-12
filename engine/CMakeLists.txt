@@ -7,6 +7,7 @@ add_library(SeedEngine STATIC
     src/gameplay/CombatSystem.cpp
     src/gameplay/GameplayFeedbackSystem.cpp
     src/gameplay/AudioSystem.cpp
+    ${miniaudio_SOURCE_DIR}/miniaudio.c
     src/diagnostics/SeedDoctor.cpp
     src/gameplay/GameplayRuntime.cpp
     src/physics/PhysicsQueries.cpp
@@ -31,6 +32,7 @@ target_include_directories(SeedEngine
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     PRIVATE
         ${tinygltf_SOURCE_DIR}
+        ${miniaudio_SOURCE_DIR}
 )
 
 target_compile_features(SeedEngine PUBLIC cxx_std_20)
