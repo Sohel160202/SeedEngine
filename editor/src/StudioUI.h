@@ -127,6 +127,7 @@ private:
     std::array<char,512> m_merge_base_file_buffer{};
     std::array<char,512> m_merge_ours_file_buffer{};
     std::array<char,512> m_merge_theirs_file_buffer{};
+    int m_project_template_index{1};
     int m_merge_base_revision_index{-1};
     int m_merge_ours_revision_index{-1};
     int m_merge_theirs_revision_index{-1};
