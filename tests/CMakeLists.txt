@@ -34,6 +34,11 @@ target_link_libraries(SeedGameplayEventTests PRIVATE SeedEngine)
 target_compile_features(SeedGameplayEventTests PRIVATE cxx_std_20)
 add_test(NAME SeedGameplayEventTests COMMAND SeedGameplayEventTests)
 
+add_executable(SeedGameplayFeedbackTests gameplay_feedback_tests.cpp)
+target_link_libraries(SeedGameplayFeedbackTests PRIVATE SeedEngine)
+target_compile_features(SeedGameplayFeedbackTests PRIVATE cxx_std_20)
+add_test(NAME SeedGameplayFeedbackTests COMMAND SeedGameplayFeedbackTests)
+
 add_executable(SeedInputActionsTests input_actions_tests.cpp)
 target_link_libraries(SeedInputActionsTests PRIVATE SeedEngine)
 target_compile_features(SeedInputActionsTests PRIVATE cxx_std_20)
