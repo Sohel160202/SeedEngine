@@ -34,6 +34,16 @@ struct AnimationPlayerComponent {
     float playback_speed{1.0f};
     bool playing{true};
 
+    // When enabled, gameplay drives conventional Idle/Walk/Run/Jump/Fall
+    // clip selection. Manual clip selection remains available when disabled.
+    bool locomotion_enabled{false};
+
+    // Runtime locomotion signals published by GameplayRuntime.
+    float locomotion_speed{0.0f};
+    float locomotion_vertical_velocity{0.0f};
+    bool locomotion_grounded{true};
+    bool locomotion_sprinting{false};
+
     // Runtime-evaluated pose. It is derived data and should not be serialized as
     // authored scene state.
     SkeletonPose pose;
