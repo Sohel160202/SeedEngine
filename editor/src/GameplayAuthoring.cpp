@@ -467,6 +467,49 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
         ImGui::PopID();
     }
 
+    if (auto* feedback_cues = scene.get_component<FeedbackCueComponent>(entity)) {
+        ImGui::PushID("SeedFeedbackCues");
+        if (ImGui::CollapsingHeader("Feedback Cue Registry", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("Maps semantic gameplay events to future audio, visual, and camera feedback assets.");
+            int remove_index = -1;
+            for (std::size_t index = 0; index < feedback_cues->bindings.size(); ++index) {
+                auto& binding = feedback_cues->bindings[index];
+                ImGui::PushID(static_cast<int>(index));
+                ImGui::SeparatorText(("Cue " + std::to_string(index + 1)).c_str());
+                changed |= edit_string("Event", binding.event_name);
+                changed |= edit_string("Audio Asset", binding.audio_asset);
+                changed |= edit_string("Visual Asset", binding.visual_asset);
+                if (ImGui::DragFloat("Volume", &binding.volume, 0.05f, 0.0f, 4.0f, "%.2f")) {
+                    binding.volume = std::max(0.0f, binding.volume);
+                    changed = true;
+                }
+                if (ImGui::DragFloat("Camera Shake", &binding.camera_shake, 0.01f, 0.0f, 100.0f, "%.2f")) {
+                    binding.camera_shake = std::max(0.0f, binding.camera_shake);
+                    changed = true;
+                }
+                if (ImGui::SmallButton("Remove Cue")) {
+                    remove_index = static_cast<int>(index);
+                }
+                ImGui::PopID();
+            }
+            if (remove_index >= 0) {
+                feedback_cues->bindings.erase(
+                    feedback_cues->bindings.begin() + remove_index
+                );
+                changed = true;
+            }
+            if (ImGui::Button("Add Cue")) {
+                feedback_cues->bindings.push_back({});
+                changed = true;
+            }
+            if (remove_component_button("Remove Feedback Cue Registry")) {
+                scene.remove_component<FeedbackCueComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
     if (auto* door = scene.get_component<DoorComponent>(entity)) {
         ImGui::PushID("SeedDoor");
         if (ImGui::CollapsingHeader("Door / Lock", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -543,6 +586,7 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     const bool has_interactable = scene.has_component<InteractableComponent>(entity);
     const bool has_pickup = scene.has_component<PickupComponent>(entity);
     const bool has_inventory = scene.has_component<InventoryComponent>(entity);
+    const bool has_feedback_cues = scene.has_component<FeedbackCueComponent>(entity);
     const bool has_health = scene.has_component<HealthComponent>(entity);
     const bool has_attack = scene.has_component<AttackComponent>(entity);
     const bool has_door = scene.has_component<DoorComponent>(entity);
@@ -611,6 +655,15 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
             scene.add_component<InteractableComponent>(entity, "Pick Up Item", true);
         }
         scene.add_component<PickupComponent>(entity);
+        changed = true;
+    }
+    ImGui::EndDisabled();
+
+    ImGui::BeginDisabled(has_feedback_cues);
+    if (ImGui::MenuItem(has_feedback_cues ? "Feedback Cue Registry [Added]" : "Feedback Cue Registry")) {
+        FeedbackCueComponent feedback_cues;
+        feedback_cues.bindings.push_back({});
+        scene.add_component<FeedbackCueComponent>(entity, std::move(feedback_cues));
         changed = true;
     }
     ImGui::EndDisabled();

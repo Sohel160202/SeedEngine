@@ -5,11 +5,14 @@
 
 namespace seed {
 
+class Scene;
+
 class GameplayFeedbackSystem {
 public:
     static void consume_events(
         const GameplayEventBus& events,
-        GameplayFeedbackBus& feedback
+        GameplayFeedbackBus& feedback,
+        const Scene* scene = nullptr
     );
 };
 

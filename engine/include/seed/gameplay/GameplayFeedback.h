@@ -18,6 +18,10 @@ struct GameplayFeedbackRequest {
     GameplayFeedbackType type{GameplayFeedbackType::Audio};
     std::string cue;
     float time_seconds{0.0f};
+    std::string audio_asset{};
+    std::string visual_asset{};
+    float volume{1.0f};
+    float camera_shake{0.0f};
 };
 
 // Frame-scoped semantic feedback requests. This layer deliberately has no

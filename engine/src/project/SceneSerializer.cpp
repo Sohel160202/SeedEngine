@@ -244,6 +244,19 @@ bool SceneSerializer::save(
                     {"damage", attack->damage},
                 };
             }
+            if (const auto* feedback_cues = scene.get_component<FeedbackCueComponent>(entity)) {
+                nlohmann::json bindings = nlohmann::json::array();
+                for (const auto& binding : feedback_cues->bindings) {
+                    bindings.push_back({
+                        {"event_name", binding.event_name},
+                        {"audio_asset", binding.audio_asset},
+                        {"visual_asset", binding.visual_asset},
+                        {"volume", binding.volume},
+                        {"camera_shake", binding.camera_shake},
+                    });
+                }
+                components["FeedbackCues"] = {{"bindings", std::move(bindings)}};
+            }
             if (const auto* inventory = scene.get_component<InventoryComponent>(entity)) {
                 components["Inventory"] = {{"items", inventory->items}};
             }
@@ -576,6 +589,22 @@ bool SceneSerializer::load(
                 attack.damage = std::max(0.0f, value.value("damage", 25.0f));
                 attack.active = false;
                 loaded_scene.add_component<AttackComponent>(entity, std::move(attack));
+            }
+            if (components.contains("FeedbackCues")) {
+                const auto& value = components.at("FeedbackCues");
+                FeedbackCueComponent feedback_cues;
+                if (value.contains("bindings")) {
+                    for (const auto& item : value.at("bindings")) {
+                        FeedbackCueBinding binding;
+                        binding.event_name = item.value("event_name", std::string{"Footstep"});
+                        binding.audio_asset = item.value("audio_asset", std::string{});
+                        binding.visual_asset = item.value("visual_asset", std::string{});
+                        binding.volume = std::max(0.0f, item.value("volume", 1.0f));
+                        binding.camera_shake = std::max(0.0f, item.value("camera_shake", 0.0f));
+                        feedback_cues.bindings.push_back(std::move(binding));
+                    }
+                }
+                loaded_scene.add_component<FeedbackCueComponent>(entity, std::move(feedback_cues));
             }
             if (components.contains("Inventory")) {
                 const auto& value = components.at("Inventory");

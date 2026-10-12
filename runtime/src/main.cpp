@@ -115,8 +115,8 @@ int main(int argc, char** argv) {
     engine.register_update_system(
         "Feedback",
         seed::SystemPhase::EventDispatch,
-        [&](seed::Scene&, double, seed::GameplayEventBus& events) {
-            seed::GameplayFeedbackSystem::consume_events(events, feedback);
+        [&](seed::Scene& runtime_scene, double, seed::GameplayEventBus& events) {
+            seed::GameplayFeedbackSystem::consume_events(events, feedback, &runtime_scene);
         }
     );
 

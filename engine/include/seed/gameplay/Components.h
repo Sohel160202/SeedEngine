@@ -47,6 +47,18 @@ struct AttackComponent {
     bool active{false};
 };
 
+struct FeedbackCueBinding {
+    std::string event_name{"Footstep"};
+    std::string audio_asset{};
+    std::string visual_asset{};
+    float volume{1.0f};
+    float camera_shake{0.0f};
+};
+
+struct FeedbackCueComponent {
+    std::vector<FeedbackCueBinding> bindings;
+};
+
 struct InventoryComponent {
     std::unordered_map<std::string, int> items;
 };
