@@ -8,11 +8,12 @@ Seed's beginner workflow is intentionally built around concepts instead of engin
 2. Choose File > New Project.
 3. Start with `Third-Person Adventure` or `Collect and Open`.
 4. Select an object and use `+ Add Gameplay`.
-5. Add a Player, Pickup, Door, Health, Quest, or Gameplay Rules component.
+5. Add a Player, Enemy, Pickup, Door, Health, Quest, or Gameplay Rules component.
 6. In Gameplay Rules, author behavior as `When` and `Then`.
 7. Press F5 to play inside Seed Studio.
 8. Use WASD to move, RMB to look, E to interact, and F to attack.
-9. Save and export when the loop feels right.
+9. Defeat all Enemy presets to get the built-in `Area cleared! You win.` goal state.
+10. Save and export when the loop feels right.
 
 ## Example rules
 
@@ -21,6 +22,8 @@ Seed's beginner workflow is intentionally built around concepts instead of engin
 - When `PickupCollected` → Give Item `Coin`
 - When `Hit` → Apply Damage
 - When `Death` → Publish Event `AreaCleared`
+
+The `Enemy` preset handles detection, chasing, attacks, health, and the basic victory condition for you.
 
 Rules are stored in the scene and executed by Seed's semantic gameplay event system. A creator can start with these presets and progressively move toward lower-level C++ only when needed.
 
