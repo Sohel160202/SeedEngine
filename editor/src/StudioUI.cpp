@@ -303,7 +303,76 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
 
 void StudioUI::draw_assets_panel(const StudioDocumentInfo& document) {
     const ImGuiIO& io=ImGui::GetIO();ImGui::SetNextWindowPos({0,io.DisplaySize.y-BottomPanelHeight},ImGuiCond_Always);ImGui::SetNextWindowSize({io.DisplaySize.x,BottomPanelHeight},ImGuiCond_Always);
-    if(ImGui::Begin("Assets",nullptr,fixed_panel_flags())){ImGui::TextDisabled(document.playing?"PLAY MODE":"PROJECT ASSETS");ImGui::Separator();if(document.playing){if(!document.gameplay_status.empty())ImGui::TextWrapped("%s",document.gameplay_status.c_str());if(!document.gameplay_prompt.empty())ImGui::Text("Interaction: %s",document.gameplay_prompt.c_str());ImGui::SeparatorText("Player Inventory");if(document.gameplay_inventory.empty())ImGui::TextDisabled("Empty");else for(const auto&[id,q]:document.gameplay_inventory)ImGui::Text("%s  x%d",id.c_str(),q);ImGui::TextDisabled("F5 Stop   RMB Look   WASD Walk   Space Jump   Shift Sprint   E Interact");}else{ImGui::BeginDisabled(!document.has_project);if(ImGui::Button("+ Import 3D Model..."))m_show_import_model_dialog=true;ImGui::EndDisabled();ImGui::SameLine();ImGui::TextDisabled(document.has_project?"Static .glb / .gltf":"Save project before importing");ImGui::TextUnformatted("Seed Cube Mesh");ImGui::SameLine(180);ImGui::TextDisabled("builtin:cube");ImGui::TextUnformatted("Default Seed PBR Material");ImGui::SameLine(180);ImGui::TextDisabled("builtin:seed_default");for(const auto&a:document.project_assets){ImGui::TextUnformatted("Imported Model");ImGui::SameLine(180);ImGui::TextDisabled("%s",a.c_str());}if(!document.status_message.empty())ImGui::TextWrapped("%s",document.status_message.c_str());}}ImGui::End();
+    if(ImGui::Begin("Assets",nullptr,fixed_panel_flags())){
+        ImGui::TextDisabled(document.playing ? "PLAY MODE" : "PROJECT ASSETS");
+        ImGui::Separator();
+
+        if(document.playing){
+            if(document.gameplay_health_visible){
+                const float maximum = std::max(0.001f, document.gameplay_health_maximum);
+                const float fraction = std::clamp(
+                    document.gameplay_health_current / maximum,
+                    0.0f,
+                    1.0f
+                );
+                ImGui::Text("Health  %.0f / %.0f",
+                    document.gameplay_health_current,
+                    document.gameplay_health_maximum);
+                ImGui::ProgressBar(fraction, {-1.0f, 18.0f});
+            }
+
+            if(!document.gameplay_objectives.empty()){
+                ImGui::SeparatorText("Objectives");
+                for(const auto& objective : document.gameplay_objectives){
+                    ImGui::BulletText("%s", objective.c_str());
+                }
+            }
+
+            if(!document.gameplay_status.empty()){
+                ImGui::SeparatorText(
+                    document.gameplay_dialogue_visible ? "Dialogue" : "Status"
+                );
+                ImGui::TextWrapped("%s", document.gameplay_status.c_str());
+            }
+            if(!document.gameplay_prompt.empty()){
+                ImGui::TextColored(
+                    ImVec4{0.35f, 0.95f, 0.55f, 1.0f},
+                    "%s",
+                    document.gameplay_prompt.c_str()
+                );
+            }
+
+            ImGui::SeparatorText("Inventory");
+            if(document.gameplay_inventory.empty()) ImGui::TextDisabled("Empty");
+            else for(const auto&[id,q] : document.gameplay_inventory)
+                ImGui::Text("%s  x%d",id.c_str(),q);
+
+            ImGui::Separator();
+            ImGui::TextDisabled(
+                "F5 Stop   RMB Look   WASD Walk   Space Jump   Shift Sprint   E Interact"
+            );
+        }else{
+            ImGui::BeginDisabled(!document.has_project);
+            if(ImGui::Button("+ Import 3D Model..."))m_show_import_model_dialog=true;
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::TextDisabled(document.has_project ? "Static .glb / .gltf" : "Save project before importing");
+            ImGui::TextUnformatted("Seed Cube Mesh");
+            ImGui::SameLine(180);
+            ImGui::TextDisabled("builtin:cube");
+            ImGui::TextUnformatted("Default Seed PBR Material");
+            ImGui::SameLine(180);
+            ImGui::TextDisabled("builtin:seed_default");
+            for(const auto&a:document.project_assets){
+                ImGui::TextUnformatted("Imported Model");
+                ImGui::SameLine(180);
+                ImGui::TextDisabled("%s",a.c_str());
+            }
+            if(!document.status_message.empty())
+                ImGui::TextWrapped("%s",document.status_message.c_str());
+        }
+    }
+    ImGui::End();
 }
 
 void StudioUI::draw_viewport_toolbar(const StudioDocumentInfo& document) {

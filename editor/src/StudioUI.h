@@ -32,6 +32,11 @@ struct StudioDocumentInfo {
     std::string status_message;
     std::string gameplay_prompt;
     std::string gameplay_status;
+    bool gameplay_health_visible{false};
+    float gameplay_health_current{0.0f};
+    float gameplay_health_maximum{0.0f};
+    bool gameplay_dialogue_visible{false};
+    std::vector<std::string> gameplay_objectives;
     std::vector<std::pair<std::string, int>> gameplay_inventory;
     std::vector<std::string> project_assets;
     std::vector<SceneRevision> revisions;
