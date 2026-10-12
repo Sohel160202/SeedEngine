@@ -356,22 +356,60 @@ seed::EntityId create_beginner_preset(
         return create_third_person_player(scene, editor_camera, "Player");
     }
 
-    const auto entity = create_cube(
-        scene,
-        cube_mesh,
-        shader,
-        preset == "enemy" ? "Enemy" :
-            preset == "pickup" ? "Pickup" :
-            preset == "door" ? "Door" : "Gameplay Object"
-    );
+    const bool is_enemy =
+        preset == "enemy" ||
+        preset == "enemy_basic" ||
+        preset == "enemy_fast" ||
+        preset == "enemy_boss";
+    const std::string name =
+        preset == "enemy_fast" ? "Fast Enemy" :
+        preset == "enemy_boss" ? "Boss Enemy" :
+        preset == "enemy_basic" || preset == "enemy" ? "Basic Enemy" :
+        preset == "pickup" ? "Pickup" :
+        preset == "door" ? "Door" :
+        preset == "npc" ? "NPC" :
+        "Gameplay Object";
+
+    if (preset == "quest") {
+        const auto quest = scene.create_entity("Quest");
+        scene.add_component<seed::QuestComponent>(quest);
+        return quest;
+    }
+
+    const auto entity = create_cube(scene, cube_mesh, shader, name);
     if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
         transform->position = {0.0f, 0.75f, -2.5f};
     }
 
-    if (preset == "enemy") {
-        scene.add_component<seed::HealthComponent>(entity);
-        scene.add_component<seed::AttackComponent>(entity);
-        scene.add_component<seed::EnemyAIComponent>(entity);
+    if (is_enemy) {
+        seed::HealthComponent health;
+        seed::AttackComponent attack;
+        seed::EnemyAIComponent ai;
+        if (preset == "enemy_fast") {
+            health.maximum = 80.0f;
+            health.current = 80.0f;
+            attack.damage = 18.0f;
+            ai.detection_range = 14.0f;
+            ai.attack_range = 1.6f;
+            ai.move_speed = 3.5f;
+            ai.attack_damage = 14.0f;
+            ai.attack_cooldown = 0.8f;
+        } else if (preset == "enemy_boss") {
+            health.maximum = 250.0f;
+            health.current = 250.0f;
+            attack.damage = 35.0f;
+            ai.detection_range = 18.0f;
+            ai.attack_range = 2.0f;
+            ai.move_speed = 1.2f;
+            ai.attack_damage = 25.0f;
+            ai.attack_cooldown = 1.5f;
+            if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+                transform->scale = {1.5f, 2.0f, 1.5f};
+            }
+        }
+        scene.add_component<seed::HealthComponent>(entity, health);
+        scene.add_component<seed::AttackComponent>(entity, attack);
+        scene.add_component<seed::EnemyAIComponent>(entity, ai);
     } else if (preset == "pickup") {
         scene.add_component<seed::InteractableComponent>(entity, "Pick Up Item", true);
         seed::PickupComponent pickup;
@@ -382,11 +420,23 @@ seed::EntityId create_beginner_preset(
         scene.add_component<seed::InteractableComponent>(entity, "Open Door", true);
         scene.add_component<seed::BoxColliderComponent>(entity);
         scene.add_component<seed::DoorComponent>(entity);
-    } else if (preset == "quest") {
-        scene.destroy_entity(entity);
-        const auto quest = scene.create_entity("Quest");
-        scene.add_component<seed::QuestComponent>(quest);
-        return quest;
+    } else if (preset == "npc") {
+        scene.add_component<seed::InteractableComponent>(entity, "Talk", true);
+        seed::DialogueComponent dialogue;
+        dialogue.interaction_prompt = "Talk";
+        dialogue.lines = {
+            seed::DialogueLine{
+                .speaker = "Guide",
+                .text = "Welcome to your first Seed adventure.",
+                .choices = {seed::DialogueChoice{.label = "Continue", .next_line = 1}}
+            },
+            seed::DialogueLine{
+                .speaker = "Guide",
+                .text = "Collect items, explore the world, and complete your goal.",
+                .choices = {}
+            }
+        };
+        scene.add_component<seed::DialogueComponent>(entity, dialogue);
     }
     return entity;
 }

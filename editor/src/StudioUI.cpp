@@ -204,9 +204,12 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         if (ImGui::BeginMenu("Beginner Presets")) {
             if (ImGui::MenuItem("Player — First Person")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="player_first"});
             if (ImGui::MenuItem("Player — Third Person")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="player_third"});
-            if (ImGui::MenuItem("Enemy")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="enemy"});
+            if (ImGui::MenuItem("Basic Enemy")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="enemy_basic"});
+            if (ImGui::MenuItem("Fast Enemy")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="enemy_fast"});
+            if (ImGui::MenuItem("Boss Enemy")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="enemy_boss"});
             if (ImGui::MenuItem("Pickup")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="pickup"});
             if (ImGui::MenuItem("Door")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="door"});
+            if (ImGui::MenuItem("NPC with Dialogue")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="npc"});
             if (ImGui::MenuItem("Quest")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="quest"});
             ImGui::EndMenu();
         }
