@@ -75,7 +75,15 @@ SaveCaptureResult SaveGameSystem::capture(
             state.inventory = SaveInventoryState{.items = inventory->items};
         }
 
-        if (!state.transform.has_value() && !state.health.has_value() && !state.inventory.has_value()) {
+        if (const auto* quest = scene.get_component<QuestComponent>(entity)) {
+            state.quest = SaveQuestState{
+                .quest_id = quest->quest_id,
+                .status = static_cast<int>(quest->status),
+            };
+        }
+
+        if (!state.transform.has_value() && !state.health.has_value() &&
+            !state.inventory.has_value() && !state.quest.has_value()) {
             result.warnings.push_back(
                 "Persistent entity has no Save Game v0 state yet: " + entity_label(scene, entity)
             );
@@ -172,6 +180,21 @@ SaveApplyResult SaveGameSystem::apply(Scene& scene, const SaveGameSnapshot& snap
             }
         }
 
+        if (saved.quest.has_value()) {
+            if (auto* quest = scene.get_component<QuestComponent>(entity)) {
+                quest->status = static_cast<QuestStatus>(
+                    std::clamp(saved.quest->status, 0, 2)
+                );
+                ++result.properties_applied;
+                ++applied_for_entity;
+            } else {
+                result.warnings.push_back(
+                    "Saved Quest could not be restored because the component was removed: " +
+                    entity_label(scene, entity)
+                );
+            }
+        }
+
         if (applied_for_entity > 0) ++result.entities_applied;
         else ++result.entities_skipped;
     }
@@ -210,6 +233,12 @@ bool SaveGameSystem::write_file(
             }
             if (state.inventory.has_value()) {
                 components["Inventory"] = {{"items", state.inventory->items}};
+            }
+            if (state.quest.has_value()) {
+                components["Quest"] = {
+                    {"quest_id", state.quest->quest_id},
+                    {"status", state.quest->status},
+                };
             }
 
             entities.push_back({
@@ -300,6 +329,13 @@ std::optional<SaveGameSnapshot> SaveGameSystem::read_file(
                     inventory.items = value.at("items").get<std::unordered_map<std::string, int>>();
                 }
                 state.inventory = std::move(inventory);
+            }
+            if (components.contains("Quest")) {
+                const auto& value = components.at("Quest");
+                SaveQuestState quest;
+                quest.quest_id = value.value("quest_id", std::string{});
+                quest.status = value.value("status", 0);
+                state.quest = std::move(quest);
             }
 
             snapshot.entities.push_back(std::move(state));
