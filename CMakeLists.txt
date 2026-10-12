@@ -90,3 +90,23 @@ if(SEED_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+
+include(GNUInstallDirs)
+
+install(TARGETS SeedRuntime SeedStudio
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    BUNDLE DESTINATION .
+)
+
+install(DIRECTORY docs/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/seed/docs
+)
+
+set(CPACK_PACKAGE_NAME "SeedEngine")
+set(CPACK_PACKAGE_VENDOR "Seed")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Seed Engine standalone runtime and editor")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_FILE_NAME "SeedEngine-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+set(CPACK_GENERATOR "ZIP;TGZ")
+include(CPack)

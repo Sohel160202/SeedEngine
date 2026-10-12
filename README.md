@@ -340,11 +340,23 @@ cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
 
+Export a runnable package with an optional project:
+
+```bash
+cmake -S . -B build -DSEED_BUILD_TESTS=OFF
+cmake --build build --config Release
+cmake -DSEED_BUILD_DIR=build -DSEED_EXPORT_DIR=dist/MyGame \
+  -DSEED_PROJECT_DIR=/path/to/MyGame -DSEED_CONFIG=Release \
+  -P tools/export_project.cmake
+```
+
+See `docs/EXPORT.md` for the package layout and CPack archive workflow.
+
 ## Current direction
 
-Seed is now well past the empty-engine stage. It has its own desktop applications, editor, renderer, project/scene formats, asset import, gameplay authoring, first/third-person controllers, character collision, camera collision and CPU animation pipeline.
+Seed is now well past the empty-engine stage. It has its own desktop applications, editor, renderer, project/scene formats, asset import, gameplay authoring, first/third-person controllers, character collision, camera collision, animation, combat feedback, semantic HUD state, save slots, and a standalone export path.
 
-The current technical milestone is the beginner-facing character workflow: add a Player, assign an animated character, and use the built-in `Idle / Walk / Run / Jump / Fall` locomotion preset without writing code.
+The next product milestone is a complete asset-independent vertical slice: a beginner can open a project, play through interaction, combat, dialogue, quest progression, save/load, and export the result without writing engine code.
 
 ## v0.1 product target
 
