@@ -105,7 +105,15 @@ int main(int argc, char** argv) {
         }
     );
     seed::GameplayFeedbackBus feedback;
-    seed::SilentAudioOutput audio_output;
+    seed::MiniaudioOutput miniaudio_output;
+    seed::SilentAudioOutput silent_audio_output;
+    seed::AudioOutput* audio_output = &silent_audio_output;
+    if (miniaudio_output.initialize()) {
+        audio_output = &miniaudio_output;
+        std::cout << "[SeedRuntime] Miniaudio audio output initialized.\\n";
+    } else {
+        std::cout << "[SeedRuntime] Audio device unavailable; using silent output.\\n";
+    }
 
     engine.register_update_system(
         "Combat",
@@ -125,7 +133,7 @@ int main(int argc, char** argv) {
         "Audio",
         seed::SystemPhase::EventDispatch,
         [&](seed::Scene&, double, seed::GameplayEventBus&) {
-            seed::AudioSystem::consume_feedback(feedback, audio_output);
+            seed::AudioSystem::consume_feedback(feedback, *audio_output);
         }
     );
     engine.register_update_system(
