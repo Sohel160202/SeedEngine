@@ -369,15 +369,13 @@ void build_project_template(
     }
 
     if (template_id == "third_person_adventure") {
-        const auto target = create_cube(scene, cube_mesh, shader, "Interaction Target");
+        const auto target = create_cube(scene, cube_mesh, shader, "Training Enemy");
         auto* target_transform = scene.get_component<seed::TransformComponent>(target);
         target_transform->position = {0.0f, 0.75f, -2.5f};
         target_transform->scale = {1.0f, 1.5f, 1.0f};
-        scene.add_component<seed::InteractableComponent>(
-            target,
-            "Interact with Target",
-            true
-        );
+        scene.add_component<seed::HealthComponent>(target);
+        scene.add_component<seed::AttackComponent>(target);
+        scene.add_component<seed::EnemyAIComponent>(target);
         return;
     }
 
@@ -517,6 +515,12 @@ seed::EntityId duplicate_entity(seed::Scene& scene, seed::EntityId source) {
     }
     if (const auto* v = scene.get_component<seed::HealthComponent>(source)) {
         scene.add_component<seed::HealthComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::AttackComponent>(source)) {
+        scene.add_component<seed::AttackComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::EnemyAIComponent>(source)) {
+        scene.add_component<seed::EnemyAIComponent>(copy, *v);
     }
     if (const auto* v = scene.get_component<seed::InventoryComponent>(source)) {
         scene.add_component<seed::InventoryComponent>(copy, *v);
