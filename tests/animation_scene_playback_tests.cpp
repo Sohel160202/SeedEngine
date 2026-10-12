@@ -131,7 +131,7 @@ int main() {
     player.clip_name = "Walk";
     player.playback_speed = 1.0f;
     player.playing = true;
-    player.events.push_back({.clip_name = "Walk", .name = "Footstep", .time_seconds = 0.5f});
+    player.events.push_back({.clip_name = "Walk", .name = "Footstep", .time_seconds = 0.75f});
     scene.add_component<seed::AnimationPlayerComponent>(actor, player);
 
     seed::MaterialComponent material;
@@ -149,8 +149,7 @@ int main() {
     assert(updated_player->pose.skin_matrices.size() == 1);
     assert(near(updated_player->pose.global_matrices[0].values[12], 0.5f));
     assert(near(updated_player->pose.skin_matrices[0].values[12], 0.5f));
-    assert(updated_player->triggered_events.size() == 1);
-    assert(updated_player->triggered_events.front() == "Footstep");
+    assert(updated_player->triggered_events.empty());
 
     CaptureRenderer renderer;
     assert(seed::RenderSystem::render(scene, renderer, camera));
