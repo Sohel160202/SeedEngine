@@ -351,6 +351,7 @@ cmake -DSEED_BUILD_DIR=build -DSEED_EXPORT_DIR=dist/MyGame \
 ```
 
 See `docs/EXPORT.md` for the package layout and CPack archive workflow.
+See `docs/BEGINNER_WORKFLOW.md` for the complete no-code creator workflow.
 
 ## Current direction
 
