@@ -25,6 +25,12 @@ public:
     ~Scene() = default;
 
     EntityId create_entity(std::string name = "Entity", std::string persistent_id = {});
+    EntityId copy_entity_from(
+        const Scene& source,
+        EntityId source_entity,
+        std::string name = {},
+        std::string persistent_id = {}
+    );
     bool destroy_entity(EntityId entity);
     bool is_alive(EntityId entity) const;
     void clear();
@@ -109,6 +115,7 @@ private:
     struct IComponentPool {
         virtual ~IComponentPool() = default;
         virtual void erase(EntityId entity) = 0;
+        virtual void copy_entity_to(EntityId source_entity, Scene& destination, EntityId destination_entity) const = 0;
         virtual std::unique_ptr<IComponentPool> clone() const = 0;
     };
 
@@ -116,6 +123,10 @@ private:
     struct ComponentPool final : IComponentPool {
         std::unordered_map<EntityId, T> data;
         void erase(EntityId entity) override { data.erase(entity); }
+        void copy_entity_to(EntityId source_entity, Scene& destination, EntityId destination_entity) const override {
+            const auto it = data.find(source_entity);
+            if (it != data.end()) destination.add_component<T>(destination_entity, it->second);
+        }
         std::unique_ptr<IComponentPool> clone() const override { return std::make_unique<ComponentPool<T>>(*this); }
     };
 
