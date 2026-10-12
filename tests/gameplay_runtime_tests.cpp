@@ -1,3 +1,4 @@
+#include "seed/animation/AnimationComponents.h"
 #include "seed/gameplay/Components.h"
 #include "seed/gameplay/GameplayRuntime.h"
 #include "seed/physics/PhysicsComponents.h"
@@ -97,6 +98,9 @@ int main() {
 
         seed::GameplayRuntime runtime;
         assert(runtime.start(play_scene, player));
+        const auto* animation = play_scene.get_component<seed::AnimationPlayerComponent>(player);
+        assert(animation != nullptr);
+        assert(animation->locomotion_enabled);
         runtime.update(play_scene, 0.0);
         assert(runtime.interaction_target() == edit_door);
         assert(runtime.interaction_prompt().find("Open Door") != std::string::npos);
