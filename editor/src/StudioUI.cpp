@@ -2,6 +2,7 @@
 #include "GameplayAuthoring.h"
 
 #include "seed/animation/AnimationComponents.h"
+#include "seed/assets/AssetRuntime.h"
 #include "seed/gameplay/Components.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
