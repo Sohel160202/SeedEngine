@@ -104,6 +104,7 @@ bool StudioUI::initialize(void* window_handle) {
     copy_text(m_project_name_buffer,"My Seed Game"); copy_text(m_project_folder_buffer,"SeedProjects");
     copy_text(m_project_file_buffer,"SeedProjects/My_Seed_Game.seedproject"); copy_text(m_import_model_file_buffer,"");
     copy_text(m_merge_base_file_buffer,"Base.seedscene"); copy_text(m_merge_ours_file_buffer,"Ours.seedscene"); copy_text(m_merge_theirs_file_buffer,"Theirs.seedscene"); copy_text(m_revision_label_buffer,"Before major change");
+    copy_text(m_prefab_file_buffer,"Prefabs/ReusableEntity.seedprefab");
     m_initialized = true; return true;
 }
 
@@ -182,7 +183,10 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
             ImGui::EndMenu();
         }
         if (ImGui::MenuItem("Save","Ctrl+S")) { if (document.has_project) queue_action({.type=StudioActionType::Save}); else m_show_save_as_dialog=true; }
-        if (ImGui::MenuItem("Save As...","Ctrl+Shift+S")) m_show_save_as_dialog=true; ImGui::Separator();
+        if (ImGui::MenuItem("Save As...","Ctrl+Shift+S")) m_show_save_as_dialog=true;
+        if (ImGui::MenuItem("Save Selected as Prefab...", nullptr, false, document.has_project && m_selected_entity != InvalidEntity)) { m_prefab_dialog_is_save = true; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; }
+        if (ImGui::MenuItem("Instantiate Prefab...", nullptr, false, document.has_project)) { m_prefab_dialog_is_save = false; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; }
+        ImGui::Separator();
         ImGui::BeginDisabled(!document.has_project); if (ImGui::MenuItem("Import 3D Model...")) m_show_import_model_dialog=true; ImGui::EndDisabled(); ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Edit", !document.playing)) {
@@ -274,6 +278,27 @@ void StudioUI::draw_project_dialogs(const StudioDocumentInfo& document) {
     if(m_show_open_project_dialog){center_next_dialog();if(ImGui::Begin("Open Seed Project",&m_show_open_project_dialog,flags)){ImGui::InputText("Project File",m_project_file_buffer.data(),m_project_file_buffer.size());if(ImGui::Button("Open",{110,0})){queue_action({.type=StudioActionType::OpenProject,.path=m_project_file_buffer.data()});m_show_open_project_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_open_project_dialog=false;}ImGui::End();}
     if(m_show_save_as_dialog){center_next_dialog();if(ImGui::Begin("Save Seed Project As",&m_show_save_as_dialog,flags)){ImGui::InputText("Project Name",m_project_name_buffer.data(),m_project_name_buffer.size());ImGui::InputText("Project Folder",m_project_folder_buffer.data(),m_project_folder_buffer.size());if(ImGui::Button("Save",{110,0})){queue_action({.type=StudioActionType::SaveAs,.path=m_project_folder_buffer.data(),.project_name=m_project_name_buffer.data()});m_show_save_as_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_save_as_dialog=false;}ImGui::End();}
     if(m_show_import_model_dialog){center_next_dialog();if(ImGui::Begin("Import 3D Model",&m_show_import_model_dialog,flags)){ImGui::TextUnformatted("Import a static or animated glTF 2.0 model into this Seed project");ImGui::InputText("Model File",m_import_model_file_buffer.data(),m_import_model_file_buffer.size());ImGui::TextDisabled("Seed detects animated characters automatically and applies PBR texture maps when available.");if(ImGui::Button("Import",{110,0})&&m_import_model_file_buffer[0]!='\0'){queue_action({.type=StudioActionType::ImportModel,.path=m_import_model_file_buffer.data()});m_show_import_model_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_import_model_dialog=false;}ImGui::End();}
+    if(m_show_prefab_dialog){
+        center_next_dialog();
+        const char* title = m_prefab_dialog_is_save ? "Save Entity as Prefab" : "Instantiate Prefab";
+        if(ImGui::Begin(title, &m_show_prefab_dialog, flags)){
+            ImGui::TextWrapped("%s", m_prefab_dialog_is_save
+                ? "Save the selected beginner-friendly object as a reusable .seedprefab."
+                : "Choose a .seedprefab file inside this project and add a fresh instance to the scene.");
+            ImGui::InputText("Prefab File", m_prefab_file_buffer.data(), m_prefab_file_buffer.size());
+            if(ImGui::Button(m_prefab_dialog_is_save ? "Save" : "Instantiate", {130,0})
+                && m_prefab_file_buffer[0] != '\0'){
+                queue_action({
+                    .type = m_prefab_dialog_is_save ? StudioActionType::SavePrefab : StudioActionType::InstantiatePrefab,
+                    .path = m_prefab_file_buffer.data()
+                });
+                m_show_prefab_dialog = false;
+            }
+            ImGui::SameLine();
+            if(ImGui::Button("Cancel", {110,0})) m_show_prefab_dialog = false;
+        }
+        ImGui::End();
+    }
     if(m_show_semantic_merge_dialog){center_next_dialog();if(ImGui::Begin("Semantic Merge Review",&m_show_semantic_merge_dialog,flags)){ImGui::TextUnformatted("Choose three named revisions to compare semantically.");if(document.revisions.empty()){ImGui::TextDisabled("Create at least one scene revision first.");}else{auto revision_combo=[&](const char* label,int& index){const bool valid=index>=0&&index<static_cast<int>(document.revisions.size());const std::string preview=valid?document.revisions[static_cast<std::size_t>(index)].label+" ["+document.revisions[static_cast<std::size_t>(index)].id+"]":"Select revision";if(ImGui::BeginCombo(label,preview.c_str())){for(std::size_t i=0;i<document.revisions.size();++i){const bool selected=index==static_cast<int>(i);const std::string item=document.revisions[i].label+" ["+document.revisions[i].id+"]";if(ImGui::Selectable(item.c_str(),selected))index=static_cast<int>(i);if(selected)ImGui::SetItemDefaultFocus();}ImGui::EndCombo();}};revision_combo("Base Revision",m_merge_base_revision_index);revision_combo("Ours Revision",m_merge_ours_revision_index);revision_combo("Theirs Revision",m_merge_theirs_revision_index);const bool valid=m_merge_base_revision_index>=0&&m_merge_ours_revision_index>=0&&m_merge_theirs_revision_index>=0;if(ImGui::Button("Review",{110,0})&&valid){queue_action({.type=StudioActionType::OpenSemanticMerge,.path=document.revisions[static_cast<std::size_t>(m_merge_base_revision_index)].id,.path2=document.revisions[static_cast<std::size_t>(m_merge_ours_revision_index)].id,.path3=document.revisions[static_cast<std::size_t>(m_merge_theirs_revision_index)].id});m_show_semantic_merge_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_semantic_merge_dialog=false;}}ImGui::End();}
     if(m_show_revision_dialog){center_next_dialog();if(ImGui::Begin("Scene History",&m_show_revision_dialog,flags)){ImGui::TextUnformatted("Create an immutable revision or restore a previous authored scene.");ImGui::InputText("Revision Label",m_revision_label_buffer.data(),m_revision_label_buffer.size());if(ImGui::Button("Save Revision",{130,0})&&m_revision_label_buffer[0]!=0){queue_action({.type=StudioActionType::SaveRevision,.path=m_revision_label_buffer.data()});m_show_revision_dialog=false;}ImGui::SameLine();if(ImGui::Button("Close",{110,0}))m_show_revision_dialog=false;ImGui::Separator();if(document.revisions.empty())ImGui::TextDisabled("No scene revisions yet.");for(const auto& revision:document.revisions){ImGui::PushID(revision.id.c_str());ImGui::Text("%s",revision.label.c_str());ImGui::SameLine();ImGui::TextDisabled("%s  •  %zu entities",revision.id.c_str(),revision.entity_count);ImGui::SameLine(ImGui::GetWindowWidth()-125.0f);if(ImGui::Button("Restore",{95,0})){queue_action({.type=StudioActionType::LoadRevision,.path=revision.id});m_show_revision_dialog=false;}ImGui::PopID();}}ImGui::End();}
     if(m_show_beginner_guide_dialog){
