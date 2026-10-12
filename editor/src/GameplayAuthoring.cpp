@@ -398,7 +398,6 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                 }
                 ImGui::SameLine();
                 if (ImGui::SmallButton("Remove")) {
-                if (ImGui::SmallButton("Remove")) {
                     dialogue->lines.erase(dialogue->lines.begin() + static_cast<std::ptrdiff_t>(index));
                     changed = true;
                     ImGui::PopID();
