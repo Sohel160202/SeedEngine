@@ -28,6 +28,7 @@
 #include <cctype>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <set>
 #include <span>
@@ -339,6 +340,55 @@ seed::EntityId create_cube(
     return cube;
 }
 
+seed::EntityId create_beginner_preset(
+    seed::Scene& scene,
+    const std::string& preset,
+    seed::EntityId editor_camera,
+    seed::MeshHandle cube_mesh,
+    seed::ShaderHandle shader
+) {
+    if (preset == "player_first") {
+        return create_first_person_player(scene, editor_camera, "Player", true);
+    }
+    if (preset == "player_third") {
+        return create_third_person_player(scene, editor_camera, "Player");
+    }
+
+    const auto entity = create_cube(
+        scene,
+        cube_mesh,
+        shader,
+        preset == "enemy" ? "Enemy" :
+            preset == "pickup" ? "Pickup" :
+            preset == "door" ? "Door" : "Gameplay Object"
+    );
+    if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+        transform->position = {0.0f, 0.75f, -2.5f};
+    }
+
+    if (preset == "enemy") {
+        scene.add_component<seed::HealthComponent>(entity);
+        scene.add_component<seed::AttackComponent>(entity);
+        scene.add_component<seed::EnemyAIComponent>(entity);
+    } else if (preset == "pickup") {
+        scene.add_component<seed::InteractableComponent>(entity, "Pick Up Item", true);
+        seed::PickupComponent pickup;
+        pickup.item_id = "Coin";
+        pickup.display_name = "Coin";
+        scene.add_component<seed::PickupComponent>(entity, pickup);
+    } else if (preset == "door") {
+        scene.add_component<seed::InteractableComponent>(entity, "Open Door", true);
+        scene.add_component<seed::BoxColliderComponent>(entity);
+        scene.add_component<seed::DoorComponent>(entity);
+    } else if (preset == "quest") {
+        scene.destroy_entity(entity);
+        const auto quest = scene.create_entity("Quest");
+        scene.add_component<seed::QuestComponent>(quest);
+        return quest;
+    }
+    return entity;
+}
+
 void build_project_template(
     seed::Scene& scene,
     const std::string& template_id,
@@ -529,6 +579,32 @@ seed::EntityId duplicate_entity(seed::Scene& scene, seed::EntityId source) {
         scene.add_component<seed::PlayerControllerComponent>(copy, *v);
     }
     return copy;
+}
+
+bool prepare_standalone_build(const WorkspaceState& workspace, std::string* error) {
+    if (workspace.project_file.empty()) {
+        if (error != nullptr) *error = "Save the project before preparing a build.";
+        return false;
+    }
+    try {
+        const auto build_folder = workspace.project_file.parent_path() / "Build";
+        std::filesystem::create_directories(build_folder);
+        const auto project_name = workspace.project_file.filename().string();
+        std::ofstream readme(build_folder / "BUILD_README.txt", std::ios::trunc);
+        readme << "Seed standalone build\n\n"
+               << "Run SeedRuntime with the project file below:\n"
+               << "  " << project_name << "\n\n"
+               << "Windows: run_game.bat\n"
+               << "Linux/macOS: ./run_game.sh\n";
+        std::ofstream windows(build_folder / "run_game.bat", std::ios::trunc);
+        windows << "@echo off\nSeedRuntime --project=\\\"%~dp0..\\" << project_name << "\\\"\npause\n";
+        std::ofstream unix(build_folder / "run_game.sh", std::ios::trunc);
+        unix << "#!/usr/bin/env sh\nSeedRuntime --project=\\\"$(dirname \\\"$0\\\")/../" << project_name << "\\\"\n";
+        return static_cast<bool>(readme) && static_cast<bool>(windows) && static_cast<bool>(unix);
+    } catch (const std::exception& exception) {
+        if (error != nullptr) *error = exception.what();
+        return false;
+    }
 }
 
 bool save_workspace(WorkspaceState& workspace, const seed::Scene& scene) {
