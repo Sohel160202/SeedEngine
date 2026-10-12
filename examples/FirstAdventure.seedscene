@@ -308,11 +308,25 @@
           "lines": [
             {
               "speaker": "Old Guide",
-              "text": "The gate has lost its Power Cell."
+              "text": "The gate has lost its Power Cell. Will you help restore it?",
+              "choices": [
+                {
+                  "label": "I will help.",
+                  "next_line": 1
+                },
+                {
+                  "label": "Tell me more first.",
+                  "next_line": 2
+                }
+              ]
             },
             {
               "speaker": "Old Guide",
-              "text": "Find it near the eastern marker and bring the light back."
+              "text": "Find the Power Cell near the eastern marker and bring the light back."
+            },
+            {
+              "speaker": "Old Guide",
+              "text": "The eastern marker is beyond the blue wall. The gate will open once you return."
             }
           ],
           "repeatable": true,
@@ -325,6 +339,8 @@
           "description": "Find the Power Cell and open the sealed gate.",
           "required_item": "PowerCell",
           "required_quantity": 1,
+          "reward_item": "GateKey",
+          "reward_quantity": 1,
           "status": "inactive"
         }
       }
