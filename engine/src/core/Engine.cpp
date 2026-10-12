@@ -128,6 +128,37 @@ bool Engine::tick() {
     return !m_exit_requested;
 }
 
+void Engine::update() {
+    if (!m_running) {
+        return;
+    }
+
+    // Events belong to the current simulation frame. Systems publish during
+    // update and the EventDispatch phase consumes them before the next frame.
+    m_gameplay_events.clear();
+    m_update_scheduler.update(m_scene, m_delta_seconds, m_gameplay_events);
+}
+
+bool Engine::register_update_system(
+    std::string name,
+    SystemPhase phase,
+    UpdateSystem update
+) {
+    return m_update_scheduler.register_system(
+        std::move(name),
+        phase,
+        std::move(update)
+    );
+}
+
+bool Engine::unregister_update_system(const std::string& name) {
+    return m_update_scheduler.unregister_system(name);
+}
+
+void Engine::clear_update_systems() {
+    m_update_scheduler.clear();
+}
+
 void Engine::begin_frame() {
     if (m_renderer) {
         m_renderer->begin_frame();

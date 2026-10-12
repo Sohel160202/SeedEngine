@@ -1,6 +1,7 @@
 #pragma once
 
 #include "seed/platform/IPlatform.h"
+#include "seed/core/SystemScheduler.h"
 #include "seed/gameplay/GameplayEvents.h"
 #include "seed/render/IRenderer.h"
 #include "seed/scene/Scene.h"
@@ -31,6 +32,17 @@ public:
 
     bool start();
     bool tick();
+
+    // Runs registered systems in phase order after tick() has collected input.
+    void update();
+    bool register_update_system(
+        std::string name,
+        SystemPhase phase,
+        UpdateSystem update
+    );
+    bool unregister_update_system(const std::string& name);
+    void clear_update_systems();
+
     void begin_frame();
     void end_frame();
     void request_exit() noexcept;
@@ -57,12 +69,15 @@ public:
     GameplayEventBus& gameplay_events() noexcept { return m_gameplay_events; }
     const GameplayEventBus& gameplay_events() const noexcept { return m_gameplay_events; }
 
+    const SystemScheduler& update_scheduler() const noexcept { return m_update_scheduler; }
+
 private:
     using Clock = std::chrono::steady_clock;
 
     EngineConfig m_config;
     Scene m_scene;
     GameplayEventBus m_gameplay_events;
+    SystemScheduler m_update_scheduler;
     std::unique_ptr<IPlatform> m_platform;
     std::unique_ptr<IRenderer> m_renderer;
     std::vector<PlatformEvent> m_frame_events;
