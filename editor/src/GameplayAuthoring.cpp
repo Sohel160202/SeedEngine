@@ -620,8 +620,9 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                 ImGui::SeparatorText(("Rule " + std::to_string(index + 1)).c_str());
 
                 const char* triggers[] = {
-                    "Interact", "DialogueStarted", "PickupCollected",
-                    "DoorOpened", "Hit", "Death", "Talked"
+                    "BeginPlay", "Interact", "EnterTrigger", "ExitTrigger",
+                    "DialogueStarted", "PickupCollected", "DoorOpened",
+                    "Hit", "Death", "QuestCompleted", "Talked"
                 };
                 int trigger_index = 0;
                 for (int candidate = 0; candidate < static_cast<int>(std::size(triggers)); ++candidate) {
@@ -635,9 +636,28 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                     changed = true;
                 }
 
+                const char* conditions[] = {
+                    "Always", "Has Item", "Health Below", "Quest Completed",
+                    "Enemy Defeated", "Variable True", "Variable At Least"
+                };
+                int condition_index = 0;
+                for (int candidate = 0; candidate < static_cast<int>(std::size(conditions)); ++candidate) {
+                    if (rule.condition.empty() && candidate == 0) condition_index = candidate;
+                    if (rule.condition == conditions[candidate]) condition_index = candidate;
+                }
+                if (ImGui::Combo("If", &condition_index, conditions, static_cast<int>(std::size(conditions)))) {
+                    rule.condition = condition_index == 0 ? std::string{} : conditions[condition_index];
+                    changed = true;
+                }
+                if (condition_index != 0) {
+                    changed |= edit_string("Condition Value", rule.condition_value);
+                    ImGui::TextDisabled("Examples: Key, 25, find_key, or Score=10");
+                }
+
                 const char* actions[] = {
                     "Publish Event", "Start Quest", "Complete Quest",
-                    "Give Item", "Apply Damage"
+                    "Give Item", "Apply Damage", "Open Door",
+                    "Move Object", "Show Message", "Spawn Object", "Complete Game"
                 };
                 int action_index = 0;
                 for (int candidate = 0; candidate < static_cast<int>(std::size(actions)); ++candidate) {
