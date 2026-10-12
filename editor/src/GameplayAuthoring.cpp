@@ -361,6 +361,66 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
         ImGui::PopID();
     }
 
+    if (auto* dialogue = scene.get_component<DialogueComponent>(entity)) {
+        ImGui::PushID("SeedDialogue");
+        if (ImGui::CollapsingHeader("Dialogue", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("Authored lines shown when the player interacts with this object.");
+            changed |= edit_string("Interaction Prompt", dialogue->interaction_prompt);
+            changed |= edit_string("Quest ID to Start", dialogue->quest_id_to_start);
+            changed |= ImGui::Checkbox("Repeatable", &dialogue->repeatable);
+            ImGui::SeparatorText("Lines");
+            for (std::size_t index = 0; index < dialogue->lines.size(); ++index) {
+                auto& line = dialogue->lines[index];
+                ImGui::PushID(static_cast<int>(index));
+                ImGui::Text("Line %zu", index + 1);
+                changed |= edit_string("Speaker", line.speaker);
+                changed |= edit_string("Text", line.text);
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Remove")) {
+                    dialogue->lines.erase(dialogue->lines.begin() + static_cast<std::ptrdiff_t>(index));
+                    changed = true;
+                    ImGui::PopID();
+                    break;
+                }
+                ImGui::PopID();
+            }
+            if (ImGui::Button("Add Dialogue Line")) {
+                dialogue->lines.push_back({});
+                changed = true;
+            }
+            if (remove_component_button("Remove Dialogue")) {
+                scene.remove_component<DialogueComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
+    if (auto* quest = scene.get_component<QuestComponent>(entity)) {
+        ImGui::PushID("SeedQuest");
+        if (ImGui::CollapsingHeader("Quest", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("Tracks a simple inventory-driven quest started by Dialogue.");
+            changed |= edit_string("Quest ID", quest->quest_id);
+            changed |= edit_string("Title", quest->title);
+            changed |= edit_string("Description", quest->description);
+            changed |= edit_string("Required Item", quest->required_item);
+            if (ImGui::DragInt("Required Quantity", &quest->required_quantity, 1.0f, 1, 9999)) {
+                quest->required_quantity = std::max(1, quest->required_quantity);
+                changed = true;
+            }
+            int status = static_cast<int>(quest->status);
+            if (ImGui::Combo("Status", &status, "Inactive Active Completed ")) {
+                quest->status = static_cast<QuestStatus>(std::clamp(status, 0, 2));
+                changed = true;
+            }
+            if (remove_component_button("Remove Quest")) {
+                scene.remove_component<QuestComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
     if (auto* door = scene.get_component<DoorComponent>(entity)) {
         ImGui::PushID("SeedDoor");
         if (ImGui::CollapsingHeader("Door / Lock", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -439,6 +499,8 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     const bool has_inventory = scene.has_component<InventoryComponent>(entity);
     const bool has_health = scene.has_component<HealthComponent>(entity);
     const bool has_door = scene.has_component<DoorComponent>(entity);
+    const bool has_dialogue = scene.has_component<DialogueComponent>(entity);
+    const bool has_quest = scene.has_component<QuestComponent>(entity);
 
     ImGui::BeginDisabled(has_player);
     if (ImGui::MenuItem(has_player ? "Player — First Person [Added]" : "Player — First Person")) {
@@ -469,6 +531,26 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     ImGui::BeginDisabled(has_interactable);
     if (ImGui::MenuItem(has_interactable ? "Interactable [Added]" : "Interactable")) {
         scene.add_component<InteractableComponent>(entity, "Interact", true);
+        changed = true;
+    }
+    ImGui::EndDisabled();
+
+    ImGui::BeginDisabled(has_dialogue);
+    if (ImGui::MenuItem(has_dialogue ? "Dialogue [Added]" : "Dialogue")) {
+        if (!scene.has_component<InteractableComponent>(entity)) {
+            scene.add_component<InteractableComponent>(entity, "Talk", true);
+        }
+        DialogueComponent dialogue;
+        dialogue.lines.push_back({"Speaker", "Hello, traveler."});
+        scene.add_component<DialogueComponent>(entity, std::move(dialogue));
+        changed = true;
+    }
+    ImGui::EndDisabled();
+
+    ImGui::BeginDisabled(has_quest);
+    if (ImGui::MenuItem(has_quest ? "Quest [Added]" : "Quest")) {
+        QuestComponent quest;
+        scene.add_component<QuestComponent>(entity, std::move(quest));
         changed = true;
     }
     ImGui::EndDisabled();
@@ -517,7 +599,7 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     ImGui::EndDisabled();
 
     ImGui::Separator();
-    ImGui::TextDisabled("Next: Enemy, Dialogue, Quest, Save Game");
+    ImGui::TextDisabled("Next: Enemy, Branching Dialogue, Quest Rewards, Save Game");
     return changed;
 }
 

@@ -149,6 +149,9 @@ void GameplayRuntime::stop() {
     m_third_person_pitch = -12.0f;
     m_character_state = {};
     m_doors.clear();
+    m_dialogue_entity = InvalidEntity;
+    m_dialogue_line_index = 0;
+    m_dialogue_active = false;
     m_interaction_prompt.clear();
     m_status_message.clear();
 }
@@ -217,6 +220,7 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds) {
 
     update_player(scene, delta_seconds);
     update_doors(scene, delta_seconds);
+    update_quests(scene);
     refresh_interaction_target(scene);
 
     if (m_interact_requested) {
@@ -432,6 +436,18 @@ void GameplayRuntime::refresh_interaction_target(Scene& scene) {
     m_interaction_target = InvalidEntity;
     m_interaction_prompt.clear();
 
+    if (m_dialogue_active) {
+        if (scene.is_alive(m_dialogue_entity)) {
+            m_interaction_target = m_dialogue_entity;
+            m_interaction_prompt = "[E] Next";
+        } else {
+            m_dialogue_active = false;
+            m_dialogue_entity = InvalidEntity;
+            m_dialogue_line_index = 0;
+        }
+        return;
+    }
+
     const auto* controller = scene.get_component<PlayerControllerComponent>(m_player_entity);
     if (controller == nullptr || !controller->enabled || !scene.has_component<TransformComponent>(m_player_entity)) {
         return;
@@ -493,6 +509,10 @@ void GameplayRuntime::refresh_interaction_target(Scene& scene) {
     }
 
     m_interaction_prompt = "[E] " + interactable->prompt;
+    if (const auto* dialogue = scene.get_component<DialogueComponent>(m_interaction_target);
+        dialogue != nullptr && !dialogue->interaction_prompt.empty()) {
+        m_interaction_prompt = "[E] " + dialogue->interaction_prompt;
+    }
 
     const auto* pickup = scene.get_component<PickupComponent>(m_interaction_target);
     if (pickup != nullptr && pickup->quantity > 1) {
@@ -506,6 +526,11 @@ void GameplayRuntime::refresh_interaction_target(Scene& scene) {
 }
 
 void GameplayRuntime::perform_interaction(Scene& scene) {
+    if (m_dialogue_active) {
+        advance_dialogue(scene);
+        return;
+    }
+
     if (m_interaction_target == InvalidEntity || !scene.is_alive(m_interaction_target)) {
         m_status_message = "Nothing to interact with.";
         return;
@@ -514,6 +539,20 @@ void GameplayRuntime::perform_interaction(Scene& scene) {
     auto* interactable = scene.get_component<InteractableComponent>(m_interaction_target);
     if (interactable == nullptr || !interactable->enabled) {
         m_status_message = "This object is not interactable.";
+        return;
+    }
+
+    if (auto* dialogue = scene.get_component<DialogueComponent>(m_interaction_target)) {
+        if (dialogue->lines.empty()) {
+            m_status_message = "Dialogue has no lines.";
+            return;
+        }
+        m_dialogue_entity = m_interaction_target;
+        m_dialogue_line_index = 0;
+        m_dialogue_active = true;
+        const auto& line = dialogue->lines.front();
+        m_status_message = line.speaker + ": " + line.text;
+        m_interaction_prompt = "[E] Next";
         return;
     }
 
@@ -591,6 +630,76 @@ void GameplayRuntime::perform_interaction(Scene& scene) {
     state.target_open = opening;
     m_status_message = opening ? "Opening " : "Closing ";
     m_status_message += scene.entity_name(m_interaction_target) + ".";
+}
+
+void GameplayRuntime::advance_dialogue(Scene& scene) {
+    if (!m_dialogue_active || !scene.is_alive(m_dialogue_entity)) {
+        m_dialogue_active = false;
+        m_dialogue_entity = InvalidEntity;
+        m_dialogue_line_index = 0;
+        return;
+    }
+
+    auto* dialogue = scene.get_component<DialogueComponent>(m_dialogue_entity);
+    if (dialogue == nullptr || dialogue->lines.empty()) {
+        m_dialogue_active = false;
+        m_dialogue_entity = InvalidEntity;
+        m_dialogue_line_index = 0;
+        m_status_message = "Dialogue ended.";
+        return;
+    }
+
+    ++m_dialogue_line_index;
+    if (m_dialogue_line_index < dialogue->lines.size()) {
+        const auto& line = dialogue->lines[m_dialogue_line_index];
+        m_status_message = line.speaker + ": " + line.text;
+        m_interaction_prompt = "[E] Next";
+        return;
+    }
+
+    const std::string quest_id = dialogue->quest_id_to_start;
+    if (!dialogue->repeatable) {
+        if (auto* interactable = scene.get_component<InteractableComponent>(m_dialogue_entity)) {
+            interactable->enabled = false;
+        }
+    }
+    m_dialogue_active = false;
+    m_dialogue_entity = InvalidEntity;
+    m_dialogue_line_index = 0;
+
+    if (!quest_id.empty()) {
+        bool started = false;
+        scene.for_each<QuestComponent>([&](EntityId, QuestComponent& quest) {
+            if (!started && quest.quest_id == quest_id && quest.status == QuestStatus::Inactive) {
+                quest.status = QuestStatus::Active;
+                m_status_message = "Quest started: " + quest.title + ".";
+                started = true;
+            }
+        });
+        if (!started) {
+            m_status_message = "Dialogue ended.";
+        }
+    } else {
+        m_status_message = "Dialogue ended.";
+    }
+}
+
+void GameplayRuntime::update_quests(Scene& scene) {
+    scene.for_each<QuestComponent>([&](EntityId, QuestComponent& quest) {
+        if (quest.status != QuestStatus::Active) return;
+        const int required = std::max(1, quest.required_quantity);
+        if (!quest.required_item.empty()) {
+            const auto* inventory = scene.get_component<InventoryComponent>(m_player_entity);
+            const auto it = inventory == nullptr
+                ? std::unordered_map<std::string, int>::const_iterator{}
+                : inventory->items.find(quest.required_item);
+            if (inventory == nullptr || it == inventory->items.end() || it->second < required) {
+                return;
+            }
+        }
+        quest.status = QuestStatus::Completed;
+        m_status_message = "Quest complete: " + quest.title + ".";
+    });
 }
 
 void GameplayRuntime::update_doors(Scene& scene, double delta_seconds) {

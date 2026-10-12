@@ -66,6 +66,21 @@ PlayerViewMode player_view_mode_from_name(const std::string& name) {
     return name == "third_person" ? PlayerViewMode::ThirdPerson : PlayerViewMode::FirstPerson;
 }
 
+const char* quest_status_name(QuestStatus status) {
+    switch (status) {
+    case QuestStatus::Active: return "active";
+    case QuestStatus::Completed: return "completed";
+    case QuestStatus::Inactive:
+    default: return "inactive";
+    }
+}
+
+QuestStatus quest_status_from_name(const std::string& name) {
+    if (name == "active") return QuestStatus::Active;
+    if (name == "completed") return QuestStatus::Completed;
+    return QuestStatus::Inactive;
+}
+
 } // namespace
 
 bool SceneSerializer::save(
@@ -222,6 +237,31 @@ bool SceneSerializer::save(
                     {"display_name", pickup->display_name},
                     {"quantity", pickup->quantity},
                     {"destroy_on_pickup", pickup->destroy_on_pickup},
+                };
+            }
+            if (const auto* dialogue = scene.get_component<DialogueComponent>(entity)) {
+                nlohmann::json lines = nlohmann::json::array();
+                for (const auto& line : dialogue->lines) {
+                    lines.push_back({
+                        {"speaker", line.speaker},
+                        {"text", line.text},
+                    });
+                }
+                components["Dialogue"] = {
+                    {"lines", std::move(lines)},
+                    {"repeatable", dialogue->repeatable},
+                    {"interaction_prompt", dialogue->interaction_prompt},
+                    {"quest_id_to_start", dialogue->quest_id_to_start},
+                };
+            }
+            if (const auto* quest = scene.get_component<QuestComponent>(entity)) {
+                components["Quest"] = {
+                    {"quest_id", quest->quest_id},
+                    {"title", quest->title},
+                    {"description", quest->description},
+                    {"required_item", quest->required_item},
+                    {"required_quantity", quest->required_quantity},
+                    {"status", quest_status_name(quest->status)},
                 };
             }
             if (const auto* player = scene.get_component<PlayerControllerComponent>(entity)) {
@@ -507,6 +547,33 @@ bool SceneSerializer::load(
                 pickup.quantity = std::max(1, value.value("quantity", 1));
                 pickup.destroy_on_pickup = value.value("destroy_on_pickup", true);
                 loaded_scene.add_component<PickupComponent>(entity, std::move(pickup));
+            }
+            if (components.contains("Dialogue")) {
+                const auto& value = components.at("Dialogue");
+                DialogueComponent dialogue;
+                dialogue.repeatable = value.value("repeatable", true);
+                dialogue.interaction_prompt = value.value("interaction_prompt", std::string{"Talk"});
+                dialogue.quest_id_to_start = value.value("quest_id_to_start", std::string{});
+                if (value.contains("lines") && value.at("lines").is_array()) {
+                    for (const auto& line_value : value.at("lines")) {
+                        DialogueLine line;
+                        line.speaker = line_value.value("speaker", std::string{"Speaker"});
+                        line.text = line_value.value("text", std::string{"..."});
+                        dialogue.lines.push_back(std::move(line));
+                    }
+                }
+                loaded_scene.add_component<DialogueComponent>(entity, std::move(dialogue));
+            }
+            if (components.contains("Quest")) {
+                const auto& value = components.at("Quest");
+                QuestComponent quest;
+                quest.quest_id = value.value("quest_id", std::string{"quest"});
+                quest.title = value.value("title", std::string{"New Quest"});
+                quest.description = value.value("description", std::string{});
+                quest.required_item = value.value("required_item", std::string{});
+                quest.required_quantity = std::max(1, value.value("required_quantity", 1));
+                quest.status = quest_status_from_name(value.value("status", std::string{"inactive"}));
+                loaded_scene.add_component<QuestComponent>(entity, std::move(quest));
             }
             if (components.contains("PlayerController")) {
                 const auto& value = components.at("PlayerController");
