@@ -184,8 +184,8 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         }
         if (ImGui::MenuItem("Save","Ctrl+S")) { if (document.has_project) queue_action({.type=StudioActionType::Save}); else m_show_save_as_dialog=true; }
         if (ImGui::MenuItem("Save As...","Ctrl+Shift+S")) m_show_save_as_dialog=true;
-        if (ImGui::MenuItem("Save Selected as Prefab...", nullptr, false, document.has_project && m_selected_entity != InvalidEntity)) { m_prefab_dialog_is_save = true; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; }
-        if (ImGui::MenuItem("Instantiate Prefab...", nullptr, false, document.has_project)) { m_prefab_dialog_is_save = false; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; }
+        if (ImGui::MenuItem("Save Selected as Prefab...", nullptr, false, document.has_project && m_selected_entity != InvalidEntity)) { m_prefab_dialog_is_save = true; m_prefab_dialog_is_refresh = false; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; }
+        if (ImGui::MenuItem("Instantiate Prefab...", nullptr, false, document.has_project)) { m_prefab_dialog_is_save = false; m_prefab_dialog_is_refresh = false; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; }
         ImGui::Separator();
         ImGui::BeginDisabled(!document.has_project); if (ImGui::MenuItem("Import 3D Model...")) m_show_import_model_dialog=true; ImGui::EndDisabled(); ImGui::EndMenu();
     }
