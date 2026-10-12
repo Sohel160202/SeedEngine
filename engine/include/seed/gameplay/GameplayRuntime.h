@@ -50,6 +50,7 @@ private:
     void update_third_person_camera(Scene& scene);
     void update_doors(Scene& scene, double delta_seconds);
     void update_quests(Scene& scene);
+    void perform_attack(Scene& scene, GameplayEventBus* event_bus);
     void advance_dialogue(Scene& scene, int choice_index = -1);
     void present_dialogue_line(Scene& scene);
     void apply_door_transform(Scene& scene, EntityId entity, const DoorRuntimeState& state);
@@ -75,6 +76,7 @@ private:
     bool m_has_mouse_position{false};
     bool m_interact_requested{false};
     bool m_jump_requested{false};
+    bool m_attack_requested{false};
     float m_last_mouse_x{0.0f};
     float m_last_mouse_y{0.0f};
     float m_pending_look_x{0.0f};
@@ -82,6 +84,9 @@ private:
     float m_third_person_yaw{0.0f};
     float m_third_person_pitch{-12.0f};
     float m_footstep_elapsed{0.0f};
+    float m_respawn_elapsed{0.0f};
+    Vec3 m_spawn_position{};
+    Vec3 m_spawn_rotation{};
 
     InputActionMap m_input_map;
     PhysicsSystem::CharacterState m_character_state{};
