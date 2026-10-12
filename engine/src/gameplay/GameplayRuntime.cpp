@@ -170,6 +170,8 @@ void GameplayRuntime::stop() {
     m_spawn_rotation = {};
     m_character_state = {};
     m_doors.clear();
+    m_enemy_attack_elapsed.clear();
+    m_victory_announced = false;
     m_dialogue_entity = InvalidEntity;
     m_dialogue_line_index = 0;
     m_dialogue_active = false;
@@ -281,6 +283,8 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBu
     update_quests(scene);
     refresh_interaction_target(scene);
 
+    update_enemies(scene, delta_seconds, event_bus);
+
     if (m_dialogue_choice_requested >= 0) {
         const int choice_index = m_dialogue_choice_requested;
         m_dialogue_choice_requested = -1;
@@ -290,6 +294,66 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBu
         perform_interaction(scene, event_bus);
         m_interact_requested = false;
         refresh_interaction_target(scene);
+    }
+}
+
+
+void GameplayRuntime::update_enemies(Scene& scene, double delta_seconds, GameplayEventBus* event_bus) {
+    const auto* player_transform = scene.get_component<TransformComponent>(m_player_entity);
+    auto* player_health = scene.get_component<HealthComponent>(m_player_entity);
+    if (player_transform == nullptr || player_health == nullptr) return;
+
+    const float dt = static_cast<float>(std::max(0.0, delta_seconds));
+    int enemy_count = 0;
+    int living_enemies = 0;
+    scene.for_each<TransformComponent, HealthComponent, EnemyAIComponent>(
+        [&](EntityId entity, TransformComponent& transform, HealthComponent& health, EnemyAIComponent& enemy) {
+            if (entity == m_player_entity || !enemy.enabled) return;
+            ++enemy_count;
+            if (health.current <= 0.0f) return;
+            ++living_enemies;
+
+            Vec3 offset = player_transform->position - transform.position;
+            offset.y = 0.0f;
+            const float distance = length(offset);
+            if (distance <= 0.001f || distance > enemy.detection_range) return;
+
+            if (distance > enemy.attack_range) {
+                const Vec3 direction = offset / distance;
+                transform.position += direction * (enemy.move_speed * dt);
+                transform.rotation_degrees.y = yaw_from_direction(direction);
+                return;
+            }
+
+            float& elapsed = m_enemy_attack_elapsed[entity];
+            elapsed += dt;
+            if (elapsed < std::max(0.05f, enemy.attack_cooldown)) return;
+            elapsed = 0.0f;
+            if (player_health->invulnerable || player_health->current <= 0.0f) return;
+
+            player_health->current = std::max(0.0f, player_health->current - enemy.attack_damage);
+            if (event_bus != nullptr) {
+                GameplayEvent damage;
+                damage.source_entity = entity;
+                damage.target_entity = m_player_entity;
+                damage.type = GameplayEventType::Damage;
+                damage.name = "EnemyAttack";
+                damage.value = enemy.attack_damage;
+                event_bus->publish(damage);
+            }
+        }
+    );
+
+    if (enemy_count > 0 && living_enemies == 0 && !m_victory_announced) {
+        m_victory_announced = true;
+        m_status_message = "Area cleared! You win.";
+        if (event_bus != nullptr) {
+            GameplayEvent victory;
+            victory.source_entity = m_player_entity;
+            victory.type = GameplayEventType::Interaction;
+            victory.name = "Victory";
+            event_bus->publish(victory);
+        }
     }
 }
 
