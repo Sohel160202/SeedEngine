@@ -10,6 +10,8 @@
 #include <cmath>
 #include <filesystem>
 #include <iostream>
+#include <string>
+#include <vector>
 
 namespace {
 
@@ -193,6 +195,68 @@ int main() {
         assert(engine.tick());
         assert(engine.frame_index() == 1);
         assert(engine.delta_seconds() >= 0.0);
+
+        std::vector<std::string> system_order;
+        bool event_was_consumed = false;
+        assert(engine.register_update_system(
+            "Events",
+            seed::SystemPhase::EventDispatch,
+            [&](seed::Scene&, double, seed::GameplayEventBus& events) {
+                system_order.push_back("Events");
+                const auto frame_events = events.drain();
+                event_was_consumed = frame_events.size() == 1 &&
+                    frame_events.front().name == "AnimationMarker";
+            }
+        ));
+        assert(engine.register_update_system(
+            "Animation",
+            seed::SystemPhase::Animation,
+            [&](seed::Scene&, double, seed::GameplayEventBus& events) {
+                system_order.push_back("Animation");
+                events.publish({
+                    .source_entity = seed::InvalidEntity,
+                    .type = seed::GameplayEventType::Animation,
+                    .name = "AnimationMarker",
+                    .time_seconds = 0.25f,
+                });
+            }
+        ));
+        assert(engine.register_update_system(
+            "Physics",
+            seed::SystemPhase::Physics,
+            [&](seed::Scene&, double, seed::GameplayEventBus&) {
+                system_order.push_back("Physics");
+            }
+        ));
+        assert(engine.register_update_system(
+            "Gameplay",
+            seed::SystemPhase::Gameplay,
+            [&](seed::Scene&, double, seed::GameplayEventBus&) {
+                system_order.push_back("Gameplay");
+            }
+        ));
+        assert(engine.register_update_system(
+            "Input",
+            seed::SystemPhase::Input,
+            [&](seed::Scene&, double, seed::GameplayEventBus&) {
+                system_order.push_back("Input");
+            }
+        ));
+        assert(!engine.register_update_system(
+            "Input",
+            seed::SystemPhase::Custom,
+            [](seed::Scene&, double, seed::GameplayEventBus&) {}
+        ));
+
+        engine.update();
+        assert((system_order == std::vector<std::string>{
+            "Input", "Gameplay", "Physics", "Animation", "Events"
+        }));
+        assert(event_was_consumed);
+        assert(engine.gameplay_events().pending().empty());
+
+        assert(engine.unregister_update_system("Physics"));
+        assert(!engine.unregister_update_system("Physics"));
 
         engine.request_exit();
         assert(!engine.tick());
