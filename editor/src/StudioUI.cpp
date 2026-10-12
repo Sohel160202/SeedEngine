@@ -200,6 +200,12 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
     }
     if (ImGui::BeginMenu("Tools", !document.playing)) { if (ImGui::MenuItem("Save Scene Revision...", nullptr, false, document.has_project)) { copy_text(m_revision_label_buffer, "Before major change"); m_show_revision_dialog=true; } if (ImGui::MenuItem("Scene History...", nullptr, false, document.has_project)) m_show_revision_dialog=true; ImGui::Separator(); if (ImGui::MenuItem("Semantic Merge Review...", nullptr, false, document.has_project)) { m_merge_base_revision_index = document.revisions.size() > 2 ? 2 : -1; m_merge_ours_revision_index = document.revisions.size() > 1 ? 1 : -1; m_merge_theirs_revision_index = document.revisions.empty() ? -1 : 0; m_show_semantic_merge_dialog=true; } ImGui::EndMenu(); }
     if (ImGui::BeginMenu("Build")) { if (document.playing) { if (ImGui::MenuItem("Stop","F5")) queue_action({.type=StudioActionType::Stop}); } else if (ImGui::MenuItem("Play","F5")) queue_action({.type=StudioActionType::Play}); ImGui::Separator(); ImGui::MenuItem("Build Game...",nullptr,false,false); ImGui::EndMenu(); }
+    if (ImGui::BeginMenu("Help")) {
+        if (ImGui::MenuItem("Beginner Guide")) {
+            m_show_beginner_guide_dialog = true;
+        }
+        ImGui::EndMenu();
+    }
     std::string label=document.project_name+" — "+document.scene_name; if(document.dirty)label+=" *"; if(document.playing)label+="   [PLAY]";
     const float width=ImGui::CalcTextSize(label.c_str()).x; ImGui::SameLine(std::max(450.0f,ImGui::GetWindowWidth()-width-18.0f)); if(document.playing)ImGui::Text("%s",label.c_str());else ImGui::TextDisabled("%s",label.c_str()); ImGui::EndMainMenuBar();
 }
@@ -248,6 +254,37 @@ void StudioUI::draw_project_dialogs(const StudioDocumentInfo& document) {
     if(m_show_import_model_dialog){center_next_dialog();if(ImGui::Begin("Import 3D Model",&m_show_import_model_dialog,flags)){ImGui::TextUnformatted("Import a static glTF 2.0 model into this Seed project");ImGui::InputText("Model File",m_import_model_file_buffer.data(),m_import_model_file_buffer.size());ImGui::TextDisabled("Seed import v1: first triangle primitive + PBR texture maps.");if(ImGui::Button("Import",{110,0})&&m_import_model_file_buffer[0]!='\0'){queue_action({.type=StudioActionType::ImportModel,.path=m_import_model_file_buffer.data()});m_show_import_model_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_import_model_dialog=false;}ImGui::End();}
     if(m_show_semantic_merge_dialog){center_next_dialog();if(ImGui::Begin("Semantic Merge Review",&m_show_semantic_merge_dialog,flags)){ImGui::TextUnformatted("Choose three named revisions to compare semantically.");if(document.revisions.empty()){ImGui::TextDisabled("Create at least one scene revision first.");}else{auto revision_combo=[&](const char* label,int& index){const bool valid=index>=0&&index<static_cast<int>(document.revisions.size());const std::string preview=valid?document.revisions[static_cast<std::size_t>(index)].label+" ["+document.revisions[static_cast<std::size_t>(index)].id+"]":"Select revision";if(ImGui::BeginCombo(label,preview.c_str())){for(std::size_t i=0;i<document.revisions.size();++i){const bool selected=index==static_cast<int>(i);const std::string item=document.revisions[i].label+" ["+document.revisions[i].id+"]";if(ImGui::Selectable(item.c_str(),selected))index=static_cast<int>(i);if(selected)ImGui::SetItemDefaultFocus();}ImGui::EndCombo();}};revision_combo("Base Revision",m_merge_base_revision_index);revision_combo("Ours Revision",m_merge_ours_revision_index);revision_combo("Theirs Revision",m_merge_theirs_revision_index);const bool valid=m_merge_base_revision_index>=0&&m_merge_ours_revision_index>=0&&m_merge_theirs_revision_index>=0;if(ImGui::Button("Review",{110,0})&&valid){queue_action({.type=StudioActionType::OpenSemanticMerge,.path=document.revisions[static_cast<std::size_t>(m_merge_base_revision_index)].id,.path2=document.revisions[static_cast<std::size_t>(m_merge_ours_revision_index)].id,.path3=document.revisions[static_cast<std::size_t>(m_merge_theirs_revision_index)].id});m_show_semantic_merge_dialog=false;}ImGui::SameLine();if(ImGui::Button("Cancel",{110,0}))m_show_semantic_merge_dialog=false;}}ImGui::End();}
     if(m_show_revision_dialog){center_next_dialog();if(ImGui::Begin("Scene History",&m_show_revision_dialog,flags)){ImGui::TextUnformatted("Create an immutable revision or restore a previous authored scene.");ImGui::InputText("Revision Label",m_revision_label_buffer.data(),m_revision_label_buffer.size());if(ImGui::Button("Save Revision",{130,0})&&m_revision_label_buffer[0]!=0){queue_action({.type=StudioActionType::SaveRevision,.path=m_revision_label_buffer.data()});m_show_revision_dialog=false;}ImGui::SameLine();if(ImGui::Button("Close",{110,0}))m_show_revision_dialog=false;ImGui::Separator();if(document.revisions.empty())ImGui::TextDisabled("No scene revisions yet.");for(const auto& revision:document.revisions){ImGui::PushID(revision.id.c_str());ImGui::Text("%s",revision.label.c_str());ImGui::SameLine();ImGui::TextDisabled("%s  •  %zu entities",revision.id.c_str(),revision.entity_count);ImGui::SameLine(ImGui::GetWindowWidth()-125.0f);if(ImGui::Button("Restore",{95,0})){queue_action({.type=StudioActionType::LoadRevision,.path=revision.id});m_show_revision_dialog=false;}ImGui::PopID();}}ImGui::End();}
+    if(m_show_beginner_guide_dialog){
+        center_next_dialog();
+        if(ImGui::Begin("Seed Beginner Guide",&m_show_beginner_guide_dialog,flags)){
+            ImGui::TextWrapped(
+                "You can make a complete small game in Seed without writing code."
+            );
+            ImGui::SeparatorText("1. Start");
+            ImGui::TextWrapped(
+                "Use File > New Project and choose Third-Person Adventure or Collect and Open."
+            );
+            ImGui::SeparatorText("2. Build");
+            ImGui::TextWrapped(
+                "Select an object, click + Add Gameplay, and choose Player, Pickup, Door, Health, Quest, or Gameplay Rules."
+            );
+            ImGui::SeparatorText("3. Add behavior");
+            ImGui::TextWrapped(
+                "In Gameplay Rules, choose When and Then. For example: when Interact, then Start Quest."
+            );
+            ImGui::SeparatorText("4. Play");
+            ImGui::TextWrapped(
+                "Press F5. Move with WASD, look with the right mouse button, interact with E, and attack with F."
+            );
+            ImGui::SeparatorText("5. Finish");
+            ImGui::TextWrapped(
+                "Use F5 in the standalone runtime to save, F9 to load, then use Build > export when your game is ready."
+            );
+            if(ImGui::Button("Close",{120,0}))m_show_beginner_guide_dialog=false;
+        }
+        ImGui::End();
+    }
+
 }
 void StudioUI::draw_world_panel(Scene& scene) {
     const ImGuiIO& io=ImGui::GetIO();const float menu=ImGui::GetFrameHeight();const float height=std::max(120.0f,io.DisplaySize.y-menu-BottomPanelHeight);

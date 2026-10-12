@@ -108,6 +108,7 @@ private:
     bool m_show_import_model_dialog{false};
     bool m_show_semantic_merge_dialog{false};
     bool m_show_revision_dialog{false};
+    bool m_show_beginner_guide_dialog{false};
     bool m_last_document_playing{false};
 
     GizmoTool m_gizmo_tool{GizmoTool::Move};
