@@ -8,13 +8,13 @@ Seed's beginner workflow is intentionally built around concepts instead of engin
 2. Choose File > New Project.
 3. Start with `Third-Person Adventure` or `Collect and Open`.
 4. Select an object and use `+ Add Gameplay`.
-5. Add a Player, Enemy, Pickup, Door, Health, Quest, or Gameplay Rules component.
+5. Use Create > Beginner Presets to add a Player, Enemy, Pickup, Door, or Quest without assembling components.
 6. Import a static or animated glTF model, then drag it from the Assets panel onto the selected entity.
-7. In Gameplay Rules, author behavior as `When` and `Then`.
+7. In Gameplay Rules, choose `When`, `Then`, and `What` from beginner dropdowns.
 8. Press F5 to play inside Seed Studio.
 9. Use WASD to move, RMB to look, E to interact, and F to attack.
 10. Defeat all Enemy presets to get the built-in `Area cleared! You win.` goal state.
-11. Save and export when the loop feels right.
+11. Save, then choose Build > Prepare Standalone Build. Seed creates a Build folder with launch scripts and instructions.
 
 ## Example rules
 
@@ -31,6 +31,10 @@ Rules are stored in the scene and executed by Seed's semantic gameplay event sys
 ## What assets do
 
 The starter templates use built-in cubes so the workflow works without external downloads. Later, a creator can import a static or animated glTF asset and assign it to the world or Player. Mixamo, Kenney, and custom assets are content choices—not engine requirements.
+
+## First Game Tutorial
+
+Open Help > First Game Tutorial for a five-step guided flow covering project creation, presets, rules, play mode, and packaging.
 
 ## Standalone runtime
 
