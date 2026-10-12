@@ -47,6 +47,16 @@ struct AttackComponent {
     bool active{false};
 };
 
+// Beginner-facing enemy preset. Seed owns the simple chase/attack loop so authors do not need code.
+struct EnemyAIComponent {
+    float detection_range{10.0f};
+    float attack_range{1.5f};
+    float move_speed{1.8f};
+    float attack_damage{10.0f};
+    float attack_cooldown{1.0f};
+    bool enabled{true};
+};
+
 struct GameplayRule {
     std::string when_event{"Interact"};
     std::string action{"Publish Event"};
