@@ -87,6 +87,18 @@ const AnimationClip* find_clip(
     return asset.animations.empty() ? nullptr : &asset.animations.front();
 }
 
+const AnimationClip* find_named_clip(
+    const AnimatedModelAssetResource& asset,
+    const char* name
+) {
+    const auto found = std::find_if(
+        asset.animations.begin(),
+        asset.animations.end(),
+        [name](const AnimationClip& clip) { return clip.name == name; }
+    );
+    return found == asset.animations.end() ? nullptr : &*found;
+}
+
 } // namespace
 
 Quaternion AnimationSystem::normalize_quaternion(const Quaternion& value) noexcept {
@@ -244,12 +256,29 @@ void AnimationSystem::update_scene(Scene& scene, float delta_seconds) {
             }
 
             const AnimationClip* clip = find_clip(*asset, player.clip_name);
+            if (player.locomotion_enabled) {
+                const char* desired_name = "Idle";
+                if (!player.locomotion_grounded) {
+                    desired_name = player.locomotion_vertical_velocity > 0.1f ? "Jump" : "Fall";
+                } else if (player.locomotion_speed > 0.01f) {
+                    desired_name = player.locomotion_sprinting ? "Run" : "Walk";
+                }
+
+                if (const AnimationClip* locomotion_clip = find_named_clip(*asset, desired_name);
+                    locomotion_clip != nullptr) {
+                    if (clip != locomotion_clip) {
+                        player.time_seconds = 0.0f;
+                    }
+                    clip = locomotion_clip;
+                    player.clip_name = clip->name;
+                }
+            }
+
             if (clip == nullptr) {
                 initialize_bind_pose(asset->skeleton, player.pose);
                 return;
             }
 
-            if (player.clip_name.empty()) player.clip_name = clip->name;
             if (player.playing) {
                 player.time_seconds += delta_seconds * player.playback_speed;
             }
