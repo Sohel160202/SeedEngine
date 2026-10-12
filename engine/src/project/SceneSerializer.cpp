@@ -163,12 +163,21 @@ bool SceneSerializer::save(
                 };
             }
             if (const auto* animation = scene.get_component<AnimationPlayerComponent>(entity)) {
+                nlohmann::json events = nlohmann::json::array();
+                for (const auto& event : animation->events) {
+                    events.push_back({
+                        {"clip", event.clip_name},
+                        {"name", event.name},
+                        {"time", event.time_seconds},
+                    });
+                }
                 components["AnimationPlayer"] = {
                     {"clip", animation->clip_name},
                     {"playback_speed", animation->playback_speed},
                     {"playing", animation->playing},
                     {"blend_duration", animation->blend_duration_seconds},
                     {"locomotion_enabled", animation->locomotion_enabled},
+                    {"events", std::move(events)},
                 };
             }
             if (const auto* material = scene.get_component<MaterialComponent>(entity)) {
@@ -450,6 +459,18 @@ bool SceneSerializer::load(
                     value.value("blend_duration", 0.15f)
                 );
                 animation.locomotion_enabled = value.value("locomotion_enabled", false);
+                if (value.contains("events") && value.at("events").is_array()) {
+                    for (const auto& event_value : value.at("events")) {
+                        AnimationEvent event;
+                        event.clip_name = event_value.value("clip", std::string{});
+                        event.name = event_value.value("name", std::string{"Event"});
+                        event.time_seconds = std::max(
+                            0.0f,
+                            event_value.value("time", 0.0f)
+                        );
+                        animation.events.push_back(std::move(event));
+                    }
+                }
                 animation.time_seconds = 0.0f;
                 animation.pose = {};
                 loaded_scene.add_component<AnimationPlayerComponent>(entity, std::move(animation));
