@@ -9,11 +9,12 @@ Seed's beginner workflow is intentionally built around concepts instead of engin
 3. Start with `Third-Person Adventure` or `Collect and Open`.
 4. Select an object and use `+ Add Gameplay`.
 5. Add a Player, Enemy, Pickup, Door, Health, Quest, or Gameplay Rules component.
-6. In Gameplay Rules, author behavior as `When` and `Then`.
-7. Press F5 to play inside Seed Studio.
-8. Use WASD to move, RMB to look, E to interact, and F to attack.
-9. Defeat all Enemy presets to get the built-in `Area cleared! You win.` goal state.
-10. Save and export when the loop feels right.
+6. Import a static or animated glTF model, then drag it from the Assets panel onto the selected entity.
+7. In Gameplay Rules, author behavior as `When` and `Then`.
+8. Press F5 to play inside Seed Studio.
+9. Use WASD to move, RMB to look, E to interact, and F to attack.
+10. Defeat all Enemy presets to get the built-in `Area cleared! You win.` goal state.
+11. Save and export when the loop feels right.
 
 ## Example rules
 
