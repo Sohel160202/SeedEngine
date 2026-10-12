@@ -387,6 +387,39 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
         ImGui::PopID();
     }
 
+    if (auto* enemy = scene.get_component<EnemyAIComponent>(entity)) {
+        ImGui::PushID("SeedEnemyAI");
+        if (ImGui::CollapsingHeader("Enemy", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("Beginner enemy preset: detects the player, chases, attacks, and contributes to the victory state.");
+            changed |= ImGui::Checkbox("Enabled", &enemy->enabled);
+            if (ImGui::DragFloat("Detection Range", &enemy->detection_range, 0.25f, 0.0f, 1000.0f, "%.1f")) {
+                enemy->detection_range = std::max(0.0f, enemy->detection_range);
+                changed = true;
+            }
+            if (ImGui::DragFloat("Attack Range", &enemy->attack_range, 0.1f, 0.1f, 100.0f, "%.1f")) {
+                enemy->attack_range = std::max(0.1f, enemy->attack_range);
+                changed = true;
+            }
+            if (ImGui::DragFloat("Move Speed", &enemy->move_speed, 0.1f, 0.0f, 100.0f, "%.1f")) {
+                enemy->move_speed = std::max(0.0f, enemy->move_speed);
+                changed = true;
+            }
+            if (ImGui::DragFloat("Attack Damage", &enemy->attack_damage, 1.0f, 0.0f, 10000.0f, "%.1f")) {
+                enemy->attack_damage = std::max(0.0f, enemy->attack_damage);
+                changed = true;
+            }
+            if (ImGui::DragFloat("Attack Cooldown", &enemy->attack_cooldown, 0.05f, 0.05f, 60.0f, "%.2f")) {
+                enemy->attack_cooldown = std::max(0.05f, enemy->attack_cooldown);
+                changed = true;
+            }
+            if (remove_component_button("Remove Enemy")) {
+                scene.remove_component<EnemyAIComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
     if (auto* dialogue = scene.get_component<DialogueComponent>(entity)) {
         ImGui::PushID("SeedDialogue");
         if (ImGui::CollapsingHeader("Dialogue", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -675,6 +708,7 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     const bool has_feedback_cues = scene.has_component<FeedbackCueComponent>(entity);
     const bool has_health = scene.has_component<HealthComponent>(entity);
     const bool has_attack = scene.has_component<AttackComponent>(entity);
+    const bool has_enemy = scene.has_component<EnemyAIComponent>(entity);
     const bool has_door = scene.has_component<DoorComponent>(entity);
     const bool has_dialogue = scene.has_component<DialogueComponent>(entity);
     const bool has_quest = scene.has_component<QuestComponent>(entity);
@@ -785,6 +819,25 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     }
     ImGui::EndDisabled();
 
+    ImGui::BeginDisabled(has_enemy);
+    if (ImGui::MenuItem(has_enemy ? "Enemy [Added]" : "Enemy")) {
+        if (!scene.has_component<TransformComponent>(entity)) {
+            scene.add_component<TransformComponent>(entity);
+        }
+        if (!scene.has_component<HealthComponent>(entity)) {
+            scene.add_component<HealthComponent>(entity);
+        }
+        if (!scene.has_component<AttackComponent>(entity)) {
+            scene.add_component<AttackComponent>(entity);
+        }
+        scene.add_component<EnemyAIComponent>(entity);
+        changed = true;
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("Create a beginner enemy that chases, attacks, and can be defeated.");
+    }
+
     ImGui::BeginDisabled(has_door);
     if (ImGui::MenuItem(has_door ? "Door / Lock [Added]" : "Door / Lock")) {
         if (!scene.has_component<TransformComponent>(entity)) {
@@ -802,7 +855,7 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     ImGui::EndDisabled();
 
     ImGui::Separator();
-    ImGui::TextDisabled("Next: Enemy, Branching Dialogue, Quest Rewards, Save Game");
+    ImGui::TextDisabled("Next: Branching Dialogue, Quest Rewards, Save Game");
     return changed;
 }
 
