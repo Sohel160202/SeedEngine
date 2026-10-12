@@ -361,6 +361,25 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
         ImGui::PopID();
     }
 
+    if (auto* attack = scene.get_component<AttackComponent>(entity)) {
+        ImGui::PushID("SeedAttack");
+        if (ImGui::CollapsingHeader("Attack Window", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("Opens and closes a combat window from animation events such as AttackStart and AttackEnd.");
+            changed |= edit_string("Open Event", attack->open_event);
+            changed |= edit_string("Close Event", attack->close_event);
+            if (ImGui::DragFloat("Damage", &attack->damage, 1.0f, 0.0f, 100000.0f, "%.1f")) {
+                attack->damage = std::max(0.0f, attack->damage);
+                changed = true;
+            }
+            ImGui::TextDisabled("Runtime Active: %s", attack->active ? "Yes" : "No");
+            if (remove_component_button("Remove Attack Window")) {
+                scene.remove_component<AttackComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
     if (auto* dialogue = scene.get_component<DialogueComponent>(entity)) {
         ImGui::PushID("SeedDialogue");
         if (ImGui::CollapsingHeader("Dialogue", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -525,6 +544,7 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     const bool has_pickup = scene.has_component<PickupComponent>(entity);
     const bool has_inventory = scene.has_component<InventoryComponent>(entity);
     const bool has_health = scene.has_component<HealthComponent>(entity);
+    const bool has_attack = scene.has_component<AttackComponent>(entity);
     const bool has_door = scene.has_component<DoorComponent>(entity);
     const bool has_dialogue = scene.has_component<DialogueComponent>(entity);
     const bool has_quest = scene.has_component<QuestComponent>(entity);
@@ -605,6 +625,13 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     ImGui::BeginDisabled(has_health);
     if (ImGui::MenuItem(has_health ? "Health [Added]" : "Health")) {
         scene.add_component<HealthComponent>(entity, 100.0f, 100.0f, false);
+        changed = true;
+    }
+    ImGui::EndDisabled();
+
+    ImGui::BeginDisabled(has_attack);
+    if (ImGui::MenuItem(has_attack ? "Attack Window [Added]" : "Attack Window")) {
+        scene.add_component<AttackComponent>(entity);
         changed = true;
     }
     ImGui::EndDisabled();
