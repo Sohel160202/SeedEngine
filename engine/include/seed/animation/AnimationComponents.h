@@ -33,6 +33,7 @@ struct AnimationPlayerComponent {
     float time_seconds{0.0f};
     float playback_speed{1.0f};
     bool playing{true};
+    float blend_duration_seconds{0.15f};
 
     // When enabled, gameplay drives conventional Idle/Walk/Run/Jump/Fall
     // clip selection. Manual clip selection remains available when disabled.
@@ -43,6 +44,11 @@ struct AnimationPlayerComponent {
     float locomotion_vertical_velocity{0.0f};
     bool locomotion_grounded{true};
     bool locomotion_sprinting{false};
+
+    // Runtime crossfade state.
+    std::string active_clip_name;
+    float blend_elapsed_seconds{0.0f};
+    SkeletonPose blend_from_pose;
 
     // Runtime-evaluated pose. It is derived data and should not be serialized as
     // authored scene state.

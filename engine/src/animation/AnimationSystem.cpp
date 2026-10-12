@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <utility>
 
 namespace seed {
 namespace {
@@ -97,6 +98,33 @@ const AnimationClip* find_named_clip(
         [name](const AnimationClip& clip) { return clip.name == name; }
     );
     return found == asset.animations.end() ? nullptr : &*found;
+}
+
+void blend_pose(
+    const Skeleton& skeleton,
+    const SkeletonPose& from,
+    float alpha,
+    SkeletonPose& target
+) {
+    if (from.local_transforms.size() != skeleton.joints.size() ||
+        target.local_transforms.size() != skeleton.joints.size()) {
+        return;
+    }
+
+    for (std::size_t i = 0; i < skeleton.joints.size(); ++i) {
+        const auto& source = from.local_transforms[i];
+        auto& destination = target.local_transforms[i];
+        destination.translation =
+            source.translation * (1.0f - alpha) + destination.translation * alpha;
+        destination.rotation = AnimationSystem::nlerp_quaternion(
+            source.rotation,
+            destination.rotation,
+            alpha
+        );
+        destination.scale =
+            source.scale * (1.0f - alpha) + destination.scale * alpha;
+    }
+    AnimationSystem::rebuild_matrices(skeleton, target);
 }
 
 } // namespace
@@ -276,13 +304,45 @@ void AnimationSystem::update_scene(Scene& scene, float delta_seconds) {
 
             if (clip == nullptr) {
                 initialize_bind_pose(asset->skeleton, player.pose);
+                player.active_clip_name.clear();
+                player.blend_from_pose = {};
                 return;
+            }
+
+            if (player.active_clip_name != clip->name) {
+                if (player.pose.local_transforms.size() == asset->skeleton.joints.size()) {
+                    player.blend_from_pose = player.pose;
+                } else {
+                    player.blend_from_pose = {};
+                }
+                player.active_clip_name = clip->name;
+                player.blend_elapsed_seconds = 0.0f;
             }
 
             if (player.playing) {
                 player.time_seconds += delta_seconds * player.playback_speed;
             }
-            evaluate_clip(asset->skeleton, *clip, player.time_seconds, player.pose);
+
+            SkeletonPose target_pose;
+            evaluate_clip(asset->skeleton, *clip, player.time_seconds, target_pose);
+
+            const float blend_duration = std::max(0.0f, player.blend_duration_seconds);
+            if (blend_duration > 0.000001f &&
+                !player.blend_from_pose.local_transforms.empty() &&
+                player.blend_elapsed_seconds < blend_duration) {
+                player.blend_elapsed_seconds += std::max(0.0f, delta_seconds);
+                const float alpha = std::clamp(
+                    player.blend_elapsed_seconds / blend_duration,
+                    0.0f,
+                    1.0f
+                );
+                blend_pose(asset->skeleton, player.blend_from_pose, alpha, target_pose);
+                player.pose = std::move(target_pose);
+                if (alpha >= 1.0f) player.blend_from_pose = {};
+            } else {
+                player.blend_from_pose = {};
+                player.pose = std::move(target_pose);
+            }
         }
     );
 }
