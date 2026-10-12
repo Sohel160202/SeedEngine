@@ -22,6 +22,13 @@ int main() {
         .action_value = "Victory",
     });
 
+    const auto camera = source.create_entity("Enemy Camera");
+    source.add_component<seed::TransformComponent>(camera);
+    source.add_component<seed::ParentComponent>(
+        camera,
+        seed::ParentComponent{source.entity_persistent_id(enemy)}
+    );
+
     const auto prefab_path =
         std::filesystem::temp_directory_path() / "seed_prefab_serializer_test.seedprefab";
     std::string error;
@@ -36,6 +43,16 @@ int main() {
     assert(destination.get_component<seed::HealthComponent>(instance)->current == 55.0f);
     assert(destination.get_component<seed::GameplayRulesComponent>(instance)->rules.size() == 1);
     assert(destination.get_component<seed::ParentComponent>(instance) == nullptr);
+
+    assert(destination.get_component<seed::PrefabInstanceComponent>(instance)->linked);
+    bool found_child = false;
+    destination.for_each_entity([&](seed::EntityId candidate, const std::string& name) {
+        if (name != "Enemy Camera") return;
+        const auto* parent = destination.get_component<seed::ParentComponent>(candidate);
+        found_child = parent != nullptr &&
+            parent->parent_persistent_id == destination.entity_persistent_id(instance);
+    });
+    assert(found_child);
 
     std::filesystem::remove(prefab_path);
     return 0;
