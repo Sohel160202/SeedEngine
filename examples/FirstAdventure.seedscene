@@ -1,0 +1,570 @@
+{
+  "seed_format": "seedscene",
+  "format_version": 1,
+  "entities": [
+    {
+      "id": "player",
+      "name": "Adventure Player",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            1,
+            6
+          ],
+          "rotation": [
+            0,
+            180,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Camera": {
+          "field_of_view": 65,
+          "near_plane": 0.1,
+          "far_plane": 500,
+          "enabled": true,
+          "primary": true
+        },
+        "PlayerController": {
+          "view_mode": "third_person",
+          "move_speed": 4,
+          "fast_multiplier": 2.5,
+          "look_sensitivity": 0.12,
+          "interaction_distance": 4,
+          "interaction_radius": 1.25,
+          "camera_distance": 4.5,
+          "camera_height": 1.55,
+          "camera_shoulder_offset": 0,
+          "camera_min_pitch": -60,
+          "camera_max_pitch": 70,
+          "orient_to_movement": true,
+          "enabled": true
+        },
+        "Inventory": {
+          "items": {}
+        },
+        "CharacterBody": {
+          "radius": 0.35,
+          "height": 1.8,
+          "eye_height": 1.55,
+          "step_height": 0.35,
+          "jump_speed": 5,
+          "max_fall_speed": 30,
+          "enabled": true
+        },
+        "SkinnedMesh": {
+          "asset": "",
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true
+        }
+      }
+    },
+    {
+      "id": "player_camera",
+      "name": "Adventure Camera",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            1.55,
+            4.5
+          ],
+          "rotation": [
+            -12,
+            180,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Parent": {
+          "entity": "player"
+        },
+        "Camera": {
+          "field_of_view": 65,
+          "near_plane": 0.1,
+          "far_plane": 500,
+          "enabled": true,
+          "primary": false
+        }
+      }
+    },
+    {
+      "id": "sun",
+      "name": "Sun",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            8,
+            0
+          ],
+          "rotation": [
+            -45,
+            -35,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "DirectionalLight": {
+          "color": [
+            1,
+            0.94,
+            0.82
+          ],
+          "intensity": 1.2,
+          "enabled": true,
+          "casts_shadows": true,
+          "shadow_distance": 45
+        }
+      }
+    },
+    {
+      "id": "ambient",
+      "name": "Ambient",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "AmbientLight": {
+          "color": [
+            0.55,
+            0.68,
+            1
+          ],
+          "intensity": 0.32,
+          "enabled": true
+        }
+      }
+    },
+    {
+      "id": "sky",
+      "name": "Sky",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Sky": {
+          "zenith_color": [
+            0.05,
+            0.12,
+            0.3
+          ],
+          "horizon_color": [
+            0.55,
+            0.7,
+            0.9
+          ],
+          "intensity": 1,
+          "enabled": true
+        }
+      }
+    },
+    {
+      "id": "ground",
+      "name": "Adventure Ground",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            -0.15,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            12,
+            0.15,
+            12
+          ]
+        },
+        "Mesh": {
+          "asset": "builtin:cube",
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true
+        },
+        "Material": {
+          "asset": "builtin:seed_default",
+          "base_color": [
+            0.18,
+            0.28,
+            0.2,
+            1
+          ],
+          "metallic": 0,
+          "roughness": 0.8,
+          "normal_scale": 1,
+          "use_base_color_texture": false,
+          "use_metallic_roughness_texture": false,
+          "use_normal_texture": false
+        },
+        "BoxCollider": {
+          "half_extents": [
+            12,
+            0.15,
+            12
+          ],
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "enabled": true
+        }
+      }
+    },
+    {
+      "id": "guide",
+      "name": "Old Guide",
+      "components": {
+        "Transform": {
+          "position": [
+            -2,
+            1,
+            -2
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            0.55,
+            1,
+            0.55
+          ]
+        },
+        "Mesh": {
+          "asset": "builtin:cube",
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true
+        },
+        "Material": {
+          "asset": "builtin:seed_default",
+          "base_color": [
+            0.22,
+            0.5,
+            0.85,
+            1
+          ],
+          "metallic": 0,
+          "roughness": 0.8,
+          "normal_scale": 1,
+          "use_base_color_texture": false,
+          "use_metallic_roughness_texture": false,
+          "use_normal_texture": false
+        },
+        "Interactable": {
+          "prompt": "Talk",
+          "enabled": true
+        },
+        "Dialogue": {
+          "lines": [
+            {
+              "speaker": "Old Guide",
+              "text": "The gate has lost its Power Cell."
+            },
+            {
+              "speaker": "Old Guide",
+              "text": "Find it near the eastern marker and bring the light back."
+            }
+          ],
+          "repeatable": true,
+          "interaction_prompt": "Talk",
+          "quest_id_to_start": "restore_power"
+        },
+        "Quest": {
+          "quest_id": "restore_power",
+          "title": "Restore the Gate",
+          "description": "Find the Power Cell and open the sealed gate.",
+          "required_item": "PowerCell",
+          "required_quantity": 1,
+          "status": "inactive"
+        }
+      }
+    },
+    {
+      "id": "power_cell",
+      "name": "Power Cell",
+      "components": {
+        "Transform": {
+          "position": [
+            3,
+            0.65,
+            -3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            0.35,
+            0.65,
+            0.35
+          ]
+        },
+        "Mesh": {
+          "asset": "builtin:cube",
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true
+        },
+        "Material": {
+          "asset": "builtin:seed_default",
+          "base_color": [
+            0.95,
+            0.7,
+            0.12,
+            1
+          ],
+          "metallic": 0,
+          "roughness": 0.8,
+          "normal_scale": 1,
+          "use_base_color_texture": false,
+          "use_metallic_roughness_texture": false,
+          "use_normal_texture": false
+        },
+        "Interactable": {
+          "prompt": "Pick Up Power Cell",
+          "enabled": true
+        },
+        "Pickup": {
+          "item_id": "PowerCell",
+          "display_name": "Power Cell",
+          "quantity": 1,
+          "destroy_on_pickup": true
+        }
+      }
+    },
+    {
+      "id": "gate",
+      "name": "Sealed Gate",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            1,
+            -9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            2,
+            1.5,
+            0.25
+          ]
+        },
+        "Mesh": {
+          "asset": "builtin:cube",
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true
+        },
+        "Material": {
+          "asset": "builtin:seed_default",
+          "base_color": [
+            0.35,
+            0.38,
+            0.46,
+            1
+          ],
+          "metallic": 0,
+          "roughness": 0.8,
+          "normal_scale": 1,
+          "use_base_color_texture": false,
+          "use_metallic_roughness_texture": false,
+          "use_normal_texture": false
+        },
+        "Interactable": {
+          "prompt": "Open Gate",
+          "enabled": true
+        },
+        "Door": {
+          "motion": "slide",
+          "open_amount": 3,
+          "duration_seconds": 1.2,
+          "required_item": "PowerCell",
+          "consume_required_item": false,
+          "starts_open": false
+        },
+        "BoxCollider": {
+          "half_extents": [
+            2,
+            1.5,
+            0.25
+          ],
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "enabled": true
+        }
+      }
+    },
+    {
+      "id": "left_wall",
+      "name": "Left Wall",
+      "components": {
+        "Transform": {
+          "position": [
+            -8,
+            1,
+            -4
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            0.25,
+            1,
+            8
+          ]
+        },
+        "Mesh": {
+          "asset": "builtin:cube",
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true
+        },
+        "Material": {
+          "asset": "builtin:seed_default",
+          "base_color": [
+            0.28,
+            0.3,
+            0.34,
+            1
+          ],
+          "metallic": 0,
+          "roughness": 0.8,
+          "normal_scale": 1,
+          "use_base_color_texture": false,
+          "use_metallic_roughness_texture": false,
+          "use_normal_texture": false
+        },
+        "BoxCollider": {
+          "half_extents": [
+            0.25,
+            1,
+            8
+          ],
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "enabled": true
+        }
+      }
+    },
+    {
+      "id": "right_wall",
+      "name": "Right Wall",
+      "components": {
+        "Transform": {
+          "position": [
+            8,
+            1,
+            -4
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            0.25,
+            1,
+            8
+          ]
+        },
+        "Mesh": {
+          "asset": "builtin:cube",
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true
+        },
+        "Material": {
+          "asset": "builtin:seed_default",
+          "base_color": [
+            0.28,
+            0.3,
+            0.34,
+            1
+          ],
+          "metallic": 0,
+          "roughness": 0.8,
+          "normal_scale": 1,
+          "use_base_color_texture": false,
+          "use_metallic_roughness_texture": false,
+          "use_normal_texture": false
+        },
+        "BoxCollider": {
+          "half_extents": [
+            0.25,
+            1,
+            8
+          ],
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "enabled": true
+        }
+      }
+    }
+  ]
+}
