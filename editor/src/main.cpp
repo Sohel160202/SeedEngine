@@ -199,6 +199,76 @@ seed::EntityId create_first_person_player(
     return player;
 }
 
+seed::EntityId create_third_person_player(
+    seed::Scene& scene,
+    seed::EntityId source_camera,
+    std::string name = "Third-Person Player"
+) {
+    seed::TransformComponent spawn;
+    if (const auto* source = scene.get_component<seed::TransformComponent>(source_camera)) {
+        spawn = *source;
+    } else {
+        spawn.position = {0.0f, 0.9f, 4.2f};
+        spawn.rotation_degrees = {};
+    }
+    spawn.scale = {1.0f, 1.0f, 1.0f};
+    spawn.position.y = std::max(spawn.position.y, 0.9f);
+
+    const auto player = scene.create_entity(std::move(name));
+    scene.add_component<seed::TransformComponent>(player, spawn);
+
+    seed::CameraComponent camera;
+    camera.primary = true;
+    camera.enabled = true;
+    camera.editor_only = false;
+    camera.field_of_view_degrees = 65.0f;
+    scene.add_component<seed::CameraComponent>(player, camera);
+
+    seed::PlayerControllerComponent controller;
+    controller.view_mode = seed::PlayerViewMode::ThirdPerson;
+    controller.camera_distance = 4.5f;
+    controller.camera_height = 1.55f;
+    controller.orient_to_movement = true;
+    scene.add_component<seed::PlayerControllerComponent>(player, controller);
+    scene.add_component<seed::InventoryComponent>(player);
+
+    seed::CharacterBodyComponent body;
+    body.height = 1.8f;
+    body.eye_height = 1.55f;
+    scene.add_component<seed::CharacterBodyComponent>(player, body);
+
+    seed::SkinnedMeshComponent character;
+    character.visible = true;
+    character.cast_shadows = true;
+    character.receive_shadows = true;
+    scene.add_component<seed::SkinnedMeshComponent>(player, character);
+
+    seed::AnimationPlayerComponent animation;
+    animation.locomotion_enabled = true;
+    animation.blend_duration_seconds = 0.15f;
+    scene.add_component<seed::AnimationPlayerComponent>(player, animation);
+
+    const auto camera_entity = scene.create_entity("Third-Person Camera");
+    seed::TransformComponent camera_transform;
+    camera_transform.position = {0.0f, 1.55f, -4.5f};
+    camera_transform.rotation_degrees = {-12.0f, 0.0f, 0.0f};
+    scene.add_component<seed::TransformComponent>(camera_entity, camera_transform);
+    scene.add_component<seed::ParentComponent>(
+        camera_entity,
+        seed::ParentComponent{scene.entity_persistent_id(player)}
+    );
+
+    seed::CameraComponent child_camera;
+    child_camera.enabled = true;
+    child_camera.primary = false;
+    child_camera.editor_only = false;
+    child_camera.field_of_view_degrees = 65.0f;
+    scene.add_component<seed::CameraComponent>(camera_entity, child_camera);
+
+    make_primary_game_camera(scene, player);
+    return player;
+}
+
 seed::EntityId find_authored_player(seed::Scene& scene) {
     seed::EntityId fallback = seed::InvalidEntity;
     seed::EntityId primary = seed::InvalidEntity;
@@ -1281,6 +1351,15 @@ int main(int argc, char** argv) {
                 workspace.dirty = true;
                 workspace.status_message =
                     "Created First-Person Player with Camera + Controller + Inventory + Character Body.";
+                break;
+            }
+            case seed::studio::StudioActionType::CreateThirdPersonPlayer: {
+                if (has_pending_play_changes) break;
+                const auto entity = create_third_person_player(scene, editor_camera);
+                studio_ui.select_entity(entity);
+                workspace.dirty = true;
+                workspace.status_message =
+                    "Created Third-Person Player with child camera, Character Body, Animation Player, and locomotion.";
                 break;
             }
             case seed::studio::StudioActionType::DuplicateSelected: {
