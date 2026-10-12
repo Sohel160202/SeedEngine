@@ -10,7 +10,7 @@ namespace seed {
 
 void CombatSystem::consume_events(
     Scene& scene,
-    const GameplayEventBus& event_bus
+    GameplayEventBus& event_bus
 ) {
     // Work from a snapshot because damage application publishes hit/death
     // events onto the same bus for downstream consumers.
@@ -41,7 +41,7 @@ void CombatSystem::consume_events(
                 event.source_entity,
                 event.target_entity,
                 event.value,
-                const_cast<GameplayEventBus&>(event_bus),
+                event_bus,
                 event.time_seconds
             );
         }
