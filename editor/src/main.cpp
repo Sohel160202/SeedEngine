@@ -1711,7 +1711,7 @@ int main(int argc, char** argv) {
                 if (has_pending_play_changes || workspace.project_file.empty()) break;
                 std::filesystem::path prefab_path = action.path;
                 if (prefab_path.is_relative()) prefab_path = workspace.project_file.parent_path() / prefab_path;
-                EntityId created = seed::InvalidEntity;
+                seed::EntityId created = seed::InvalidEntity;
                 std::string prefab_error;
                 if (!seed::PrefabSerializer::instantiate(scene, prefab_path, &created, &prefab_error)) {
                     workspace.status_message = "Prefab instantiate failed: " + prefab_error;
