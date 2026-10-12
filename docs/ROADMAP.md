@@ -212,6 +212,7 @@ Seed now owns:
 - generated animated-character test fixture in CI
 - automatic Idle / Walk / Run / Jump / Fall clip selection
 - Studio locomotion toggle with conventional clip fallback
+- configurable runtime animation crossfades
 
 Important: **animated characters are now visually skinned by the OpenGL renderer.** The camera pass and shadow pass both consume the evaluated joint palette, so deformation and silhouettes stay synchronized.
 
