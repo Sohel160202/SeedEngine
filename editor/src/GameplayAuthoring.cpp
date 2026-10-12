@@ -450,6 +450,20 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
         ImGui::PopID();
     }
 
+    if (auto* spawn = scene.get_component<SpawnPointComponent>(entity)) {
+        ImGui::PushID("SeedSpawnPoint");
+        if (ImGui::CollapsingHeader("Spawn Point", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("Marks a reusable location for players or spawned objects.");
+            changed |= edit_string("Spawn Tag", spawn->spawn_tag);
+            changed |= ImGui::Checkbox("Enabled", &spawn->enabled);
+            if (remove_component_button("Remove Spawn Point")) {
+                scene.remove_component<SpawnPointComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
     if (auto* trigger = scene.get_component<TriggerVolumeComponent>(entity)) {
         ImGui::PushID("SeedTriggerVolume");
         if (ImGui::CollapsingHeader("Trigger Volume", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -812,6 +826,7 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     const bool has_rules = scene.has_component<GameplayRulesComponent>(entity);
     const bool has_variables = scene.has_component<GameplayVariablesComponent>(entity);
     const bool has_trigger = scene.has_component<TriggerVolumeComponent>(entity);
+    const bool has_spawn = scene.has_component<SpawnPointComponent>(entity);
 
     ImGui::BeginDisabled(has_player);
     if (ImGui::MenuItem(has_player ? "Player — First Person [Added]" : "Player — First Person")) {
@@ -884,6 +899,14 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
         FeedbackCueComponent feedback_cues;
         feedback_cues.bindings.push_back({});
         scene.add_component<FeedbackCueComponent>(entity, std::move(feedback_cues));
+        changed = true;
+    }
+    ImGui::EndDisabled();
+
+    ImGui::BeginDisabled(has_spawn);
+    if (ImGui::MenuItem(has_spawn ? "Spawn Point [Added]" : "Spawn Point")) {
+        if (!scene.has_component<TransformComponent>(entity)) scene.add_component<TransformComponent>(entity);
+        scene.add_component<SpawnPointComponent>(entity);
         changed = true;
     }
     ImGui::EndDisabled();
