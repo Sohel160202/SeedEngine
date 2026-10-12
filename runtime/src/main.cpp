@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
         "Feedback",
         seed::SystemPhase::EventDispatch,
         [&](seed::Scene&, double, seed::GameplayEventBus& events) {
-            seed::GameplayFeedbackSystem::consume_events(events, feedback);
+            seed::GameplayFeedbackSystem::consume_events(events, feedback, &runtime_scene);
         }
     );
 
