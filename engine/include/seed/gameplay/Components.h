@@ -8,6 +8,12 @@
 
 namespace seed {
 
+struct PrefabInstanceComponent {
+    std::string source_path{};
+    std::string source_entity_id{};
+    bool linked{true};
+};
+
 struct TransformComponent {
     Vec3 position{};
     Vec3 rotation_degrees{};

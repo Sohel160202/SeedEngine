@@ -109,6 +109,13 @@ bool SceneSerializer::save(
                     {"scale", vec3_to_json(transform->scale)},
                 };
             }
+            if (const auto* prefab = scene.get_component<PrefabInstanceComponent>(entity)) {
+                components["PrefabInstance"] = {
+                    {"source_path", prefab->source_path},
+                    {"source_entity_id", prefab->source_entity_id},
+                    {"linked", prefab->linked},
+                };
+            }
             if (const auto* parent = scene.get_component<ParentComponent>(entity);
                 parent != nullptr && !parent->parent_persistent_id.empty()) {
                 components["Parent"] = {{"entity", parent->parent_persistent_id}};
@@ -431,6 +438,14 @@ bool SceneSerializer::load(
                     {1.0f, 1.0f, 1.0f}
                 );
                 loaded_scene.add_component<TransformComponent>(entity, transform);
+            }
+            if (components.contains("PrefabInstance")) {
+                const auto& value = components.at("PrefabInstance");
+                PrefabInstanceComponent prefab;
+                prefab.source_path = value.value("source_path", std::string{});
+                prefab.source_entity_id = value.value("source_entity_id", std::string{});
+                prefab.linked = value.value("linked", true);
+                loaded_scene.add_component<PrefabInstanceComponent>(entity, std::move(prefab));
             }
             if (components.contains("Parent")) {
                 const auto& value = components.at("Parent");

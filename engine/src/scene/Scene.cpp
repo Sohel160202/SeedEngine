@@ -4,6 +4,8 @@
 #include <iomanip>
 #include <random>
 #include <sstream>
+#include <unordered_map>
+#include <vector>
 
 namespace seed {
 
@@ -31,6 +33,70 @@ EntityId Scene::create_entity(std::string name, std::string persistent_id) {
     const EntityId entity = m_next_entity++;
     m_entities.emplace(entity, EntityRecord{.name = std::move(name), .persistent_id = std::move(persistent_id)});
     return entity;
+}
+
+std::vector<EntityId> Scene::copy_hierarchy_from(
+    const Scene& source,
+    EntityId source_root,
+    std::string root_name,
+    std::string persistent_id
+) {
+    source.ensure_alive(source_root);
+    if (root_name.empty()) root_name = source.entity_name(source_root);
+
+    std::vector<EntityId> source_entities{source_root};
+    for (std::size_t index = 0; index < source_entities.size(); ++index) {
+        const EntityId parent = source_entities[index];
+        const std::string& parent_id = source.entity_persistent_id(parent);
+        source.for_each_entity([&](EntityId candidate, const std::string&) {
+            for (const EntityId existing : source_entities) {
+                if (existing == candidate) return;
+            }
+            const auto* relation = source.get_component<ParentComponent>(candidate);
+            if (relation != nullptr && relation->parent_persistent_id == parent_id) {
+                source_entities.push_back(candidate);
+            }
+        });
+    }
+
+    std::unordered_map<std::string, EntityId> entity_map;
+    std::vector<EntityId> destination_entities;
+    destination_entities.reserve(source_entities.size());
+    for (std::size_t index = 0; index < source_entities.size(); ++index) {
+        const EntityId source_entity = source_entities[index];
+        const std::string name = index == 0 ? root_name : source.entity_name(source_entity);
+        const EntityId destination_entity = create_entity(
+            name,
+            index == 0 ? std::move(persistent_id) : std::string{}
+        );
+        entity_map.emplace(source.entity_persistent_id(source_entity), destination_entity);
+        destination_entities.push_back(destination_entity);
+    }
+
+    for (std::size_t index = 0; index < source_entities.size(); ++index) {
+        const EntityId source_entity = source_entities[index];
+        const EntityId destination_entity = destination_entities[index];
+        for (const auto& [type, pool] : source.m_component_pools) {
+            (void)type;
+            pool->copy_entity_to(source_entity, *this, destination_entity);
+        }
+    }
+
+    for (std::size_t index = 0; index < source_entities.size(); ++index) {
+        const EntityId destination_entity = destination_entities[index];
+        auto* relation = get_component<ParentComponent>(destination_entity);
+        if (relation == nullptr) continue;
+        if (index == 0) {
+            relation->parent_persistent_id.clear();
+            continue;
+        }
+        const auto mapped = entity_map.find(relation->parent_persistent_id);
+        relation->parent_persistent_id =
+            mapped == entity_map.end()
+                ? std::string{}
+                : entity_persistent_id(mapped->second);
+    }
+    return destination_entities;
 }
 
 EntityId Scene::copy_entity_from(

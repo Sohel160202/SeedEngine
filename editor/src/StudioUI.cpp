@@ -352,7 +352,12 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
     const ImGuiIO& io=ImGui::GetIO();const float menu=ImGui::GetFrameHeight();const float height=std::max(120.0f,io.DisplaySize.y-menu-BottomPanelHeight);ImGui::SetNextWindowPos({io.DisplaySize.x-RightPanelWidth,menu},ImGuiCond_Always);ImGui::SetNextWindowSize({RightPanelWidth,height},ImGuiCond_Always);
     if(ImGui::Begin("Inspector",nullptr,fixed_panel_flags())){
         if(m_selected_entity==InvalidEntity||!scene.is_alive(m_selected_entity)){ImGui::TextDisabled("Select an entity from World or click one in the viewport.");ImGui::End();return;}
-        ImGui::TextUnformatted(scene.entity_name(m_selected_entity).c_str());ImGui::TextDisabled("Runtime Entity #%llu",static_cast<unsigned long long>(m_selected_entity));const auto&id=scene.entity_persistent_id(m_selected_entity);ImGui::TextDisabled("Persistent %.8s...",id.c_str());if(ImGui::BeginDragDropTarget()){
+        ImGui::TextUnformatted(scene.entity_name(m_selected_entity).c_str());ImGui::TextDisabled("Runtime Entity #%llu",static_cast<unsigned long long>(m_selected_entity));const auto&id=scene.entity_persistent_id(m_selected_entity);ImGui::TextDisabled("Persistent %.8s...",id.c_str());
+        if (const auto* prefab = scene.get_component<PrefabInstanceComponent>(m_selected_entity)) {
+            ImGui::TextDisabled("Prefab: %s", prefab->source_path.c_str());
+            ImGui::TextDisabled(prefab->linked ? "Linked instance" : "Local prefab copy");
+        }
+        if(ImGui::BeginDragDropTarget()){
             if(const ImGuiPayload* payload=ImGui::AcceptDragDropPayload("SEED_ASSET")){
                 const std::string asset_id(static_cast<const char*>(payload->Data));
                 const bool skinned=scene.has_component<SkinnedMeshComponent>(m_selected_entity)||scene.has_component<AnimationPlayerComponent>(m_selected_entity)||scene.has_component<PlayerControllerComponent>(m_selected_entity);
