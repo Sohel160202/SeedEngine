@@ -44,6 +44,11 @@ target_link_libraries(SeedFeedbackCuePersistenceTests PRIVATE SeedEngine)
 target_compile_features(SeedFeedbackCuePersistenceTests PRIVATE cxx_std_20)
 add_test(NAME SeedFeedbackCuePersistenceTests COMMAND SeedFeedbackCuePersistenceTests)
 
+add_executable(SeedAudioSystemTests audio_system_tests.cpp)
+target_link_libraries(SeedAudioSystemTests PRIVATE SeedEngine)
+target_compile_features(SeedAudioSystemTests PRIVATE cxx_std_20)
+add_test(NAME SeedAudioSystemTests COMMAND SeedAudioSystemTests)
+
 add_executable(SeedInputActionsTests input_actions_tests.cpp)
 target_link_libraries(SeedInputActionsTests PRIVATE SeedEngine)
 target_compile_features(SeedInputActionsTests PRIVATE cxx_std_20)

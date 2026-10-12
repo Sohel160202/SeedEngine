@@ -2,6 +2,7 @@
 
 #include "seed/core/Types.h"
 
+#include <algorithm>
 #include <string>
 #include <utility>
 #include <vector>
@@ -40,6 +41,24 @@ public:
         std::vector<GameplayFeedbackRequest> requests = std::move(m_pending);
         m_pending.clear();
         return requests;
+    }
+
+    std::vector<GameplayFeedbackRequest> drain_type(GameplayFeedbackType type) {
+        std::vector<GameplayFeedbackRequest> selected;
+        std::vector<GameplayFeedbackRequest> remaining;
+        selected.reserve(m_pending.size());
+        remaining.reserve(m_pending.size());
+
+        for (auto& request : m_pending) {
+            if (request.type == type) {
+                selected.push_back(std::move(request));
+            } else {
+                remaining.push_back(std::move(request));
+            }
+        }
+
+        m_pending = std::move(remaining);
+        return selected;
     }
 
     void clear() noexcept {

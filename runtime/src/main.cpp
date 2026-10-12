@@ -3,6 +3,7 @@
 #include "seed/gameplay/Components.h"
 #include "seed/gameplay/CombatSystem.h"
 #include "seed/gameplay/GameplayRuntime.h"
+#include "seed/gameplay/AudioSystem.h"
 #include "seed/gameplay/GameplayFeedbackSystem.h"
 
 #include <charconv>
@@ -104,6 +105,7 @@ int main(int argc, char** argv) {
         }
     );
     seed::GameplayFeedbackBus feedback;
+    seed::SilentAudioOutput audio_output;
 
     engine.register_update_system(
         "Combat",
@@ -117,6 +119,20 @@ int main(int argc, char** argv) {
         seed::SystemPhase::EventDispatch,
         [&](seed::Scene& runtime_scene, double, seed::GameplayEventBus& events) {
             seed::GameplayFeedbackSystem::consume_events(events, feedback, &runtime_scene);
+        }
+    );
+    engine.register_update_system(
+        "Audio",
+        seed::SystemPhase::EventDispatch,
+        [&](seed::Scene&, double, seed::GameplayEventBus&) {
+            seed::AudioSystem::consume_feedback(feedback, audio_output);
+        }
+    );
+    engine.register_update_system(
+        "FeedbackCleanup",
+        seed::SystemPhase::EventDispatch,
+        [&](seed::Scene&, double, seed::GameplayEventBus&) {
+            feedback.clear();
         }
     );
 
