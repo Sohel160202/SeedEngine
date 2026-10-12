@@ -598,9 +598,9 @@ bool prepare_standalone_build(const WorkspaceState& workspace, std::string* erro
                << "Linux/macOS: ./run_game.sh\n";
         std::ofstream windows(build_folder / "run_game.bat", std::ios::trunc);
         windows << "@echo off\nSeedRuntime --project=\"" << "%~dp0..\\" << project_name << "\"\npause\n";
-        std::ofstream unix(build_folder / "run_game.sh", std::ios::trunc);
-        unix << "#!/usr/bin/env sh\nSeedRuntime --project=\"" << "$(dirname \"$0\")/../" << project_name << "\"\n";
-        return static_cast<bool>(readme) && static_cast<bool>(windows) && static_cast<bool>(unix);
+        std::ofstream unix_script(build_folder / "run_game.sh", std::ios::trunc);
+        unix_script << "#!/usr/bin/env sh\nSeedRuntime --project=\"" << "$(dirname \"$0\")/../" << project_name << "\"\n";
+        return static_cast<bool>(readme) && static_cast<bool>(windows) && static_cast<bool>(unix_script);
     } catch (const std::exception& exception) {
         if (error != nullptr) *error = exception.what();
         return false;
