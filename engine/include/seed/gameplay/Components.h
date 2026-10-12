@@ -39,6 +39,14 @@ struct HealthComponent {
     bool invulnerable{false};
 };
 
+/** Animation-driven combat window. Runtime active state is derived from events. */
+struct AttackComponent {
+    std::string open_event{"AttackStart"};
+    std::string close_event{"AttackEnd"};
+    float damage{25.0f};
+    bool active{false};
+};
+
 struct InventoryComponent {
     std::unordered_map<std::string, int> items;
 };

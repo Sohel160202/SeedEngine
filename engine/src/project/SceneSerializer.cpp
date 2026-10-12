@@ -237,6 +237,13 @@ bool SceneSerializer::save(
                     {"invulnerable", health->invulnerable},
                 };
             }
+            if (const auto* attack = scene.get_component<AttackComponent>(entity)) {
+                components["Attack"] = {
+                    {"open_event", attack->open_event},
+                    {"close_event", attack->close_event},
+                    {"damage", attack->damage},
+                };
+            }
             if (const auto* inventory = scene.get_component<InventoryComponent>(entity)) {
                 components["Inventory"] = {{"items", inventory->items}};
             }
@@ -560,6 +567,15 @@ bool SceneSerializer::load(
                 health.current = value.value("current", health.maximum);
                 health.invulnerable = value.value("invulnerable", false);
                 loaded_scene.add_component<HealthComponent>(entity, health);
+            }
+            if (components.contains("Attack")) {
+                const auto& value = components.at("Attack");
+                AttackComponent attack;
+                attack.open_event = value.value("open_event", std::string{"AttackStart"});
+                attack.close_event = value.value("close_event", std::string{"AttackEnd"});
+                attack.damage = std::max(0.0f, value.value("damage", 25.0f));
+                attack.active = false;
+                loaded_scene.add_component<AttackComponent>(entity, std::move(attack));
             }
             if (components.contains("Inventory")) {
                 const auto& value = components.at("Inventory");

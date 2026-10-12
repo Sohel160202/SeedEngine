@@ -1,6 +1,7 @@
 #include "seed/animation/AnimationSystem.h"
 #include "seed/core/Engine.h"
 #include "seed/gameplay/Components.h"
+#include "seed/gameplay/CombatSystem.h"
 #include "seed/gameplay/GameplayRuntime.h"
 
 #include <charconv>
@@ -99,6 +100,13 @@ int main(int argc, char** argv) {
                 static_cast<float>(delta_seconds),
                 &events
             );
+        }
+    );
+    engine.register_update_system(
+        "Combat",
+        seed::SystemPhase::EventDispatch,
+        [](seed::Scene& runtime_scene, double, seed::GameplayEventBus& events) {
+            seed::CombatSystem::consume_events(runtime_scene, events);
         }
     );
 
