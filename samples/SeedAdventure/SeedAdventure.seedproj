@@ -1,0 +1,6 @@
+{
+  "seed_format": "seedproject",
+  "format_version": 1,
+  "name": "Seed Adventure",
+  "startup_scene": "Scenes/Main.seedscene"
+}

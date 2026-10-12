@@ -1,0 +1,349 @@
+{
+  "seed_format": "seedscene",
+  "format_version": 1,
+  "entities": [
+    {
+      "id": "player",
+      "name": "Player",
+      "components": {
+        "Transform": {
+          "position": [0.0, 1.0, 6.0],
+          "rotation": [0.0, 180.0, 0.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Camera": {
+          "field_of_view": 65.0,
+          "near_plane": 0.1,
+          "far_plane": 1000.0,
+          "enabled": true,
+          "primary": true
+        },
+        "CharacterBody": {
+          "radius": 0.35,
+          "height": 1.8,
+          "eye_height": 1.65,
+          "gravity": 18.0,
+          "jump_speed": 6.5,
+          "max_fall_speed": 30.0,
+          "enabled": true
+        },
+        "PlayerController": {
+          "view_mode": "third_person",
+          "move_speed": 4.0,
+          "fast_multiplier": 2.5,
+          "look_sensitivity": 0.12,
+          "interaction_distance": 4.0,
+          "interaction_radius": 1.25,
+          "camera_distance": 4.5,
+          "camera_height": 1.55,
+          "camera_shoulder_offset": 0.0,
+          "camera_min_pitch": -60.0,
+          "camera_max_pitch": 70.0,
+          "orient_to_movement": true,
+          "enabled": true
+        },
+        "AnimationPlayer": {
+          "clip": "",
+          "playback_speed": 1.0,
+          "playing": true,
+          "blend_duration": 0.15,
+          "locomotion_enabled": true,
+          "events": []
+        },
+        "Health": {
+          "maximum": 100.0,
+          "current": 100.0,
+          "invulnerable": false
+        },
+        "Inventory": {
+          "items": {}
+        },
+        "Persistent": {
+          "enabled": true
+        },
+        "FeedbackCues": {
+          "bindings": [
+            {
+              "event_name": "Footstep",
+              "audio_asset": "",
+              "visual_asset": "",
+              "volume": 1.0,
+              "camera_shake": 0.0
+            },
+            {
+              "event_name": "Death",
+              "audio_asset": "",
+              "visual_asset": "",
+              "volume": 1.0,
+              "camera_shake": 0.0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ground",
+      "name": "Ground",
+      "components": {
+        "Transform": {
+          "position": [0.0, -0.5, 0.0],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [12.0, 0.5, 12.0]
+        },
+        "Mesh": {
+          "asset": "builtin:cube",
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true
+        },
+        "Material": {
+          "asset": "builtin:seed_default",
+          "base_color": [0.18, 0.30, 0.20, 1.0],
+          "metallic": 0.0,
+          "roughness": 0.9,
+          "normal_scale": 1.0,
+          "use_base_color_texture": false,
+          "use_metallic_roughness_texture": false,
+          "use_normal_texture": false
+        },
+        "BoxCollider": {
+          "half_extents": [0.5, 0.5, 0.5],
+          "offset": [0.0, 0.0, 0.0],
+          "enabled": true,
+          "solid": true
+        }
+      }
+    },
+    {
+      "id": "guide",
+      "name": "Village Guide",
+      "components": {
+        "Transform": {
+          "position": [0.0, 1.0, 1.5],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "Mesh": {
+          "asset": "builtin:cube",
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true
+        },
+        "Material": {
+          "asset": "builtin:seed_default",
+          "base_color": [0.25, 0.45, 0.85, 1.0],
+          "metallic": 0.0,
+          "roughness": 0.7,
+          "normal_scale": 1.0,
+          "use_base_color_texture": false,
+          "use_metallic_roughness_texture": false,
+          "use_normal_texture": false
+        },
+        "Interactable": {
+          "prompt": "Talk to the Village Guide",
+          "enabled": true
+        },
+        "Dialogue": {
+          "repeatable": false,
+          "interaction_prompt": "Talk",
+          "quest_id_to_start": "cabin_key",
+          "lines": [
+            {
+              "speaker": "Guide",
+              "text": "The cabin is locked. Find the key near the old tree.",
+              "choices": []
+            },
+            {
+              "speaker": "Guide",
+              "text": "Bring the key back to the cabin.",
+              "choices": []
+            }
+          ]
+        },
+        "Persistent": {
+          "enabled": true
+        }
+      }
+    },
+    {
+      "id": "key",
+      "name": "Cabin Key",
+      "components": {
+        "Transform": {
+          "position": [3.0, 0.3, -2.0],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [0.3, 0.3, 0.3]
+        },
+        "Mesh": {
+          "asset": "builtin:cube",
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true
+        },
+        "Material": {
+          "asset": "builtin:seed_default",
+          "base_color": [0.95, 0.75, 0.12, 1.0],
+          "metallic": 0.65,
+          "roughness": 0.25,
+          "normal_scale": 1.0,
+          "use_base_color_texture": false,
+          "use_metallic_roughness_texture": false,
+          "use_normal_texture": false
+        },
+        "Interactable": {
+          "prompt": "Pick Up Cabin Key",
+          "enabled": true
+        },
+        "Pickup": {
+          "item_id": "CabinKey",
+          "display_name": "Cabin Key",
+          "quantity": 1,
+          "destroy_on_pickup": true
+        }
+      }
+    },
+    {
+      "id": "cabin_door",
+      "name": "Cabin Door",
+      "components": {
+        "Transform": {
+          "position": [0.0, 1.0, -8.0],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [1.0, 2.0, 0.2]
+        },
+        "Mesh": {
+          "asset": "builtin:cube",
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true
+        },
+        "Material": {
+          "asset": "builtin:seed_default",
+          "base_color": [0.38, 0.20, 0.08, 1.0],
+          "metallic": 0.0,
+          "roughness": 0.8,
+          "normal_scale": 1.0,
+          "use_base_color_texture": false,
+          "use_metallic_roughness_texture": false,
+          "use_normal_texture": false
+        },
+        "BoxCollider": {
+          "half_extents": [0.5, 0.5, 0.5],
+          "offset": [0.0, 0.0, 0.0],
+          "enabled": true,
+          "solid": true
+        },
+        "Interactable": {
+          "prompt": "Open Cabin Door",
+          "enabled": true
+        },
+        "Door": {
+          "motion": "rotate",
+          "open_amount": 90.0,
+          "duration_seconds": 0.75,
+          "required_item": "CabinKey",
+          "consume_required_item": false,
+          "starts_open": false
+        }
+      }
+    },
+    {
+      "id": "cabin_quest",
+      "name": "Cabin Key Quest",
+      "components": {
+        "Quest": {
+          "quest_id": "cabin_key",
+          "title": "Find the Cabin Key",
+          "description": "Find the key and open the cabin door.",
+          "required_item": "CabinKey",
+          "required_quantity": 1,
+          "reward_item": "AdventureToken",
+          "reward_quantity": 1,
+          "status": "inactive"
+        },
+        "Persistent": {
+          "enabled": true
+        }
+      }
+    },
+    {
+      "id": "training_target",
+      "name": "Training Target",
+      "components": {
+        "Transform": {
+          "position": [-3.0, 1.0, -2.0],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [0.8, 1.5, 0.8]
+        },
+        "Mesh": {
+          "asset": "builtin:cube",
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true
+        },
+        "Material": {
+          "asset": "builtin:seed_default",
+          "base_color": [0.75, 0.18, 0.16, 1.0],
+          "metallic": 0.0,
+          "roughness": 0.8,
+          "normal_scale": 1.0,
+          "use_base_color_texture": false,
+          "use_metallic_roughness_texture": false,
+          "use_normal_texture": false
+        },
+        "Health": {
+          "maximum": 100.0,
+          "current": 100.0,
+          "invulnerable": false
+        },
+        "Attack": {
+          "open_event": "AttackStart",
+          "close_event": "AttackEnd",
+          "damage": 25.0
+        },
+        "FeedbackCues": {
+          "bindings": [
+            {
+              "event_name": "Hit",
+              "audio_asset": "",
+              "visual_asset": "",
+              "volume": 1.0,
+              "camera_shake": 0.0
+            },
+            {
+              "event_name": "Death",
+              "audio_asset": "",
+              "visual_asset": "",
+              "volume": 1.0,
+              "camera_shake": 0.2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "sun",
+      "name": "Sun",
+      "components": {
+        "DirectionalLight": {
+          "color": [1.0, 0.92, 0.78],
+          "intensity": 1.4,
+          "enabled": true,
+          "casts_shadows": true,
+          "shadow_distance": 35.0
+        },
+        "AmbientLight": {
+          "color": [0.65, 0.78, 1.0],
+          "intensity": 0.28,
+          "enabled": true
+        },
+        "Sky": {
+          "zenith_color": [0.08, 0.18, 0.38],
+          "horizon_color": [0.65, 0.78, 0.92],
+          "intensity": 1.0,
+          "enabled": true
+        }
+      }
+    }
+  ]
+}
