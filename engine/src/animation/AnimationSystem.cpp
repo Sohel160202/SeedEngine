@@ -100,6 +100,37 @@ const AnimationClip* find_named_clip(
     return found == asset.animations.end() ? nullptr : &*found;
 }
 
+void collect_animation_events(
+    const AnimationClip& clip,
+    const std::vector<AnimationEvent>& events,
+    float previous_time,
+    float current_time,
+    std::vector<std::string>& triggered
+) {
+    if (events.empty() || clip.duration_seconds <= 0.000001f || current_time <= previous_time) return;
+
+    const float duration = clip.duration_seconds;
+    const float previous_phase = clip_time(clip, previous_time);
+    const float current_phase = clip_time(clip, current_time);
+    const bool crossed_full_loop = clip.looping && (current_time - previous_time >= duration);
+
+    for (const auto& event : events) {
+        if (!event.clip_name.empty() && event.clip_name != clip.name) continue;
+        const float event_time = std::clamp(event.time_seconds, 0.0f, duration);
+        bool crossed = false;
+        if (!clip.looping) {
+            crossed = event_time > previous_phase && event_time <= current_phase;
+        } else if (crossed_full_loop) {
+            crossed = true;
+        } else if (current_phase >= previous_phase) {
+            crossed = event_time > previous_phase && event_time <= current_phase;
+        } else {
+            crossed = event_time > previous_phase || event_time <= current_phase;
+        }
+        if (crossed) triggered.push_back(event.name);
+    }
+}
+
 void blend_pose(
     const Skeleton& skeleton,
     const SkeletonPose& from,
@@ -277,6 +308,7 @@ void AnimationSystem::rebuild_matrices(
 void AnimationSystem::update_scene(Scene& scene, float delta_seconds) {
     scene.for_each<SkinnedMeshComponent, AnimationPlayerComponent>(
         [&](EntityId, SkinnedMeshComponent& mesh, AnimationPlayerComponent& player) {
+            player.triggered_events.clear();
             const AnimatedModelAssetResource* asset = mesh.runtime_asset;
             if (asset == nullptr || asset->skeleton.joints.empty()) {
                 player.pose = {};
@@ -309,7 +341,8 @@ void AnimationSystem::update_scene(Scene& scene, float delta_seconds) {
                 return;
             }
 
-            if (player.active_clip_name != clip->name) {
+            const bool clip_changed = player.active_clip_name != clip->name;
+            if (clip_changed) {
                 if (player.pose.local_transforms.size() == asset->skeleton.joints.size()) {
                     player.blend_from_pose = player.pose;
                 } else {
@@ -319,8 +352,18 @@ void AnimationSystem::update_scene(Scene& scene, float delta_seconds) {
                 player.blend_elapsed_seconds = 0.0f;
             }
 
+            const float previous_time = clip_changed ? 0.0f : player.time_seconds;
             if (player.playing) {
                 player.time_seconds += delta_seconds * player.playback_speed;
+                if (delta_seconds > 0.0f && player.playback_speed > 0.0f) {
+                    collect_animation_events(
+                        *clip,
+                        player.events,
+                        previous_time,
+                        player.time_seconds,
+                        player.triggered_events
+                    );
+                }
             }
 
             SkeletonPose target_pose;
