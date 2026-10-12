@@ -598,6 +598,102 @@ bool copy_file_if_needed(
     }
 }
 
+seed::EntityId import_animated_character_into_project(
+    WorkspaceState& workspace,
+    seed::Scene& scene,
+    seed::AssetRuntime& assets,
+    seed::ShaderHandle material_shader,
+    seed::ShaderHandle skinned_material_shader,
+    const std::string& source_text
+) {
+    if (workspace.project_file.empty()) return seed::InvalidEntity;
+
+    const std::filesystem::path source_file{source_text};
+    std::string import_error;
+    const auto imported = seed::AssetImporter::import_animated_model(source_file, &import_error);
+    if (!imported) return seed::InvalidEntity;
+
+    const std::filesystem::path project_root = workspace.project_file.parent_path();
+    const std::string folder_name = project_file_stem(source_file.stem().string());
+    const auto destination_directory = project_root / "Assets" / "Imported" / folder_name;
+    const auto destination_source = destination_directory / source_file.filename();
+
+    std::string copy_error;
+    if (!copy_file_if_needed(source_file, destination_source, &copy_error)) {
+        workspace.status_message = "Import copy failed: " + copy_error;
+        return seed::InvalidEntity;
+    }
+    for (const auto& dependency : imported->external_files) {
+        if (!safe_dependency_path(dependency)) {
+            workspace.status_message =
+                "Import rejected unsafe glTF dependency path: " + dependency.string();
+            return seed::InvalidEntity;
+        }
+        if (!copy_file_if_needed(
+                source_file.parent_path() / dependency,
+                destination_directory / dependency,
+                &copy_error)) {
+            workspace.status_message = "Import dependency copy failed: " + copy_error;
+            return seed::InvalidEntity;
+        }
+    }
+
+    std::filesystem::path relative_source;
+    try {
+        relative_source = std::filesystem::relative(destination_source, project_root);
+    } catch (const std::exception& exception) {
+        workspace.status_message = std::string{"Import path failed: "} + exception.what();
+        return seed::InvalidEntity;
+    }
+
+    assets.set_project_root(project_root);
+    const std::string asset_id = seed::AssetRuntime::make_character_asset_id(relative_source);
+    std::string asset_error;
+    const auto* resource = assets.load_character(asset_id, &asset_error);
+    if (resource == nullptr || !resource->mesh) {
+        workspace.status_message =
+            "Imported character but could not create runtime asset: " + asset_error;
+        return seed::InvalidEntity;
+    }
+
+    const auto entity = scene.create_entity(
+        imported->name.empty() ? source_file.stem().string() : imported->name
+    );
+    scene.add_component<seed::TransformComponent>(entity);
+
+    seed::SkinnedMeshComponent mesh;
+    mesh.mesh = resource->mesh;
+    mesh.asset_id = asset_id;
+    mesh.runtime_asset = resource;
+    scene.add_component<seed::SkinnedMeshComponent>(entity, mesh);
+
+    seed::AnimationPlayerComponent animation;
+    animation.locomotion_enabled = true;
+    animation.blend_duration_seconds = 0.15f;
+    scene.add_component<seed::AnimationPlayerComponent>(entity, animation);
+
+    seed::MaterialComponent material;
+    material.shader = skinned_material_shader;
+    material.base_color_texture = resource->base_color_texture;
+    material.metallic_roughness_texture = resource->metallic_roughness_texture;
+    material.normal_texture = resource->normal_texture;
+    material.base_color = resource->base_color;
+    material.metallic = resource->metallic;
+    material.roughness = resource->roughness;
+    material.normal_scale = resource->normal_scale;
+    material.use_base_color_texture = static_cast<bool>(resource->base_color_texture);
+    material.use_metallic_roughness_texture = static_cast<bool>(resource->metallic_roughness_texture);
+    material.use_normal_texture = static_cast<bool>(resource->normal_texture);
+    material.asset_id = asset_id;
+    material.use_asset_defaults = false;
+    scene.add_component<seed::MaterialComponent>(entity, material);
+
+    workspace.dirty = true;
+    workspace.status_message = "Imported animated character: " + asset_id;
+    (void)material_shader;
+    return entity;
+}
+
 seed::EntityId import_model_into_project(
     WorkspaceState& workspace,
     seed::Scene& scene,
@@ -1283,13 +1379,23 @@ int main(int argc, char** argv) {
                 break;
             case seed::studio::StudioActionType::ImportModel: {
                 if (has_pending_play_changes) break;
-                const auto entity = import_model_into_project(
+                auto entity = import_animated_character_into_project(
                     workspace,
                     scene,
                     asset_runtime,
                     mesh_shader,
+                    skinned_mesh_shader,
                     action.path
                 );
+                if (entity == seed::InvalidEntity) {
+                    entity = import_model_into_project(
+                        workspace,
+                        scene,
+                        asset_runtime,
+                        mesh_shader,
+                        action.path
+                    );
+                }
                 if (entity != seed::InvalidEntity) studio_ui.select_entity(entity);
                 break;
             }
