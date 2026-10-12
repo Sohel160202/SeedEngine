@@ -4,6 +4,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace seed {
 
@@ -49,6 +50,33 @@ struct PickupComponent {
     std::string display_name{"Item"};
     int quantity{1};
     bool destroy_on_pickup{true};
+};
+
+struct DialogueLine {
+    std::string speaker{"Speaker"};
+    std::string text{"..."};
+};
+
+struct DialogueComponent {
+    std::vector<DialogueLine> lines;
+    bool repeatable{true};
+    std::string interaction_prompt{"Talk"};
+    std::string quest_id_to_start{};
+};
+
+enum class QuestStatus {
+    Inactive,
+    Active,
+    Completed
+};
+
+struct QuestComponent {
+    std::string quest_id{"quest"};
+    std::string title{"New Quest"};
+    std::string description{};
+    std::string required_item{};
+    int required_quantity{1};
+    QuestStatus status{QuestStatus::Inactive};
 };
 
 enum class PlayerViewMode {
