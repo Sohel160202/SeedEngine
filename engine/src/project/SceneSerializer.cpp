@@ -401,8 +401,9 @@ bool SceneSerializer::load(
 
         nlohmann::json document;
         input >> document;
-        if (document.value("seed_format", std::string{}) != "seedscene") {
-            set_error(error, "File is not a Seed scene: " + scene_file.string());
+        const std::string seed_format = document.value("seed_format", std::string{});
+        if (seed_format != "seedscene" && seed_format != "seedprefab") {
+            set_error(error, "File is not a Seed scene or prefab: " + scene_file.string());
             return false;
         }
 

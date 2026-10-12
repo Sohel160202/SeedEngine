@@ -9,6 +9,11 @@ else()
     add_compile_options(-UNDEBUG)
 endif()
 
+add_executable(SeedPrefabSerializerTests prefab_serializer_tests.cpp)
+target_link_libraries(SeedPrefabSerializerTests PRIVATE SeedEngine)
+target_compile_features(SeedPrefabSerializerTests PRIVATE cxx_std_20)
+add_test(NAME SeedPrefabSerializerTests COMMAND SeedPrefabSerializerTests)
+
 add_executable(SeedCoreTests scene_tests.cpp)
 target_link_libraries(SeedCoreTests PRIVATE SeedEngine)
 target_compile_features(SeedCoreTests PRIVATE cxx_std_20)

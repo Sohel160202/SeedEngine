@@ -15,7 +15,8 @@ enum class StudioActionType {
     None, NewProject, OpenProject, Save, SaveAs, NewScene, ImportModel,
     CreateEmptyEntity, CreateCube, CreateDirectionalLight, CreateAmbientLight,
     CreateSky, CreateFirstPersonPlayer, CreateThirdPersonPlayer, CreateBeginnerPreset, BuildGame, OpenExample, DuplicateSelected, DeleteSelected,
-    FocusSelected, Undo, Redo, Play, Stop, OpenSemanticMerge, SaveRevision, LoadRevision
+    FocusSelected, Undo, Redo, Play, Stop, OpenSemanticMerge, SaveRevision, LoadRevision,
+    SavePrefab, InstantiatePrefab
 };
 
 struct StudioAction {
@@ -106,6 +107,8 @@ private:
     bool m_show_open_project_dialog{false};
     bool m_show_save_as_dialog{false};
     bool m_show_import_model_dialog{false};
+    bool m_show_prefab_dialog{false};
+    bool m_prefab_dialog_is_save{true};
     bool m_show_semantic_merge_dialog{false};
     bool m_show_revision_dialog{false};
     bool m_show_beginner_guide_dialog{false};
@@ -130,6 +133,7 @@ private:
     std::array<char,512> m_project_folder_buffer{};
     std::array<char,512> m_project_file_buffer{};
     std::array<char,512> m_import_model_file_buffer{};
+    std::array<char,512> m_prefab_file_buffer{};
     std::array<char,512> m_merge_base_file_buffer{};
     std::array<char,512> m_merge_ours_file_buffer{};
     std::array<char,512> m_merge_theirs_file_buffer{};
