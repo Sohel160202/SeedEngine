@@ -13,7 +13,7 @@ public:
     // the same frame.
     static void consume_events(
         Scene& scene,
-        const GameplayEventBus& event_bus
+        GameplayEventBus& event_bus
     );
 
     // Applies an authored attack to a target when the attack window is open.
