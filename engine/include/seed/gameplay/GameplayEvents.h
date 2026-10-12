@@ -9,7 +9,9 @@
 namespace seed {
 
 enum class GameplayEventType {
-    Animation
+    Animation,
+    Footstep,
+    Interaction
 };
 
 struct GameplayEvent {

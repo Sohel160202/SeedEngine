@@ -87,8 +87,8 @@ int main(int argc, char** argv) {
     engine.register_update_system(
         "Gameplay",
         seed::SystemPhase::Gameplay,
-        [&](seed::Scene& runtime_scene, double delta_seconds, seed::GameplayEventBus&) {
-            gameplay_runtime.update(runtime_scene, delta_seconds);
+        [&](seed::Scene& runtime_scene, double delta_seconds, seed::GameplayEventBus& events) {
+            gameplay_runtime.update(runtime_scene, delta_seconds, &events);
         }
     );
     engine.register_update_system(

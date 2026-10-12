@@ -12,6 +12,7 @@
 namespace seed {
 
 class Scene;
+class GameplayEventBus;
 
 class GameplayRuntime {
 public:
@@ -19,7 +20,7 @@ public:
     void stop();
 
     void handle_event(const PlatformEvent& event);
-    void update(Scene& scene, double delta_seconds);
+    void update(Scene& scene, double delta_seconds, GameplayEventBus* event_bus = nullptr);
 
     InputActionMap& input_map() noexcept { return m_input_map; }
     const InputActionMap& input_map() const noexcept { return m_input_map; }
@@ -43,8 +44,8 @@ private:
 
     EntityId resolve_player_camera(Scene& scene) const;
     void refresh_interaction_target(Scene& scene);
-    void perform_interaction(Scene& scene);
-    void update_player(Scene& scene, double delta_seconds);
+    void perform_interaction(Scene& scene, GameplayEventBus* event_bus);
+    void update_player(Scene& scene, double delta_seconds, GameplayEventBus* event_bus);
     void update_third_person_camera(Scene& scene);
     void update_doors(Scene& scene, double delta_seconds);
     void update_quests(Scene& scene);
@@ -54,6 +55,8 @@ private:
     bool player_has_item(const Scene& scene, const std::string& item_id) const;
     bool add_player_item(Scene& scene, const std::string& item_id, int quantity);
     bool consume_player_item(Scene& scene, const std::string& item_id);
+
+    void publish_footstep_event(double delta_seconds, float movement_speed, bool grounded, bool sprinting, GameplayEventBus* event_bus);
 
     bool m_active{false};
     EntityId m_player_entity{InvalidEntity};
@@ -77,6 +80,7 @@ private:
     float m_pending_look_y{0.0f};
     float m_third_person_yaw{0.0f};
     float m_third_person_pitch{-12.0f};
+    float m_footstep_elapsed{0.0f};
 
     InputActionMap m_input_map;
     PhysicsSystem::CharacterState m_character_state{};
