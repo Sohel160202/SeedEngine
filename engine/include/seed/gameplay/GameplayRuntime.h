@@ -96,6 +96,7 @@ private:
     std::unordered_map<EntityId, float> m_enemy_attack_elapsed;
     std::unordered_map<EntityId, bool> m_trigger_inside;
     bool m_victory_announced{false};
+    bool m_begin_play_published{false};
     EntityId m_dialogue_entity{InvalidEntity};
     std::size_t m_dialogue_line_index{0};
     bool m_dialogue_active{false};
