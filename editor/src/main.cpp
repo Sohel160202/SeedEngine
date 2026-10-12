@@ -424,6 +424,12 @@ seed::EntityId duplicate_entity(seed::Scene& scene, seed::EntityId source) {
     if (const auto* v = scene.get_component<seed::PickupComponent>(source)) {
         scene.add_component<seed::PickupComponent>(copy, *v);
     }
+    if (const auto* v = scene.get_component<seed::DialogueComponent>(source)) {
+        scene.add_component<seed::DialogueComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::QuestComponent>(source)) {
+        scene.add_component<seed::QuestComponent>(copy, *v);
+    }
     if (const auto* v = scene.get_component<seed::HealthComponent>(source)) {
         scene.add_component<seed::HealthComponent>(copy, *v);
     }
