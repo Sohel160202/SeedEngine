@@ -6,6 +6,7 @@
 
 #include "seed/animation/AnimationComponents.h"
 #include "seed/gameplay/Components.h"
+#include "seed/gameplay/CombatSystem.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
 #include "seed/scene/Hierarchy.h"
@@ -82,6 +83,13 @@ bool GameplayRuntime::start(Scene& scene, EntityId player_entity) {
     if (!scene.has_component<TransformComponent>(player_entity)) {
         scene.add_component<TransformComponent>(player_entity);
     }
+    if (!scene.has_component<AttackComponent>(player_entity)) {
+        scene.add_component<AttackComponent>(player_entity);
+    }
+    if (const auto* spawn = scene.get_component<TransformComponent>(player_entity)) {
+        m_spawn_position = spawn->position;
+        m_spawn_rotation = spawn->rotation_degrees;
+    }
     if (!scene.has_component<PlayerControllerComponent>(player_entity)) {
         scene.add_component<PlayerControllerComponent>(player_entity);
     }
@@ -151,11 +159,15 @@ void GameplayRuntime::stop() {
     m_has_mouse_position = false;
     m_interact_requested = false;
     m_jump_requested = false;
+    m_attack_requested = false;
     m_pending_look_x = 0.0f;
     m_pending_look_y = 0.0f;
     m_third_person_yaw = 0.0f;
     m_third_person_pitch = -12.0f;
     m_footstep_elapsed = 0.0f;
+    m_respawn_elapsed = 0.0f;
+    m_spawn_position = {};
+    m_spawn_rotation = {};
     m_character_state = {};
     m_doors.clear();
     m_dialogue_entity = InvalidEntity;
@@ -189,6 +201,9 @@ void GameplayRuntime::handle_event(const PlatformEvent& event) {
 
             if (action == InputAction::Interact && event.button_state == ButtonState::Pressed) {
                 m_interact_requested = true;
+            }
+            if (action == InputAction::Attack && event.button_state == ButtonState::Pressed) {
+                m_attack_requested = true;
             }
             if (event.button_state == ButtonState::Pressed) {
                 switch (action) {
@@ -240,7 +255,28 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBu
         return;
     }
 
+    if (auto* health = scene.get_component<HealthComponent>(m_player_entity);
+        health != nullptr && health->current <= 0.0f) {
+        m_respawn_elapsed += static_cast<float>(std::max(0.0, delta_seconds));
+        m_status_message = "You were defeated. Respawning...";
+        if (m_respawn_elapsed >= 2.0f) {
+            health->current = std::max(0.0f, health->maximum);
+            if (auto* transform = scene.get_component<TransformComponent>(m_player_entity)) {
+                transform->position = m_spawn_position;
+                transform->rotation_degrees = m_spawn_rotation;
+            }
+            m_respawn_elapsed = 0.0f;
+            m_status_message = "Respawned.";
+        }
+        return;
+    }
+    m_respawn_elapsed = 0.0f;
+
     update_player(scene, delta_seconds, event_bus);
+    if (m_attack_requested) {
+        m_attack_requested = false;
+        perform_attack(scene, event_bus);
+    }
     update_doors(scene, delta_seconds);
     update_quests(scene);
     refresh_interaction_target(scene);
@@ -787,6 +823,57 @@ void GameplayRuntime::advance_dialogue(Scene& scene, int choice_index) {
     } else {
         m_status_message = "Dialogue ended.";
     }
+}
+
+void GameplayRuntime::perform_attack(Scene& scene, GameplayEventBus* event_bus) {
+    if (event_bus == nullptr || m_player_entity == InvalidEntity) return;
+
+    auto* attack = scene.get_component<AttackComponent>(m_player_entity);
+    const auto* player_transform = scene.get_component<TransformComponent>(m_player_entity);
+    if (attack == nullptr || player_transform == nullptr) return;
+
+    attack->active = true;
+    event_bus->publish({
+        .source_entity = m_player_entity,
+        .type = GameplayEventType::Animation,
+        .name = attack->open_event,
+        .time_seconds = 0.0f,
+    });
+
+    const Vec3 forward = forward_from_euler(player_transform->rotation_degrees);
+    EntityId best_target = InvalidEntity;
+    float best_distance = std::numeric_limits<float>::max();
+    scene.for_each<TransformComponent, HealthComponent>(
+        [&](EntityId entity, TransformComponent& transform, HealthComponent& health) {
+            if (entity == m_player_entity || health.current <= 0.0f || health.invulnerable) return;
+            const Vec3 offset = transform.position - player_transform->position;
+            const float distance = length(offset);
+            if (distance > 3.0f || distance <= 0.001f) return;
+            if (dot(normalize(offset), forward) < 0.15f) return;
+            if (distance < best_distance) {
+                best_distance = distance;
+                best_target = entity;
+            }
+        }
+    );
+
+    if (best_target != InvalidEntity) {
+        CombatSystem::apply_attack_damage(
+            scene,
+            m_player_entity,
+            best_target,
+            *event_bus,
+            0.0f
+        );
+    }
+
+    event_bus->publish({
+        .source_entity = m_player_entity,
+        .type = GameplayEventType::Animation,
+        .name = attack->close_event,
+        .time_seconds = 0.0f,
+    });
+    attack->active = false;
 }
 
 void GameplayRuntime::update_quests(Scene& scene) {

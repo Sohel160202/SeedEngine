@@ -10,6 +10,8 @@
 #include "seed/core/Engine.h"
 #include "seed/gameplay/Components.h"
 #include "seed/gameplay/GameplayRuntime.h"
+#include "seed/gameplay/CombatSystem.h"
+#include "seed/gameplay/GameplayRulesSystem.h"
 #include "seed/gameplay/GameplayHUD.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/project/ProjectSerializer.h"
@@ -1322,11 +1324,16 @@ int main(int argc, char** argv) {
         if (stop_requested) stop_play_mode();
 
         if (playing) {
-            gameplay.update(play_scene, engine.delta_seconds());
+            auto& gameplay_events = engine.gameplay_events();
+            gameplay.update(play_scene, engine.delta_seconds(), &gameplay_events);
             seed::AnimationSystem::update_scene(
                 play_scene,
-                static_cast<float>(engine.delta_seconds())
+                static_cast<float>(engine.delta_seconds()),
+                &gameplay_events
             );
+            seed::GameplayRulesSystem::consume_events(play_scene, gameplay_events);
+            seed::CombatSystem::consume_events(play_scene, gameplay_events);
+            gameplay_events.clear();
         } else if (!has_pending_play_changes && !has_pending_semantic_merge) {
             if (ui_wants_keyboard) clear_movement_input(camera_input);
             if (camera_transform) {

@@ -349,7 +349,7 @@ void StudioUI::draw_assets_panel(const StudioDocumentInfo& document) {
 
             ImGui::Separator();
             ImGui::TextDisabled(
-                "F5 Stop   RMB Look   WASD Walk   Space Jump   Shift Sprint   E Interact"
+                "F5 Stop   RMB Look   WASD Walk   Space Jump   Shift Sprint   F Attack   E Interact"
             );
         }else{
             ImGui::BeginDisabled(!document.has_project);
