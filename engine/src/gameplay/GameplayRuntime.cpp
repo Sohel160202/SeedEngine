@@ -152,6 +152,7 @@ void GameplayRuntime::stop() {
     m_dialogue_entity = InvalidEntity;
     m_dialogue_line_index = 0;
     m_dialogue_active = false;
+    m_dialogue_choice_requested = -1;
     m_interaction_prompt.clear();
     m_status_message.clear();
 }
@@ -177,6 +178,14 @@ void GameplayRuntime::handle_event(const PlatformEvent& event) {
 
         if (event.key == KeyCode::E && event.button_state == ButtonState::Pressed) {
             m_interact_requested = true;
+        }
+        if (event.button_state == ButtonState::Pressed) {
+            switch (event.key) {
+            case KeyCode::Num1: m_dialogue_choice_requested = 0; break;
+            case KeyCode::Num2: m_dialogue_choice_requested = 1; break;
+            case KeyCode::Num3: m_dialogue_choice_requested = 2; break;
+            default: break;
+            }
         }
         if (event.key == KeyCode::Space && event.button_state == ButtonState::Pressed) {
             m_jump_requested = true;
@@ -210,6 +219,7 @@ void GameplayRuntime::handle_event(const PlatformEvent& event) {
         m_looking = false;
         m_has_mouse_position = false;
         m_jump_requested = false;
+        m_dialogue_choice_requested = -1;
     }
 }
 
@@ -223,7 +233,12 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds) {
     update_quests(scene);
     refresh_interaction_target(scene);
 
-    if (m_interact_requested) {
+    if (m_dialogue_choice_requested >= 0) {
+        const int choice_index = m_dialogue_choice_requested;
+        m_dialogue_choice_requested = -1;
+        advance_dialogue(scene, choice_index);
+        refresh_interaction_target(scene);
+    } else if (m_interact_requested) {
         perform_interaction(scene);
         m_interact_requested = false;
         refresh_interaction_target(scene);
@@ -550,9 +565,7 @@ void GameplayRuntime::perform_interaction(Scene& scene) {
         m_dialogue_entity = m_interaction_target;
         m_dialogue_line_index = 0;
         m_dialogue_active = true;
-        const auto& line = dialogue->lines.front();
-        m_status_message = line.speaker + ": " + line.text;
-        m_interaction_prompt = "[E] Next";
+        present_dialogue_line(scene);
         return;
     }
 
@@ -632,7 +645,25 @@ void GameplayRuntime::perform_interaction(Scene& scene) {
     m_status_message += scene.entity_name(m_interaction_target) + ".";
 }
 
-void GameplayRuntime::advance_dialogue(Scene& scene) {
+void GameplayRuntime::present_dialogue_line(Scene& scene) {
+    auto* dialogue = scene.get_component<DialogueComponent>(m_dialogue_entity);
+    if (dialogue == nullptr || m_dialogue_line_index >= dialogue->lines.size()) return;
+
+    const auto& line = dialogue->lines[m_dialogue_line_index];
+    m_status_message = line.speaker + ": " + line.text;
+    if (line.choices.empty()) {
+        m_interaction_prompt = "[E] Next";
+        return;
+    }
+
+    m_interaction_prompt = "[1-3] Choose";
+    const std::size_t count = std::min<std::size_t>(3, line.choices.size());
+    for (std::size_t index = 0; index < count; ++index) {
+        m_status_message += "\n" + std::to_string(index + 1) + ") " + line.choices[index].label;
+    }
+}
+
+void GameplayRuntime::advance_dialogue(Scene& scene, int choice_index) {
     if (!m_dialogue_active || !scene.is_alive(m_dialogue_entity)) {
         m_dialogue_active = false;
         m_dialogue_entity = InvalidEntity;
@@ -649,12 +680,31 @@ void GameplayRuntime::advance_dialogue(Scene& scene) {
         return;
     }
 
-    ++m_dialogue_line_index;
-    if (m_dialogue_line_index < dialogue->lines.size()) {
-        const auto& line = dialogue->lines[m_dialogue_line_index];
-        m_status_message = line.speaker + ": " + line.text;
+    const auto& current_line = dialogue->lines[m_dialogue_line_index];
+    if (!current_line.choices.empty()) {
+        if (choice_index < 0 ||
+            choice_index >= static_cast<int>(current_line.choices.size()) ||
+            choice_index >= 3) {
+            m_status_message = "Choose a response with 1, 2, or 3.";
+            m_interaction_prompt = "[1-3] Choose";
+            return;
+        }
+        const int next_line = current_line.choices[static_cast<std::size_t>(choice_index)].next_line;
+        if (next_line >= 0 && next_line < static_cast<int>(dialogue->lines.size())) {
+            m_dialogue_line_index = static_cast<std::size_t>(next_line);
+            present_dialogue_line(scene);
+            return;
+        }
+    } else if (choice_index >= 0) {
+        m_status_message = "This dialogue line has no choices.";
         m_interaction_prompt = "[E] Next";
         return;
+    } else {
+        ++m_dialogue_line_index;
+        if (m_dialogue_line_index < dialogue->lines.size()) {
+            present_dialogue_line(scene);
+            return;
+        }
     }
 
     const std::string quest_id = dialogue->quest_id_to_start;
@@ -699,6 +749,16 @@ void GameplayRuntime::update_quests(Scene& scene) {
         }
         quest.status = QuestStatus::Completed;
         m_status_message = "Quest complete: " + quest.title + ".";
+        if (!quest.reward_item.empty()) {
+            const int reward_quantity = std::max(1, quest.reward_quantity);
+            if (add_player_item(scene, quest.reward_item, reward_quantity)) {
+                m_status_message += " Reward: " + quest.reward_item;
+                if (reward_quantity > 1) {
+                    m_status_message += " x" + std::to_string(reward_quantity);
+                }
+                m_status_message += ".";
+            }
+        }
     });
 }
 

@@ -242,9 +242,17 @@ bool SceneSerializer::save(
             if (const auto* dialogue = scene.get_component<DialogueComponent>(entity)) {
                 nlohmann::json lines = nlohmann::json::array();
                 for (const auto& line : dialogue->lines) {
+                    nlohmann::json choices = nlohmann::json::array();
+                    for (const auto& choice : line.choices) {
+                        choices.push_back({
+                            {"label", choice.label},
+                            {"next_line", choice.next_line},
+                        });
+                    }
                     lines.push_back({
                         {"speaker", line.speaker},
                         {"text", line.text},
+                        {"choices", std::move(choices)},
                     });
                 }
                 components["Dialogue"] = {
@@ -261,6 +269,8 @@ bool SceneSerializer::save(
                     {"description", quest->description},
                     {"required_item", quest->required_item},
                     {"required_quantity", quest->required_quantity},
+                    {"reward_item", quest->reward_item},
+                    {"reward_quantity", quest->reward_quantity},
                     {"status", quest_status_name(quest->status)},
                 };
             }
@@ -559,6 +569,14 @@ bool SceneSerializer::load(
                         DialogueLine line;
                         line.speaker = line_value.value("speaker", std::string{"Speaker"});
                         line.text = line_value.value("text", std::string{"..."});
+                        if (line_value.contains("choices") && line_value.at("choices").is_array()) {
+                            for (const auto& choice_value : line_value.at("choices")) {
+                                DialogueChoice choice;
+                                choice.label = choice_value.value("label", std::string{"Continue"});
+                                choice.next_line = choice_value.value("next_line", -1);
+                                line.choices.push_back(std::move(choice));
+                            }
+                        }
                         dialogue.lines.push_back(std::move(line));
                     }
                 }
@@ -572,6 +590,8 @@ bool SceneSerializer::load(
                 quest.description = value.value("description", std::string{});
                 quest.required_item = value.value("required_item", std::string{});
                 quest.required_quantity = std::max(1, value.value("required_quantity", 1));
+                quest.reward_item = value.value("reward_item", std::string{});
+                quest.reward_quantity = std::max(1, value.value("reward_quantity", 1));
                 quest.status = quest_status_from_name(value.value("status", std::string{"inactive"}));
                 loaded_scene.add_component<QuestComponent>(entity, std::move(quest));
             }

@@ -52,9 +52,15 @@ struct PickupComponent {
     bool destroy_on_pickup{true};
 };
 
+struct DialogueChoice {
+    std::string label{"Continue"};
+    int next_line{-1};
+};
+
 struct DialogueLine {
     std::string speaker{"Speaker"};
     std::string text{"..."};
+    std::vector<DialogueChoice> choices;
 };
 
 struct DialogueComponent {
@@ -76,6 +82,8 @@ struct QuestComponent {
     std::string description{};
     std::string required_item{};
     int required_quantity{1};
+    std::string reward_item{};
+    int reward_quantity{1};
     QuestStatus status{QuestStatus::Inactive};
 };
 

@@ -44,7 +44,8 @@ private:
     void update_third_person_camera(Scene& scene);
     void update_doors(Scene& scene, double delta_seconds);
     void update_quests(Scene& scene);
-    void advance_dialogue(Scene& scene);
+    void advance_dialogue(Scene& scene, int choice_index = -1);
+    void present_dialogue_line(Scene& scene);
     void apply_door_transform(Scene& scene, EntityId entity, const DoorRuntimeState& state);
     bool player_has_item(const Scene& scene, const std::string& item_id) const;
     bool add_player_item(Scene& scene, const std::string& item_id, int quantity);
@@ -78,6 +79,7 @@ private:
     EntityId m_dialogue_entity{InvalidEntity};
     std::size_t m_dialogue_line_index{0};
     bool m_dialogue_active{false};
+    int m_dialogue_choice_requested{-1};
     std::string m_interaction_prompt;
     std::string m_status_message;
 };

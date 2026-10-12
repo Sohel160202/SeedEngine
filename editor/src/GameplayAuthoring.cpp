@@ -375,6 +375,27 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                 ImGui::Text("Line %zu", index + 1);
                 changed |= edit_string("Speaker", line.speaker);
                 changed |= edit_string("Text", line.text);
+                ImGui::SeparatorText("Choices");
+                for (std::size_t choice_index = 0; choice_index < line.choices.size(); ++choice_index) {
+                    auto& choice = line.choices[choice_index];
+                    ImGui::PushID(static_cast<int>(choice_index));
+                    changed |= edit_string("Choice", choice.label);
+                    changed |= ImGui::DragInt("Next Line", &choice.next_line, 1.0f, -1, 9999);
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Remove Choice")) {
+                        line.choices.erase(
+                            line.choices.begin() + static_cast<std::ptrdiff_t>(choice_index)
+                        );
+                        changed = true;
+                        ImGui::PopID();
+                        break;
+                    }
+                    ImGui::PopID();
+                }
+                if (ImGui::SmallButton("Add Choice")) {
+                    line.choices.push_back({});
+                    changed = true;
+                }
                 ImGui::SameLine();
                 if (ImGui::SmallButton("Remove")) {
                     dialogue->lines.erase(dialogue->lines.begin() + static_cast<std::ptrdiff_t>(index));
@@ -406,6 +427,12 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
             changed |= edit_string("Required Item", quest->required_item);
             if (ImGui::DragInt("Required Quantity", &quest->required_quantity, 1.0f, 1, 9999)) {
                 quest->required_quantity = std::max(1, quest->required_quantity);
+                changed = true;
+            }
+            ImGui::SeparatorText("Reward");
+            changed |= edit_string("Reward Item", quest->reward_item);
+            if (ImGui::DragInt("Reward Quantity", &quest->reward_quantity, 1.0f, 1, 9999)) {
+                quest->reward_quantity = std::max(1, quest->reward_quantity);
                 changed = true;
             }
             int status = static_cast<int>(quest->status);

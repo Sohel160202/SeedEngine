@@ -17,9 +17,10 @@ It intentionally uses only built-in cubes and Seed gameplay components so the en
 - Third-person Player and camera
 - Primitive rendering and collision
 - Interactable objects
-- Dialogue lines and quest activation
+- Branching dialogue choices and quest activation
 - Inventory and pickups
 - Item-locked sliding doors
+- Quest item rewards
 - Scene persistence
 
 This is an engine example, not the final Seed game. It is intentionally small so future systems can be added without needing an asset migration first.
