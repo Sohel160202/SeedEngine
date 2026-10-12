@@ -1,5 +1,7 @@
 #include "seed/gameplay/GameplayRuntime.h"
 
+#include "seed/gameplay/GameplayEvents.h"
+
 #include "seed/animation/AnimationComponents.h"
 #include "seed/gameplay/Components.h"
 #include "seed/physics/PhysicsComponents.h"
@@ -146,6 +148,7 @@ void GameplayRuntime::stop() {
     m_pending_look_y = 0.0f;
     m_third_person_yaw = 0.0f;
     m_third_person_pitch = -12.0f;
+    m_footstep_elapsed = 0.0f;
     m_character_state = {};
     m_doors.clear();
     m_dialogue_entity = InvalidEntity;
@@ -225,12 +228,12 @@ void GameplayRuntime::handle_event(const PlatformEvent& event) {
     }
 }
 
-void GameplayRuntime::update(Scene& scene, double delta_seconds) {
+void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBus* event_bus) {
     if (!m_active || !scene.is_alive(m_player_entity)) {
         return;
     }
 
-    update_player(scene, delta_seconds);
+    update_player(scene, delta_seconds, event_bus);
     update_doors(scene, delta_seconds);
     update_quests(scene);
     refresh_interaction_target(scene);
@@ -241,7 +244,7 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds) {
         advance_dialogue(scene, choice_index);
         refresh_interaction_target(scene);
     } else if (m_interact_requested) {
-        perform_interaction(scene);
+        perform_interaction(scene, event_bus);
         m_interact_requested = false;
         refresh_interaction_target(scene);
     }
@@ -304,7 +307,7 @@ EntityId GameplayRuntime::resolve_player_camera(Scene& scene) const {
     return primary_camera;
 }
 
-void GameplayRuntime::update_player(Scene& scene, double delta_seconds) {
+void GameplayRuntime::update_player(Scene& scene, double delta_seconds, GameplayEventBus* event_bus) {
     auto* transform = scene.get_component<TransformComponent>(m_player_entity);
     auto* controller = scene.get_component<PlayerControllerComponent>(m_player_entity);
     if (transform == nullptr || controller == nullptr || !controller->enabled) {
@@ -361,14 +364,17 @@ void GameplayRuntime::update_player(Scene& scene, double delta_seconds) {
             m_character_state
         );
         m_jump_requested = false;
+        const float movement_speed = length(wish) * speed;
+        const bool sprinting = m_fast && length(wish) > 0.0001f;
         publish_locomotion(
             scene,
             m_player_entity,
-            length(wish) * speed,
+            movement_speed,
             m_character_state.grounded,
             m_character_state.vertical_velocity,
-            m_fast && length(wish) > 0.0001f
+            sprinting
         );
+        publish_footstep_event(delta_seconds, movement_speed, m_character_state.grounded, sprinting, event_bus);
         if (controller->view_mode == PlayerViewMode::ThirdPerson) {
             update_third_person_camera(scene);
         }
@@ -385,17 +391,40 @@ void GameplayRuntime::update_player(Scene& scene, double delta_seconds) {
         if (m_down) transform->position += world_up * -distance;
     }
 
+    const float movement_speed = length(wish) * speed;
+    const bool sprinting = m_fast && length(wish) > 0.0001f;
     publish_locomotion(
         scene,
         m_player_entity,
-        length(wish) * speed,
+        movement_speed,
         true,
         0.0f,
-        m_fast && length(wish) > 0.0001f
+        sprinting
     );
+    publish_footstep_event(delta_seconds, movement_speed, true, sprinting, event_bus);
     m_jump_requested = false;
     if (controller->view_mode == PlayerViewMode::ThirdPerson) {
         update_third_person_camera(scene);
+    }
+}
+
+void GameplayRuntime::publish_footstep_event(
+    double delta_seconds,
+    float movement_speed,
+    bool grounded,
+    bool sprinting,
+    GameplayEventBus* event_bus
+) {
+    if (event_bus == nullptr || !grounded || movement_speed <= 0.001f) {
+        m_footstep_elapsed = 0.0f;
+        return;
+    }
+
+    m_footstep_elapsed += static_cast<float>(std::max(0.0, delta_seconds));
+    const float interval = sprinting ? 0.30f : 0.45f;
+    while (m_footstep_elapsed >= interval) {
+        m_footstep_elapsed -= interval;
+        event_bus->publish({m_player_entity, GameplayEventType::Footstep, "Footstep", 0.0f});
     }
 }
 
@@ -542,7 +571,7 @@ void GameplayRuntime::refresh_interaction_target(Scene& scene) {
     }
 }
 
-void GameplayRuntime::perform_interaction(Scene& scene) {
+void GameplayRuntime::perform_interaction(Scene& scene, GameplayEventBus* event_bus) {
     if (m_dialogue_active) {
         advance_dialogue(scene);
         return;
@@ -568,6 +597,9 @@ void GameplayRuntime::perform_interaction(Scene& scene) {
         m_dialogue_line_index = 0;
         m_dialogue_active = true;
         present_dialogue_line(scene);
+        if (event_bus != nullptr) {
+            event_bus->publish({m_interaction_target, GameplayEventType::Interaction, "DialogueStarted", 0.0f});
+        }
         return;
     }
 
@@ -603,6 +635,9 @@ void GameplayRuntime::perform_interaction(Scene& scene) {
             }
         }
 
+        if (event_bus != nullptr) {
+            event_bus->publish({pickup_entity, GameplayEventType::Interaction, "PickupCollected", 0.0f});
+        }
         m_interaction_target = InvalidEntity;
         return;
     }
@@ -610,6 +645,9 @@ void GameplayRuntime::perform_interaction(Scene& scene) {
     auto* door = scene.get_component<DoorComponent>(m_interaction_target);
     if (door == nullptr) {
         m_status_message = interactable->prompt + " triggered.";
+        if (event_bus != nullptr) {
+            event_bus->publish({m_interaction_target, GameplayEventType::Interaction, "Interact", 0.0f});
+        }
         return;
     }
 
@@ -645,6 +683,14 @@ void GameplayRuntime::perform_interaction(Scene& scene) {
     state.target_open = opening;
     m_status_message = opening ? "Opening " : "Closing ";
     m_status_message += scene.entity_name(m_interaction_target) + ".";
+    if (event_bus != nullptr) {
+        event_bus->publish({
+            m_interaction_target,
+            GameplayEventType::Interaction,
+            opening ? "DoorOpened" : "DoorClosed",
+            0.0f
+        });
+    }
 }
 
 void GameplayRuntime::present_dialogue_line(Scene& scene) {
