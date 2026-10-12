@@ -30,6 +30,7 @@ public:
     EntityId camera_entity() const noexcept { return m_camera_entity; }
     EntityId interaction_target() const noexcept { return m_interaction_target; }
     bool player_grounded() const noexcept { return m_character_state.grounded; }
+    bool dialogue_active() const noexcept { return m_dialogue_active; }
 
     const std::string& interaction_prompt() const noexcept { return m_interaction_prompt; }
     const std::string& status_message() const noexcept { return m_status_message; }
