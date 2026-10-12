@@ -1,6 +1,6 @@
 #pragma once
 
-#include "seed/animation/AnimationData.h"
+#include "seed/animation/AnimationComponents.h"
 
 namespace seed {
 
