@@ -4,6 +4,7 @@
 #include "seed/render/RenderResources.h"
 
 #include <string>
+#include <vector>
 
 namespace seed {
 
@@ -27,6 +28,13 @@ struct SkinnedMeshComponent {
 // Seed-native animation playback state. Keeping playback separate from the mesh
 // means future state machines, networking, ragdolls and mesh swaps can all reuse
 // the same semantic animation layer.
+struct AnimationEvent {
+    // Empty clip_name means the event follows the currently selected clip.
+    std::string clip_name;
+    std::string name{"Event"};
+    float time_seconds{0.0f};
+};
+
 struct AnimationPlayerComponent {
     // Empty means "use the first clip in the character asset".
     std::string clip_name;
@@ -44,6 +52,14 @@ struct AnimationPlayerComponent {
     float locomotion_vertical_velocity{0.0f};
     bool locomotion_grounded{true};
     bool locomotion_sprinting{false};
+
+    // Authored timing markers. They remain asset-independent and are saved with
+    // the scene so imported clips can be swapped without changing gameplay code.
+    std::vector<AnimationEvent> events;
+
+    // Runtime events emitted during the most recent update. Gameplay can consume
+    // and clear these names without requiring callbacks or external assets.
+    std::vector<std::string> triggered_events;
 
     // Runtime crossfade state.
     std::string active_clip_name;
