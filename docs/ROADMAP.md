@@ -65,11 +65,9 @@ Delivered:
 
 Next renderer milestone:
 
-- OpenGL skinned-mesh vertex layout
-- joint palette upload
-- animated material vertex shader
-- skinned shadow pass
-- runtime skinned-mesh drawing
+- material/texture quality parity for animated characters
+- skinned shadow filtering and performance tuning
+- runtime character preview in Seed Studio
 
 ## Phase 3 — Projects + Assets + Scene Persistence
 
@@ -213,12 +211,12 @@ Seed now owns:
 - 96-joint skinning-v0 limit enforced before rendering
 - generated animated-character test fixture in CI
 
-Important: **animated characters are not visually skinned by the renderer yet.** The CPU/runtime pipeline is complete enough for the next renderer milestone, but GPU deformation is still next.
+Important: **animated characters are now visually skinned by the OpenGL renderer.** The camera pass and shadow pass both consume the evaluated joint palette, so deformation and silhouettes stay synchronized.
 
 ### First Adventure still needs
 
-- renderer GPU skinning
-- visible animated character component
+- material/texture quality parity for animated characters
+- visible character preview and authoring workflow in Seed Studio
 - Idle / Walk / Run / Jump / Fall locomotion preset
 - animation blending
 - dialogue

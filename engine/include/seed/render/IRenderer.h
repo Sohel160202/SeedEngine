@@ -62,6 +62,20 @@ public:
 
     virtual bool begin_shadow_pass(const Mat4& light_view_projection) = 0;
     virtual void draw_shadow_mesh(MeshHandle mesh, const Mat4& model) = 0;
+
+    // Palette-aware shadow submission keeps animated silhouettes consistent with
+    // the main camera pass. Backends that do not support it retain the static
+    // shadow fallback above.
+    virtual void draw_skinned_shadow_mesh(
+        MeshHandle mesh,
+        const Mat4& model,
+        std::span<const Mat4> joint_palette
+    ) {
+        (void)mesh;
+        (void)model;
+        (void)joint_palette;
+    }
+
     virtual void end_shadow_pass() = 0;
 
     virtual void draw_mesh(

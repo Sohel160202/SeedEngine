@@ -170,14 +170,15 @@ bool RenderSystem::render(Scene& scene, IRenderer& renderer, EntityId camera_ent
                 }
             );
 
-            // Skinning v0 intentionally casts the imported bind-pose silhouette
-            // until the dedicated palette-aware shadow shader lands. This keeps
-            // characters participating in lighting without coupling the first
-            // visible deformation milestone to a second shader path.
-            scene.for_each<TransformComponent, SkinnedMeshComponent>(
-                [&](EntityId entity, TransformComponent&, SkinnedMeshComponent& mesh) {
-                    if (!mesh.visible || !mesh.cast_shadows || !mesh.mesh) return;
-                    renderer.draw_shadow_mesh(mesh.mesh, world_transform_matrix(scene, entity));
+            scene.for_each<TransformComponent, SkinnedMeshComponent, AnimationPlayerComponent>(
+                [&](EntityId entity, TransformComponent&, SkinnedMeshComponent& mesh,
+                    AnimationPlayerComponent& animation) {
+                    if (!mesh.visible || !mesh.cast_shadows || !mesh.mesh || animation.pose.skin_matrices.empty()) return;
+                    renderer.draw_skinned_shadow_mesh(
+                        mesh.mesh,
+                        world_transform_matrix(scene, entity),
+                        animation.pose.skin_matrices
+                    );
                 }
             );
 
