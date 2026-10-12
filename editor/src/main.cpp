@@ -1686,6 +1686,38 @@ int main(int argc, char** argv) {
                     : "Build preparation failed: " + build_error;
                 break;
             }
+            case seed::studio::StudioActionType::RefreshLinkedPrefabs: {
+                if (has_pending_play_changes || workspace.project_file.empty()) break;
+                std::filesystem::path prefab_path = action.path;
+                if (prefab_path.is_relative()) prefab_path = workspace.project_file.parent_path() / prefab_path;
+                std::size_t refreshed = 0;
+                std::string prefab_error;
+                if (!seed::PrefabSerializer::refresh_linked_instances(
+                        scene,
+                        prefab_path,
+                        &refreshed,
+                        &prefab_error)) {
+                    workspace.status_message = "Prefab refresh failed: " + prefab_error;
+                    break;
+                }
+                if (refreshed > 0) {
+                    workspace.dirty = true;
+                    std::string rebind_error;
+                    const bool rebound = asset_runtime.bind_scene(
+                        scene,
+                        mesh_shader,
+                        skinned_mesh_shader,
+                        &rebind_error
+                    );
+                    workspace.status_message = rebound
+                        ? "Refreshed " + std::to_string(refreshed) + " linked prefab instance(s)."
+                        : "Refreshed " + std::to_string(refreshed) +
+                            " instance(s), but asset rebind reported: " + rebind_error;
+                } else {
+                    workspace.status_message = "No linked instances found for " + prefab_path.string() + ".";
+                }
+                break;
+            }
             case seed::studio::StudioActionType::SavePrefab: {
                 if (has_pending_play_changes || workspace.project_file.empty()) break;
                 if (studio_ui.selected_entity() == seed::InvalidEntity ||
