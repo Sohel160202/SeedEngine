@@ -8,6 +8,7 @@
 #include "seed/assets/AssetImporter.h"
 #include "seed/assets/AssetRuntime.h"
 #include "seed/core/Engine.h"
+#include "seed/diagnostics/SeedDoctor.h"
 #include "seed/gameplay/Components.h"
 #include "seed/gameplay/GameplayRuntime.h"
 #include "seed/gameplay/CombatSystem.h"
@@ -571,6 +572,17 @@ seed::EntityId duplicate_entity(seed::Scene& scene, seed::EntityId source) {
     }
     if (const auto* v = scene.get_component<seed::EnemyAIComponent>(source)) {
         scene.add_component<seed::EnemyAIComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::GameplayVariablesComponent>(source)) {
+        scene.add_component<seed::GameplayVariablesComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::TriggerVolumeComponent>(source)) {
+        auto trigger = *v;
+        trigger.fired = false;
+        scene.add_component<seed::TriggerVolumeComponent>(copy, trigger);
+    }
+    if (const auto* v = scene.get_component<seed::SpawnPointComponent>(source)) {
+        scene.add_component<seed::SpawnPointComponent>(copy, *v);
     }
     if (const auto* v = scene.get_component<seed::InventoryComponent>(source)) {
         scene.add_component<seed::InventoryComponent>(copy, *v);
@@ -1657,6 +1669,15 @@ int main(int argc, char** argv) {
             }
             case seed::studio::StudioActionType::BuildGame: {
                 if (has_pending_play_changes || workspace.project_file.empty()) break;
+                const auto findings = seed::SeedDoctor::inspect(scene);
+                std::size_t errors = 0;
+                for (const auto& finding : findings) {
+                    if (finding.severity == seed::DoctorSeverity::Error) ++errors;
+                }
+                if (errors > 0) {
+                    workspace.status_message = "Build blocked: Seed Doctor found " + std::to_string(errors) + " error(s). Fix them before exporting.";
+                    break;
+                }
                 if (!save_workspace(workspace, scene)) break;
                 std::string build_error;
                 workspace.status_message = prepare_standalone_build(workspace, &build_error)

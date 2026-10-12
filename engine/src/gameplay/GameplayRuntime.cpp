@@ -171,6 +171,8 @@ void GameplayRuntime::stop() {
     m_character_state = {};
     m_doors.clear();
     m_enemy_attack_elapsed.clear();
+    m_trigger_inside.clear();
+    m_begin_play_published = false;
     m_victory_announced = false;
     m_dialogue_entity = InvalidEntity;
     m_dialogue_line_index = 0;
@@ -274,6 +276,15 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBu
     }
     m_respawn_elapsed = 0.0f;
 
+    if (!m_begin_play_published && event_bus != nullptr) {
+        event_bus->publish({
+            .source_entity = m_player_entity,
+            .type = GameplayEventType::BeginPlay,
+            .name = "BeginPlay",
+        });
+        m_begin_play_published = true;
+    }
+
     update_player(scene, delta_seconds, event_bus);
     if (m_attack_requested) {
         m_attack_requested = false;
@@ -284,6 +295,7 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBu
     refresh_interaction_target(scene);
 
     update_enemies(scene, delta_seconds, event_bus);
+    update_triggers(scene, event_bus);
 
     if (m_dialogue_choice_requested >= 0) {
         const int choice_index = m_dialogue_choice_requested;
@@ -297,6 +309,37 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBu
     }
 }
 
+
+void GameplayRuntime::update_triggers(Scene& scene, GameplayEventBus* event_bus) {
+    const auto* player_transform = scene.get_component<TransformComponent>(m_player_entity);
+    if (player_transform == nullptr || event_bus == nullptr) return;
+
+    scene.for_each<TransformComponent, TriggerVolumeComponent>(
+        [&](EntityId entity, TransformComponent& transform, TriggerVolumeComponent& trigger) {
+            if (!trigger.enabled || (trigger.fire_once && trigger.fired)) return;
+            const Vec3 offset = player_transform->position - transform.position;
+            const bool inside = length(offset) <= std::max(0.1f, trigger.radius);
+            const bool was_inside = m_trigger_inside[entity];
+            if (inside && !was_inside) {
+                event_bus->publish({
+                    .source_entity = entity,
+                    .type = GameplayEventType::Trigger,
+                    .name = "EnterTrigger",
+                    .target_entity = m_player_entity,
+                });
+                if (trigger.fire_once) trigger.fired = true;
+            } else if (!inside && was_inside) {
+                event_bus->publish({
+                    .source_entity = entity,
+                    .type = GameplayEventType::Trigger,
+                    .name = "ExitTrigger",
+                    .target_entity = m_player_entity,
+                });
+            }
+            m_trigger_inside[entity] = inside;
+        }
+    );
+}
 
 void GameplayRuntime::update_enemies(Scene& scene, double delta_seconds, GameplayEventBus* event_bus) {
     const auto* player_transform = scene.get_component<TransformComponent>(m_player_entity);

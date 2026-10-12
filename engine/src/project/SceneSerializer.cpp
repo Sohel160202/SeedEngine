@@ -254,11 +254,28 @@ bool SceneSerializer::save(
                     {"enabled", enemy->enabled},
                 };
             }
+            if (const auto* variables = scene.get_component<GameplayVariablesComponent>(entity)) {
+                nlohmann::json values = nlohmann::json::array();
+                for (const auto& variable : variables->values) {
+                    values.push_back({{"name", variable.name}, {"number", variable.number}, {"boolean", variable.boolean}});
+                }
+                components["GameplayVariables"] = {{"values", std::move(values)}};
+            }
+            if (const auto* trigger = scene.get_component<TriggerVolumeComponent>(entity)) {
+                components["TriggerVolume"] = {
+                    {"radius", trigger->radius}, {"enabled", trigger->enabled}, {"fire_once", trigger->fire_once}
+                };
+            }
+            if (const auto* spawn = scene.get_component<SpawnPointComponent>(entity)) {
+                components["SpawnPoint"] = {{"spawn_tag", spawn->spawn_tag}, {"enabled", spawn->enabled}};
+            }
             if (const auto* gameplay_rules = scene.get_component<GameplayRulesComponent>(entity)) {
                 nlohmann::json rules = nlohmann::json::array();
                 for (const auto& rule : gameplay_rules->rules) {
                     rules.push_back({
                         {"when", rule.when_event},
+                        {"condition", rule.condition},
+                        {"condition_value", rule.condition_value},
                         {"action", rule.action},
                         {"value", rule.action_value},
                         {"required_item", rule.required_item},
@@ -625,6 +642,36 @@ bool SceneSerializer::load(
                 enemy.enabled = value.value("enabled", true);
                 loaded_scene.add_component<EnemyAIComponent>(entity, enemy);
             }
+            if (components.contains("GameplayVariables")) {
+                GameplayVariablesComponent variables;
+                const auto& value = components.at("GameplayVariables");
+                if (value.contains("values") && value.at("values").is_array()) {
+                    for (const auto& item : value.at("values")) {
+                        GameplayVariable variable;
+                        variable.name = item.value("name", std::string{"Variable"});
+                        variable.number = item.value("number", 0.0f);
+                        variable.boolean = item.value("boolean", false);
+                        variables.values.push_back(std::move(variable));
+                    }
+                }
+                loaded_scene.add_component<GameplayVariablesComponent>(entity, std::move(variables));
+            }
+            if (components.contains("TriggerVolume")) {
+                const auto& value = components.at("TriggerVolume");
+                TriggerVolumeComponent trigger;
+                trigger.radius = std::max(0.1f, value.value("radius", 2.0f));
+                trigger.enabled = value.value("enabled", true);
+                trigger.fire_once = value.value("fire_once", false);
+                trigger.fired = false;
+                loaded_scene.add_component<TriggerVolumeComponent>(entity, trigger);
+            }
+            if (components.contains("SpawnPoint")) {
+                const auto& value = components.at("SpawnPoint");
+                SpawnPointComponent spawn;
+                spawn.spawn_tag = value.value("spawn_tag", std::string{"Player"});
+                spawn.enabled = value.value("enabled", true);
+                loaded_scene.add_component<SpawnPointComponent>(entity, std::move(spawn));
+            }
             if (components.contains("GameplayRules")) {
                 const auto& value = components.at("GameplayRules");
                 GameplayRulesComponent gameplay_rules;
@@ -632,6 +679,8 @@ bool SceneSerializer::load(
                     for (const auto& item : value.at("rules")) {
                         GameplayRule rule;
                         rule.when_event = item.value("when", std::string{"Interact"});
+                        rule.condition = item.value("condition", std::string{});
+                        rule.condition_value = item.value("condition_value", std::string{});
                         rule.action = item.value("action", std::string{"Publish Event"});
                         rule.action_value = item.value("value", std::string{"RuleTriggered"});
                         rule.required_item = item.value("required_item", std::string{});
