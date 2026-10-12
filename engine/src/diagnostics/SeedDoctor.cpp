@@ -149,6 +149,40 @@ std::vector<DoctorFinding> SeedDoctor::inspect(const Scene& scene) {
         }
     });
 
+    scene.for_each<GameplayRulesComponent>([&](EntityId entity, const GameplayRulesComponent& rules) {
+        for (const auto& rule : rules.rules) {
+            if (blank(rule.when_event)) {
+                add_finding(findings, scene, entity, "gameplay.rule.missing_event", DoctorSeverity::Error,
+                    "Gameplay Rule needs a When event.", "GameplayRule.when_event is empty.");
+            }
+            if (blank(rule.action)) {
+                add_finding(findings, scene, entity, "gameplay.rule.missing_action", DoctorSeverity::Error,
+                    "Gameplay Rule needs a Then action.", "GameplayRule.action is empty.");
+            }
+            if (rule.condition == "Has Item" && blank(rule.condition_value)) {
+                add_finding(findings, scene, entity, "gameplay.rule.missing_condition_value", DoctorSeverity::Error,
+                    "This rule needs an item to check.", "Has Item condition has no condition value.");
+            }
+        }
+    });
+
+    scene.for_each<GameplayVariablesComponent>([&](EntityId entity, const GameplayVariablesComponent& variables) {
+        for (const auto& variable : variables.values) {
+            if (blank(variable.name)) {
+                add_finding(findings, scene, entity, "gameplay.variable.missing_name", DoctorSeverity::Error,
+                    "Every gameplay variable needs a name.", "GameplayVariable.name is empty.");
+            }
+        }
+    });
+
+    scene.for_each<TriggerVolumeComponent>([&](EntityId entity, const TriggerVolumeComponent& trigger) {
+        if (trigger.enabled && !scene.has_component<TransformComponent>(entity)) {
+            add_finding(findings, scene, entity, "gameplay.trigger.missing_transform", DoctorSeverity::Error,
+                "Trigger Volume needs a Transform so Seed knows where it is.",
+                "TriggerVolumeComponent is enabled without TransformComponent.");
+        }
+    });
+
     scene.for_each<PersistentComponent>([&](EntityId entity, const PersistentComponent& persistent) {
         if (!persistent.enabled) return;
         const bool has_v0_state =
