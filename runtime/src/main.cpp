@@ -3,6 +3,7 @@
 #include "seed/gameplay/Components.h"
 #include "seed/gameplay/CombatSystem.h"
 #include "seed/gameplay/GameplayRuntime.h"
+#include "seed/gameplay/GameplayFeedbackSystem.h"
 
 #include <charconv>
 #include <cstdint>
@@ -102,11 +103,20 @@ int main(int argc, char** argv) {
             );
         }
     );
+    seed::GameplayFeedbackBus feedback;
+
     engine.register_update_system(
         "Combat",
         seed::SystemPhase::EventDispatch,
         [](seed::Scene& runtime_scene, double, seed::GameplayEventBus& events) {
             seed::CombatSystem::consume_events(runtime_scene, events);
+        }
+    );
+    engine.register_update_system(
+        "Feedback",
+        seed::SystemPhase::EventDispatch,
+        [&](seed::Scene&, double, seed::GameplayEventBus& events) {
+            seed::GameplayFeedbackSystem::consume_events(events, feedback);
         }
     );
 
