@@ -651,14 +651,39 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                     changed = true;
                 }
 
-                changed |= edit_string("Value", rule.action_value);
+                const char* values[] = {
+                    "RuleTriggered", "Talked", "DoorUnlocked", "Victory", "AreaCleared",
+                    "find_key", "defeat_enemy", "explore_area", "Key", "Coin", "Potion"
+                };
+                int value_index = 0;
+                for (int candidate = 0; candidate < static_cast<int>(std::size(values)); ++candidate) {
+                    if (rule.action_value == values[candidate]) {
+                        value_index = candidate;
+                        break;
+                    }
+                }
+                if (ImGui::Combo("What", &value_index, values, static_cast<int>(std::size(values)))) {
+                    rule.action_value = values[value_index];
+                    changed = true;
+                }
                 if (rule.action == "Give Item" || rule.action == "Apply Damage") {
                     if (ImGui::DragInt("Amount", &rule.quantity, 1.0f, 1, 9999)) {
                         rule.quantity = std::max(1, rule.quantity);
                         changed = true;
                     }
                 } else {
-                    changed |= edit_string("Required Item", rule.required_item);
+                    changed |= ImGui::Checkbox("Require item", &(!rule.required_item.empty()));
+                    if (!rule.required_item.empty()) {
+                        const char* required_items[] = {"Key", "Coin", "Potion"};
+                        int required_index = 0;
+                        for (int candidate = 0; candidate < 3; ++candidate) {
+                            if (rule.required_item == required_items[candidate]) required_index = candidate;
+                        }
+                        if (ImGui::Combo("Required Item", &required_index, required_items, 3)) {
+                            rule.required_item = required_items[required_index];
+                            changed = true;
+                        }
+                    }
                 }
                 changed |= ImGui::Checkbox("Run Once", &rule.once);
                 ImGui::TextDisabled("Runtime: %s", rule.fired ? "Triggered" : "Waiting");
