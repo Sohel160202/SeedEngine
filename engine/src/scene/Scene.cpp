@@ -33,6 +33,30 @@ EntityId Scene::create_entity(std::string name, std::string persistent_id) {
     return entity;
 }
 
+EntityId Scene::copy_entity_from(
+    const Scene& source,
+    EntityId source_entity,
+    std::string name,
+    std::string persistent_id
+) {
+    source.ensure_alive(source_entity);
+    if (name.empty()) name = source.entity_name(source_entity);
+    const EntityId destination_entity = create_entity(
+        std::move(name),
+        std::move(persistent_id)
+    );
+    for (const auto& [type, pool] : source.m_component_pools) {
+        (void)type;
+        pool->copy_entity_to(source_entity, *this, destination_entity);
+    }
+    // A single-entity prefab is instantiated as a root. Hierarchy-aware
+    // prefabs will preserve parent/child relationships in a later format version.
+    if (auto* parent = get_component<ParentComponent>(destination_entity)) {
+        parent->parent_persistent_id.clear();
+    }
+    return destination_entity;
+}
+
 bool Scene::destroy_entity(EntityId entity) {
     const auto found = m_entities.find(entity);
     if (found == m_entities.end()) return false;
