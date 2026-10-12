@@ -14,8 +14,8 @@
 namespace seed {
 namespace {
 
-void set_key_state(
-    KeyCode key,
+void set_action_state(
+    InputAction action,
     bool down,
     bool& forward,
     bool& backward,
@@ -25,15 +25,14 @@ void set_key_state(
     bool& move_up,
     bool& fast
 ) {
-    switch (key) {
-    case KeyCode::W: forward = down; break;
-    case KeyCode::S: backward = down; break;
-    case KeyCode::A: left = down; break;
-    case KeyCode::D: right = down; break;
-    case KeyCode::Q: move_down = down; break;
-    case KeyCode::Space: move_up = down; break;
-    case KeyCode::LeftShift:
-    case KeyCode::RightShift: fast = down; break;
+    switch (action) {
+    case InputAction::MoveForward: forward = down; break;
+    case InputAction::MoveBackward: backward = down; break;
+    case InputAction::MoveLeft: left = down; break;
+    case InputAction::MoveRight: right = down; break;
+    case InputAction::MoveDown: move_down = down; break;
+    case InputAction::MoveUp: move_up = down; break;
+    case InputAction::Sprint: fast = down; break;
     default: break;
     }
 }
@@ -164,8 +163,9 @@ void GameplayRuntime::handle_event(const PlatformEvent& event) {
 
     if (event.type == PlatformEventType::Key) {
         const bool down = event.button_state != ButtonState::Released;
-        set_key_state(
-            event.key,
+        const InputAction action = m_input_map.action_for(event.key);
+        set_action_state(
+            action,
             down,
             m_forward,
             m_backward,
@@ -176,18 +176,18 @@ void GameplayRuntime::handle_event(const PlatformEvent& event) {
             m_fast
         );
 
-        if (event.key == KeyCode::E && event.button_state == ButtonState::Pressed) {
+        if (action == InputAction::Interact && event.button_state == ButtonState::Pressed) {
             m_interact_requested = true;
         }
         if (event.button_state == ButtonState::Pressed) {
-            switch (event.key) {
-            case KeyCode::Num1: m_dialogue_choice_requested = 0; break;
-            case KeyCode::Num2: m_dialogue_choice_requested = 1; break;
-            case KeyCode::Num3: m_dialogue_choice_requested = 2; break;
+            switch (action) {
+            case InputAction::DialogueChoice1: m_dialogue_choice_requested = 0; break;
+            case InputAction::DialogueChoice2: m_dialogue_choice_requested = 1; break;
+            case InputAction::DialogueChoice3: m_dialogue_choice_requested = 2; break;
             default: break;
             }
         }
-        if (event.key == KeyCode::Space && event.button_state == ButtonState::Pressed) {
+        if (action == InputAction::Jump && event.button_state == ButtonState::Pressed) {
             m_jump_requested = true;
         }
     }
