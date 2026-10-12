@@ -54,6 +54,28 @@ int main() {
     });
     assert(found_child);
 
+    destination.get_component<seed::TransformComponent>(instance)->position.x = 42.0f;
+    source.get_component<seed::HealthComponent>(enemy)->current = 99.0f;
+    assert(seed::PrefabSerializer::save(source, enemy, prefab_path, &error));
+
+    std::size_t refreshed = 0;
+    assert(seed::PrefabSerializer::refresh_linked_instances(
+        destination,
+        prefab_path,
+        &refreshed,
+        &error
+    ));
+    assert(refreshed == 1);
+    seed::EntityId refreshed_root = seed::InvalidEntity;
+    destination.for_each_entity([&](seed::EntityId candidate, const std::string&) {
+        if (destination.get_component<seed::PrefabInstanceComponent>(candidate) != nullptr) {
+            refreshed_root = candidate;
+        }
+    });
+    assert(refreshed_root != seed::InvalidEntity);
+    assert(destination.get_component<seed::HealthComponent>(refreshed_root)->current == 99.0f);
+    assert(destination.get_component<seed::TransformComponent>(refreshed_root)->position.x == 42.0f);
+
     std::filesystem::remove(prefab_path);
     return 0;
 }
