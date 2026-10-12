@@ -14,7 +14,7 @@ namespace seed::studio {
 enum class StudioActionType {
     None, NewProject, OpenProject, Save, SaveAs, NewScene, ImportModel,
     CreateEmptyEntity, CreateCube, CreateDirectionalLight, CreateAmbientLight,
-    CreateSky, CreateFirstPersonPlayer, CreateThirdPersonPlayer, OpenExample, DuplicateSelected, DeleteSelected,
+    CreateSky, CreateFirstPersonPlayer, CreateThirdPersonPlayer, CreateBeginnerPreset, BuildGame, OpenExample, DuplicateSelected, DeleteSelected,
     FocusSelected, Undo, Redo, Play, Stop, OpenSemanticMerge, SaveRevision, LoadRevision
 };
 
@@ -134,6 +134,7 @@ private:
     std::array<char,512> m_merge_ours_file_buffer{};
     std::array<char,512> m_merge_theirs_file_buffer{};
     int m_project_template_index{1};
+    int m_beginner_tutorial_step{0};
     int m_merge_base_revision_index{-1};
     int m_merge_ours_revision_index{-1};
     int m_merge_theirs_revision_index{-1};
