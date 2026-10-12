@@ -1,5 +1,7 @@
 #include "seed/gameplay/GameplayRuntime.h"
 
+#include "seed/animation/AnimationComponents.h"
+
 #include "seed/gameplay/GameplayEvents.h"
 
 #include "seed/animation/AnimationComponents.h"
@@ -85,6 +87,11 @@ bool GameplayRuntime::start(Scene& scene, EntityId player_entity) {
     }
     if (!scene.has_component<InventoryComponent>(player_entity)) {
         scene.add_component<InventoryComponent>(player_entity);
+    }
+    if (!scene.has_component<AnimationPlayerComponent>(player_entity)) {
+        AnimationPlayerComponent animation;
+        animation.locomotion_enabled = true;
+        scene.add_component<AnimationPlayerComponent>(player_entity, std::move(animation));
     }
 
     m_player_entity = player_entity;
