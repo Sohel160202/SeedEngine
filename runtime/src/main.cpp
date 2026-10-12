@@ -5,10 +5,14 @@
 #include "seed/gameplay/GameplayRuntime.h"
 #include "seed/gameplay/AudioSystem.h"
 #include "seed/gameplay/GameplayFeedbackSystem.h"
+#include "seed/project/ProjectSerializer.h"
+#include "seed/project/SceneSerializer.h"
 
 #include <charconv>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -18,25 +22,83 @@ std::uint64_t parse_frame_limit(int argc, char** argv) {
 
     for (int i = 1; i < argc; ++i) {
         const std::string_view argument{argv[i]};
-        if (!argument.starts_with(prefix)) {
-            continue;
-        }
+        if (!argument.starts_with(prefix)) continue;
 
         std::uint64_t value = 0;
         const auto number = argument.substr(prefix.size());
         const auto result = std::from_chars(number.data(), number.data() + number.size(), value);
-        if (result.ec == std::errc{} && result.ptr == number.data() + number.size()) {
-            return value;
-        }
+        if (result.ec == std::errc{} && result.ptr == number.data() + number.size()) return value;
     }
 
     return 0;
+}
+
+std::filesystem::path parse_project_file(int argc, char** argv) {
+    constexpr std::string_view prefix{"--project="};
+
+    for (int i = 1; i < argc; ++i) {
+        const std::string_view argument{argv[i]};
+        if (argument.starts_with(prefix)) {
+            return std::filesystem::path{argument.substr(prefix.size())};
+        }
+    }
+
+    return {};
+}
+
+bool load_project_scene(
+    seed::Scene& scene,
+    const std::filesystem::path& project_file,
+    seed::EntityId& player_entity
+) {
+    std::string error;
+    const auto project = seed::ProjectSerializer::load(project_file, &error);
+    if (!project.has_value()) {
+        std::cerr << "[SeedRuntime] " << error << '\n';
+        return false;
+    }
+
+    const std::filesystem::path scene_file =
+        project_file.parent_path() / project->startup_scene;
+    if (!seed::SceneSerializer::load(scene, scene_file, &error)) {
+        std::cerr << "[SeedRuntime] " << error << '\n';
+        return false;
+    }
+
+    player_entity = scene.find_entity_by_persistent_id("player");
+    if (player_entity == seed::InvalidEntity) {
+        std::cerr << "[SeedRuntime] Project startup scene has no entity with id 'player'.\n";
+        return false;
+    }
+
+    std::cout << "[SeedRuntime] Loaded project '" << project->name
+              << "' from " << project_file << ".\n";
+    std::cout << "[SeedRuntime] Startup scene: " << scene_file << ".\n";
+    return true;
+}
+
+void ensure_player_dependencies(seed::Scene& scene, seed::EntityId player) {
+    if (!scene.has_component<seed::TransformComponent>(player)) {
+        scene.add_component<seed::TransformComponent>(player);
+    }
+    if (!scene.has_component<seed::PlayerControllerComponent>(player)) {
+        seed::PlayerControllerComponent controller;
+        controller.view_mode = seed::PlayerViewMode::ThirdPerson;
+        scene.add_component<seed::PlayerControllerComponent>(player, controller);
+    }
+    if (!scene.has_component<seed::InventoryComponent>(player)) {
+        scene.add_component<seed::InventoryComponent>(player);
+    }
+    if (!scene.has_component<seed::HealthComponent>(player)) {
+        scene.add_component<seed::HealthComponent>(player);
+    }
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
     const std::uint64_t frame_limit = parse_frame_limit(argc, argv);
+    const std::filesystem::path project_file = parse_project_file(argc, argv);
 
     seed::Engine engine({
         .application_name = "Seed Runtime",
@@ -49,27 +111,35 @@ int main(int argc, char** argv) {
         .clear_color = {.r = 0.035f, .g = 0.055f, .b = 0.040f, .a = 1.0f},
     });
 
-    if (!engine.start()) {
-        return 1;
-    }
+    if (!engine.start()) return 1;
 
     auto& scene = engine.scene();
-    const auto player = scene.create_entity("Player");
-    scene.add_component<seed::TransformComponent>(player);
-    scene.add_component<seed::InventoryComponent>(player);
+    seed::EntityId player = seed::InvalidEntity;
+    if (!project_file.empty()) {
+        if (!load_project_scene(scene, project_file, player)) {
+            engine.shutdown();
+            return 1;
+        }
+    } else {
+        player = scene.create_entity("Player", "player");
+        scene.add_component<seed::TransformComponent>(player);
+        scene.add_component<seed::InventoryComponent>(player);
+        scene.add_component<seed::HealthComponent>(player);
 
-    const auto door = scene.create_entity("Cabin Door");
-    scene.add_component<seed::TransformComponent>(door);
-    scene.add_component<seed::InteractableComponent>(door, "Open Cabin Door", true);
-    scene.add_component<seed::DoorComponent>(
-        door,
-        seed::DoorMotion::Rotate,
-        90.0f,
-        0.75f,
-        "CabinKey",
-        false,
-        false
-    );
+        const auto door = scene.create_entity("Cabin Door");
+        scene.add_component<seed::TransformComponent>(door);
+        scene.add_component<seed::InteractableComponent>(door, "Open Cabin Door", true);
+        scene.add_component<seed::DoorComponent>(
+            door,
+            seed::DoorMotion::Rotate,
+            90.0f,
+            0.75f,
+            "CabinKey",
+            false,
+            false
+        );
+    }
+    ensure_player_dependencies(scene, player);
 
     seed::GameplayRuntime gameplay_runtime;
     if (!gameplay_runtime.start(scene, player)) {
@@ -81,9 +151,7 @@ int main(int argc, char** argv) {
         "Input",
         seed::SystemPhase::Input,
         [&](seed::Scene&, double, seed::GameplayEventBus&) {
-            for (const auto& event : engine.frame_events()) {
-                gameplay_runtime.handle_event(event);
-            }
+            for (const auto& event : engine.frame_events()) gameplay_runtime.handle_event(event);
         }
     );
     engine.register_update_system(
@@ -104,15 +172,16 @@ int main(int argc, char** argv) {
             );
         }
     );
+
     seed::GameplayFeedbackBus feedback;
     seed::MiniaudioOutput miniaudio_output;
     seed::SilentAudioOutput silent_audio_output;
     seed::AudioOutput* audio_output = &silent_audio_output;
     if (miniaudio_output.initialize()) {
         audio_output = &miniaudio_output;
-        std::cout << "[SeedRuntime] Miniaudio audio output initialized.\\n";
+        std::cout << "[SeedRuntime] Miniaudio audio output initialized.\n";
     } else {
-        std::cout << "[SeedRuntime] Audio device unavailable; using silent output.\\n";
+        std::cout << "[SeedRuntime] Audio device unavailable; using silent output.\n";
     }
 
     engine.register_update_system(
@@ -139,13 +208,11 @@ int main(int argc, char** argv) {
     engine.register_update_system(
         "FeedbackCleanup",
         seed::SystemPhase::EventDispatch,
-        [&](seed::Scene&, double, seed::GameplayEventBus&) {
-            feedback.clear();
-        }
+        [&](seed::Scene&, double, seed::GameplayEventBus&) { feedback.clear(); }
     );
 
     std::cout << "[SeedRuntime] Scene booted with " << scene.entity_count() << " entities.\n";
-    std::cout << "[SeedRuntime] Seed renderer active. Press Escape to close.\n";
+    std::cout << "[SeedRuntime] Press Escape to close.\n";
 
     while (engine.tick()) {
         for (const auto& event : engine.frame_events()) {
