@@ -47,6 +47,29 @@ struct AttackComponent {
     bool active{false};
 };
 
+// Beginner-facing variables and world interaction primitives.
+struct GameplayVariable {
+    std::string name{"Variable"};
+    float number{0.0f};
+    bool boolean{false};
+};
+
+struct GameplayVariablesComponent {
+    std::vector<GameplayVariable> values;
+};
+
+struct TriggerVolumeComponent {
+    float radius{2.0f};
+    bool enabled{true};
+    bool fire_once{false};
+    bool fired{false}; // Runtime-only state; authored scenes load this as false.
+};
+
+struct SpawnPointComponent {
+    std::string spawn_tag{"Player"};
+    bool enabled{true};
+};
+
 // Beginner-facing enemy preset. Seed owns the simple chase/attack loop so authors do not need code.
 struct EnemyAIComponent {
     float detection_range{10.0f};
@@ -59,6 +82,8 @@ struct EnemyAIComponent {
 
 struct GameplayRule {
     std::string when_event{"Interact"};
+    std::string condition{};
+    std::string condition_value{};
     std::string action{"Publish Event"};
     std::string action_value{"RuleTriggered"};
     std::string required_item{};
