@@ -19,6 +19,7 @@ enum class InputAction {
     Sprint,
     Interact,
     Jump,
+    Attack,
     DialogueChoice1,
     DialogueChoice2,
     DialogueChoice3
@@ -42,6 +43,7 @@ public:
         bind(InputAction::Sprint, KeyCode::RightShift);
         bind(InputAction::Interact, KeyCode::E);
         bind(InputAction::Jump, KeyCode::Space);
+        bind(InputAction::Attack, KeyCode::F);
         bind(InputAction::DialogueChoice1, KeyCode::Num1);
         bind(InputAction::DialogueChoice2, KeyCode::Num2);
         bind(InputAction::DialogueChoice3, KeyCode::Num3);
