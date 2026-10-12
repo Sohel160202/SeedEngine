@@ -244,6 +244,20 @@ bool SceneSerializer::save(
                     {"damage", attack->damage},
                 };
             }
+            if (const auto* gameplay_rules = scene.get_component<GameplayRulesComponent>(entity)) {
+                nlohmann::json rules = nlohmann::json::array();
+                for (const auto& rule : gameplay_rules->rules) {
+                    rules.push_back({
+                        {"when", rule.when_event},
+                        {"action", rule.action},
+                        {"value", rule.action_value},
+                        {"required_item", rule.required_item},
+                        {"quantity", rule.quantity},
+                        {"once", rule.once},
+                    });
+                }
+                components["GameplayRules"] = {{"rules", std::move(rules)}};
+            }
             if (const auto* feedback_cues = scene.get_component<FeedbackCueComponent>(entity)) {
                 nlohmann::json bindings = nlohmann::json::array();
                 for (const auto& binding : feedback_cues->bindings) {
@@ -589,6 +603,27 @@ bool SceneSerializer::load(
                 attack.damage = std::max(0.0f, value.value("damage", 25.0f));
                 attack.active = false;
                 loaded_scene.add_component<AttackComponent>(entity, std::move(attack));
+            }
+            if (components.contains("GameplayRules")) {
+                const auto& value = components.at("GameplayRules");
+                GameplayRulesComponent gameplay_rules;
+                if (value.contains("rules") && value.at("rules").is_array()) {
+                    for (const auto& item : value.at("rules")) {
+                        GameplayRule rule;
+                        rule.when_event = item.value("when", std::string{"Interact"});
+                        rule.action = item.value("action", std::string{"Publish Event"});
+                        rule.action_value = item.value("value", std::string{"RuleTriggered"});
+                        rule.required_item = item.value("required_item", std::string{});
+                        rule.quantity = std::max(1, item.value("quantity", 1));
+                        rule.once = item.value("once", false);
+                        rule.fired = false;
+                        gameplay_rules.rules.push_back(std::move(rule));
+                    }
+                }
+                loaded_scene.add_component<GameplayRulesComponent>(
+                    entity,
+                    std::move(gameplay_rules)
+                );
             }
             if (components.contains("FeedbackCues")) {
                 const auto& value = components.at("FeedbackCues");
