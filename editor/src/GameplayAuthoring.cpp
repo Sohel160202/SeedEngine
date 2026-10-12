@@ -92,7 +92,12 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
 
     if (auto* player = scene.get_component<PlayerControllerComponent>(entity)) {
         ImGui::PushID("SeedPlayer");
-        if (ImGui::CollapsingHeader("Player — First Person", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader(
+            player->view_mode == PlayerViewMode::ThirdPerson
+                ? "Player — Third Person"
+                : "Player — First Person",
+            ImGuiTreeNodeFlags_DefaultOpen
+        )) {
             component_description("A ready-to-play first-person Seed player. Camera, Inventory, and Character Body are managed as dependencies.");
 
             changed |= ImGui::Checkbox("Enabled", &player->enabled);

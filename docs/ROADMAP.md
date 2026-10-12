@@ -220,6 +220,8 @@ Important: **animated characters are now visually skinned by the OpenGL renderer
 
 - material/texture quality parity for animated characters
 - visible character preview and authoring workflow in Seed Studio
+- dedicated Create → Player → Third Person workflow
+- animated glTF/GLB character import into the runtime character path
 - animation blending
 - dialogue
 - quests
