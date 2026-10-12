@@ -319,7 +319,7 @@ void GameplayRuntime::update_enemies(Scene& scene, double delta_seconds, Gamepla
             if (distance <= 0.001f || distance > enemy.detection_range) return;
 
             if (distance > enemy.attack_range) {
-                const Vec3 direction = offset / distance;
+                const Vec3 direction = offset * (1.0f / distance);
                 transform.position += direction * (enemy.move_speed * dt);
                 transform.rotation_degrees.y = yaw_from_direction(direction);
                 return;
