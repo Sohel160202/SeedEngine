@@ -42,6 +42,8 @@ int main() {
     animation.time_seconds = 12.5f;
     animation.playback_speed = 1.35f;
     animation.playing = false;
+    animation.events.push_back({.clip_name = "Run", .name = "Footstep", .time_seconds = 0.42f});
+    animation.triggered_events.push_back("RuntimeOnly");
     animation.pose.local_transforms.resize(3);
     animation.pose.global_matrices.resize(3, seed::Mat4::identity());
     animation.pose.skin_matrices.resize(3, seed::Mat4::identity());
@@ -79,6 +81,11 @@ int main() {
     assert(loaded_animation->clip_name == "Run");
     assert(near(loaded_animation->playback_speed, 1.35f));
     assert(!loaded_animation->playing);
+    assert(loaded_animation->events.size() == 1);
+    assert(loaded_animation->events.front().clip_name == "Run");
+    assert(loaded_animation->events.front().name == "Footstep");
+    assert(near(loaded_animation->events.front().time_seconds, 0.42f));
+    assert(loaded_animation->triggered_events.empty());
 
     // Runtime playback state is intentionally rebuilt, never persisted.
     assert(near(loaded_animation->time_seconds, 0.0f));
