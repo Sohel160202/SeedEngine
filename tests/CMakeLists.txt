@@ -139,6 +139,11 @@ target_link_libraries(SeedSaveGameServiceTests PRIVATE SeedEngine)
 target_compile_features(SeedSaveGameServiceTests PRIVATE cxx_std_20)
 add_test(NAME SeedSaveGameServiceTests COMMAND SeedSaveGameServiceTests)
 
+add_executable(SeedGameplayHUDTests gameplay_hud_tests.cpp)
+target_link_libraries(SeedGameplayHUDTests PRIVATE SeedEngine)
+target_compile_features(SeedGameplayHUDTests PRIVATE cxx_std_20)
+add_test(NAME SeedGameplayHUDTests COMMAND SeedGameplayHUDTests)
+
 # Windowed OpenGL smoke executable. It is intentionally not a normal CTest
 # because headless Windows/macOS runners do not provide a display context.
 add_executable(SeedSkinningRendererSmoke skinning_renderer_smoke.cpp)

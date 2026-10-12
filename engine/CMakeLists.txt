@@ -6,6 +6,7 @@ add_library(SeedEngine STATIC
     src/core/Engine.cpp
     src/gameplay/CombatSystem.cpp
     src/gameplay/GameplayFeedbackSystem.cpp
+    src/gameplay/GameplayHUD.cpp
     src/gameplay/AudioSystem.cpp
     ${miniaudio_SOURCE_DIR}/miniaudio.c
     src/diagnostics/SeedDoctor.cpp
