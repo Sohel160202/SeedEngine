@@ -3,6 +3,7 @@
 #include "seed/core/Types.h"
 #include "seed/gameplay/GameplayFeedback.h"
 
+#include <memory>
 #include <string>
 
 namespace seed {
@@ -23,6 +24,25 @@ public:
 class SilentAudioOutput final : public AudioOutput {
 public:
     void play(const AudioPlaybackRequest&) override {}
+};
+
+class MiniaudioOutput final : public AudioOutput {
+public:
+    MiniaudioOutput();
+    ~MiniaudioOutput() override;
+
+    MiniaudioOutput(const MiniaudioOutput&) = delete;
+    MiniaudioOutput& operator=(const MiniaudioOutput&) = delete;
+
+    bool initialize();
+    void shutdown() noexcept;
+    bool initialized() const noexcept;
+
+    void play(const AudioPlaybackRequest& request) override;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
 class AudioSystem {
