@@ -378,7 +378,7 @@ The vertical slice is growing toward:
 - audio
 - save-game support
 - build/export
-- one complete game authored through Seed Studio
+- one complete asset-independent game authored through Seed Studio\n\nThe current reference project is `samples/SeedAdventure`, which exercises player movement, interaction, pickup/inventory, locked doors, dialogue, quests, health, combat authoring, save progression, and standalone runtime launch.
 
 ## Status
 
