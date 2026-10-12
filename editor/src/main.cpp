@@ -567,6 +567,67 @@ bool open_workspace(
     return true;
 }
 
+std::filesystem::path locate_example_scene(const std::string& relative_path) {
+    const std::filesystem::path requested{relative_path};
+    const std::array<std::filesystem::path, 4> candidates{
+        requested,
+        std::filesystem::path{".."} / requested,
+        std::filesystem::path{"../.."} / requested,
+        std::filesystem::path{"../../.."} / requested,
+    };
+    for (const auto& candidate : candidates) {
+        if (std::filesystem::exists(candidate)) {
+            return std::filesystem::absolute(candidate);
+        }
+    }
+    return {};
+}
+
+bool open_example_scene(
+    WorkspaceState& workspace,
+    seed::Scene& scene,
+    const std::string& relative_path,
+    seed::MeshHandle cube_mesh,
+    seed::ShaderHandle default_shader,
+    seed::ShaderHandle skinned_shader,
+    seed::AssetRuntime& assets,
+    seed::EntityId& editor_camera
+) {
+    const auto scene_file = locate_example_scene(relative_path);
+    if (scene_file.empty()) {
+        workspace.status_message = "Example scene not found: " + relative_path;
+        return false;
+    }
+
+    seed::Scene loaded_scene;
+    std::string error;
+    if (!seed::SceneSerializer::load(loaded_scene, scene_file, &error)) {
+        workspace.status_message = "Example scene open failed: " + error;
+        return false;
+    }
+
+    assets.set_project_root({});
+    bind_builtin_resources(loaded_scene, cube_mesh, default_shader);
+    std::string asset_error;
+    const bool assets_bound = assets.bind_scene(
+        loaded_scene,
+        default_shader,
+        skinned_shader,
+        &asset_error
+    );
+
+    editor_camera = ensure_editor_camera(loaded_scene);
+    scene = std::move(loaded_scene);
+    workspace.project = {};
+    workspace.project_file.clear();
+    workspace.scene_file = scene_file;
+    workspace.dirty = false;
+    workspace.status_message = assets_bound
+        ? "Opened example: " + scene_file.string()
+        : "Opened example with asset warning: " + asset_error;
+    return true;
+}
+
 bool safe_dependency_path(const std::filesystem::path& path) {
     if (path.empty() || path.is_absolute()) return false;
     for (const auto& part : path) {
@@ -1348,6 +1409,22 @@ int main(int argc, char** argv) {
                 workspace.status_message = "Semantic merge review opened.";
                 break;
             }
+            case seed::studio::StudioActionType::OpenExample:
+                if (has_pending_play_changes || has_pending_semantic_merge) break;
+                if (open_example_scene(
+                        workspace,
+                        scene,
+                        action.path,
+                        cube_mesh,
+                        mesh_shader,
+                        skinned_mesh_shader,
+                        asset_runtime,
+                        editor_camera)) {
+                    studio_ui.select_entity(first_content_entity(scene));
+                    clear_movement_input(camera_input);
+                    camera_input.looking = false;
+                }
+                break;
             case seed::studio::StudioActionType::OpenProject:
                 if (has_pending_play_changes || has_pending_semantic_merge) break;
                 if (open_workspace(

@@ -175,6 +175,12 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         if (ImGui::MenuItem("New Project...")) { copy_text(m_project_name_buffer,"My Seed Game"); m_show_new_project_dialog=true; }
         if (ImGui::MenuItem("Open Project...","Ctrl+O")) m_show_open_project_dialog=true; ImGui::Separator();
         if (ImGui::MenuItem("New Scene","Ctrl+N")) queue_action({.type=StudioActionType::NewScene});
+        if (ImGui::BeginMenu("Open Example")) {
+            if (ImGui::MenuItem("First Adventure")) {
+                queue_action({.type=StudioActionType::OpenExample, .path="examples/FirstAdventure.seedscene"});
+            }
+            ImGui::EndMenu();
+        }
         if (ImGui::MenuItem("Save","Ctrl+S")) { if (document.has_project) queue_action({.type=StudioActionType::Save}); else m_show_save_as_dialog=true; }
         if (ImGui::MenuItem("Save As...","Ctrl+Shift+S")) m_show_save_as_dialog=true; ImGui::Separator();
         ImGui::BeginDisabled(!document.has_project); if (ImGui::MenuItem("Import 3D Model...")) m_show_import_model_dialog=true; ImGui::EndDisabled(); ImGui::EndMenu();
