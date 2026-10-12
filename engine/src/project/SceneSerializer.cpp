@@ -244,6 +244,16 @@ bool SceneSerializer::save(
                     {"damage", attack->damage},
                 };
             }
+            if (const auto* enemy = scene.get_component<EnemyAIComponent>(entity)) {
+                components["EnemyAI"] = {
+                    {"detection_range", enemy->detection_range},
+                    {"attack_range", enemy->attack_range},
+                    {"move_speed", enemy->move_speed},
+                    {"attack_damage", enemy->attack_damage},
+                    {"attack_cooldown", enemy->attack_cooldown},
+                    {"enabled", enemy->enabled},
+                };
+            }
             if (const auto* gameplay_rules = scene.get_component<GameplayRulesComponent>(entity)) {
                 nlohmann::json rules = nlohmann::json::array();
                 for (const auto& rule : gameplay_rules->rules) {
@@ -603,6 +613,17 @@ bool SceneSerializer::load(
                 attack.damage = std::max(0.0f, value.value("damage", 25.0f));
                 attack.active = false;
                 loaded_scene.add_component<AttackComponent>(entity, std::move(attack));
+            }
+            if (components.contains("EnemyAI")) {
+                const auto& value = components.at("EnemyAI");
+                EnemyAIComponent enemy;
+                enemy.detection_range = std::max(0.0f, value.value("detection_range", 10.0f));
+                enemy.attack_range = std::max(0.1f, value.value("attack_range", 1.5f));
+                enemy.move_speed = std::max(0.0f, value.value("move_speed", 1.8f));
+                enemy.attack_damage = std::max(0.0f, value.value("attack_damage", 10.0f));
+                enemy.attack_cooldown = std::max(0.05f, value.value("attack_cooldown", 1.0f));
+                enemy.enabled = value.value("enabled", true);
+                loaded_scene.add_component<EnemyAIComponent>(entity, enemy);
             }
             if (components.contains("GameplayRules")) {
                 const auto& value = components.at("GameplayRules");
