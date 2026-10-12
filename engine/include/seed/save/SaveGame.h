@@ -28,11 +28,17 @@ struct SaveInventoryState {
     std::unordered_map<std::string, int> items;
 };
 
+struct SaveQuestState {
+    std::string quest_id;
+    int status{0};
+};
+
 struct SaveEntityState {
     std::string persistent_id;
     std::optional<SaveTransformState> transform;
     std::optional<SaveHealthState> health;
     std::optional<SaveInventoryState> inventory;
+    std::optional<SaveQuestState> quest;
 };
 
 struct SaveGameSnapshot {
