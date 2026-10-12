@@ -86,7 +86,7 @@ private:
     void draw_project_dialogs(const StudioDocumentInfo& document);
     void draw_world_panel(Scene& scene);
     void draw_inspector(Scene& scene, const StudioDocumentInfo& document);
-    void draw_assets_panel(const StudioDocumentInfo& document);
+    void draw_assets_panel(Scene& scene, const StudioDocumentInfo& document);
     void draw_viewport_frame(Scene& scene, const StudioDocumentInfo& document, EntityId viewport_camera);
     void draw_viewport_toolbar(const StudioDocumentInfo& document);
     void begin_history_frame(Scene& scene, const StudioDocumentInfo& document);
