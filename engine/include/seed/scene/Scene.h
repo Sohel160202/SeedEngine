@@ -8,6 +8,7 @@
 #include <typeindex>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace seed {
 
@@ -25,6 +26,13 @@ public:
     ~Scene() = default;
 
     EntityId create_entity(std::string name = "Entity", std::string persistent_id = {});
+    std::vector<EntityId> copy_hierarchy_from(
+        const Scene& source,
+        EntityId source_root,
+        std::string root_name = {},
+        std::string persistent_id = {}
+    );
+
     EntityId copy_entity_from(
         const Scene& source,
         EntityId source_entity,
