@@ -336,6 +336,88 @@ seed::EntityId create_cube(
     return cube;
 }
 
+void build_project_template(
+    seed::Scene& scene,
+    const std::string& template_id,
+    seed::MeshHandle cube_mesh,
+    seed::ShaderHandle shader
+) {
+    scene.clear();
+    const auto editor_camera = create_editor_camera(scene);
+    create_default_lighting(scene);
+
+    if (template_id == "empty") {
+        create_cube(scene, cube_mesh, shader, "Starter Cube");
+        return;
+    }
+
+    seed::EntityId player = seed::InvalidEntity;
+    if (template_id == "first_person_exploration") {
+        player = create_first_person_player(scene, editor_camera, "Player", true);
+    } else {
+        player = create_third_person_player(scene, editor_camera, "Player");
+    }
+
+    if (auto* health = scene.get_component<seed::HealthComponent>(player)) {
+        health->maximum = 100.0f;
+        health->current = 100.0f;
+    } else {
+        scene.add_component<seed::HealthComponent>(player);
+    }
+
+    if (template_id == "third_person_adventure") {
+        const auto target = create_cube(scene, cube_mesh, shader, "Interaction Target");
+        auto* target_transform = scene.get_component<seed::TransformComponent>(target);
+        target_transform->position = {0.0f, 0.75f, -2.5f};
+        target_transform->scale = {1.0f, 1.5f, 1.0f};
+        scene.add_component<seed::InteractableComponent>(
+            target,
+            "Interact with Target",
+            true
+        );
+        return;
+    }
+
+    const auto key = create_cube(scene, cube_mesh, shader, "Starter Key");
+    auto* key_transform = scene.get_component<seed::TransformComponent>(key);
+    key_transform->position = {2.0f, 0.35f, -2.0f};
+    key_transform->scale = {0.35f, 0.35f, 0.35f};
+    scene.add_component<seed::InteractableComponent>(
+        key,
+        "Pick Up Key",
+        true
+    );
+    seed::PickupComponent pickup;
+    pickup.item_id = "Key";
+    pickup.display_name = "Key";
+    scene.add_component<seed::PickupComponent>(key, pickup);
+
+    const auto door = create_cube(scene, cube_mesh, shader, "Locked Door");
+    auto* door_transform = scene.get_component<seed::TransformComponent>(door);
+    door_transform->position = {0.0f, 1.0f, -6.0f};
+    door_transform->scale = {1.0f, 2.0f, 0.2f};
+    scene.add_component<seed::BoxColliderComponent>(door);
+    scene.add_component<seed::InteractableComponent>(
+        door,
+        "Open Locked Door",
+        true
+    );
+    seed::DoorComponent door_component;
+    door_component.required_item = "Key";
+    door_component.open_amount = 90.0f;
+    scene.add_component<seed::DoorComponent>(door, door_component);
+
+    const auto quest_entity = scene.create_entity("Starter Quest");
+    seed::QuestComponent quest;
+    quest.quest_id = "collect_key";
+    quest.title = "Find the Key";
+    quest.description = "Find the key and open the locked door.";
+    quest.required_item = "Key";
+    quest.required_quantity = 1;
+    quest.status = seed::QuestStatus::Active;
+    scene.add_component<seed::QuestComponent>(quest_entity, quest);
+}
+
 void bind_builtin_resources(
     seed::Scene& scene,
     seed::MeshHandle cube_mesh,
@@ -1376,11 +1458,9 @@ int main(int argc, char** argv) {
             case seed::studio::StudioActionType::NewProject: {
                 if (has_pending_play_changes) break;
                 asset_runtime.clear();
-                scene.clear();
-                editor_camera = create_editor_camera(scene);
-                const auto cube = create_cube(scene, cube_mesh, mesh_shader);
-                create_default_lighting(scene);
-                studio_ui.select_entity(cube);
+                build_project_template(scene, action.path2, cube_mesh, mesh_shader);
+                editor_camera = ensure_editor_camera(scene);
+                studio_ui.select_entity(first_content_entity(scene));
                 workspace = {};
                 if (save_workspace_as(workspace, scene, action.path, action.project_name)) {
                     asset_runtime.set_project_root(workspace.project_file.parent_path());
