@@ -42,6 +42,12 @@ int main() {
     inventory.items["CabinKey"] = 1;
     inventory.items["Coin"] = 12;
     scene.add_component<seed::InventoryComponent>(player, inventory);
+
+    seed::QuestComponent quest;
+    quest.quest_id = "cabin_quest";
+    quest.title = "Open the Cabin";
+    quest.status = seed::QuestStatus::Active;
+    scene.add_component<seed::QuestComponent>(player, quest);
     scene.add_component<seed::PersistentComponent>(player);
 
     const seed::EntityId transient = scene.create_entity("Transient", "transient-id");
@@ -57,6 +63,8 @@ int main() {
     require(captured.snapshot.entities.front().transform.has_value(), "capture Transform");
     require(captured.snapshot.entities.front().health.has_value(), "capture Health");
     require(captured.snapshot.entities.front().inventory.has_value(), "capture Inventory");
+    require(captured.snapshot.entities.front().quest.has_value(), "capture Quest");
+    require(captured.snapshot.entities.front().quest->quest_id == "cabin_quest", "capture Quest ID");
 
     const std::filesystem::path root =
         std::filesystem::temp_directory_path() / "seed_save_game_tests";
@@ -91,6 +99,9 @@ int main() {
     runtime_health->maximum = 30.0f;
     runtime_health->current = 1.0f;
     runtime_inventory->items.clear();
+    auto* runtime_quest = scene.get_component<seed::QuestComponent>(player);
+    require(runtime_quest != nullptr, "runtime Quest exists");
+    runtime_quest->status = seed::QuestStatus::Completed;
 
     seed::SaveGameSnapshot with_stale_entity = *loaded;
     seed::SaveEntityState stale;
@@ -101,7 +112,7 @@ int main() {
     const seed::SaveApplyResult applied = seed::SaveGameSystem::apply(scene, with_stale_entity);
     require(applied.entities_applied == 1, "restore one matching Persistent entity");
     require(applied.entities_skipped == 1, "skip one stale entity");
-    require(applied.properties_applied == 3, "restore Transform + Health + Inventory");
+    require(applied.properties_applied == 4, "restore Transform + Health + Inventory + Quest");
     require(!applied.warnings.empty(), "stale entity produces warning");
 
     require(near(runtime_transform->position.x, 4.0f), "restore Transform X");
@@ -113,6 +124,7 @@ int main() {
     require(runtime_inventory->items.at("CabinKey") == 1, "restore CabinKey quantity");
     require(runtime_inventory->items.contains("Coin"), "restore Coin inventory entry");
     require(runtime_inventory->items.at("Coin") == 12, "restore Coin quantity");
+    require(runtime_quest->status == seed::QuestStatus::Active, "restore Quest status");
 
     // Persistent is an authored declaration, so it must survive .seedscene
     // save/load independently from runtime .seedsave progress.
