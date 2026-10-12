@@ -239,14 +239,20 @@ int main(int argc, char** argv) {
                     engine.request_exit();
                 } else if (event.key == seed::KeyCode::F5 && save_enabled) {
                     const auto result = save_service.save_slot(scene, "autosave");
-                    std::cout << (result.saved
-                        ? "[SeedRuntime] Autosaved progress.\\n"
-                        : "[SeedRuntime] Autosave failed: " + result.error + "\\n");
+                    if (result.saved) {
+                        std::cout << "[SeedRuntime] Autosaved progress.\\n";
+                    } else {
+                        std::cout << "[SeedRuntime] Autosave failed: "
+                                  << result.error << "\\n";
+                    }
                 } else if (event.key == seed::KeyCode::F9 && save_enabled) {
                     const auto result = save_service.load_slot(scene, "autosave");
-                    std::cout << (result.loaded
-                        ? "[SeedRuntime] Loaded autosave progress.\\n"
-                        : "[SeedRuntime] Load failed: " + result.error + "\\n");
+                    if (result.loaded) {
+                        std::cout << "[SeedRuntime] Loaded autosave progress.\\n";
+                    } else {
+                        std::cout << "[SeedRuntime] Load failed: "
+                                  << result.error << "\\n";
+                    }
                 }
             }
         }
