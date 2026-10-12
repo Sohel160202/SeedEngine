@@ -355,6 +355,7 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
 }
 
 void StudioUI::draw_assets_panel(Scene& scene, const StudioDocumentInfo& document) {
+    (void)scene;
     const ImGuiIO& io=ImGui::GetIO();ImGui::SetNextWindowPos({0,io.DisplaySize.y-BottomPanelHeight},ImGuiCond_Always);ImGui::SetNextWindowSize({io.DisplaySize.x,BottomPanelHeight},ImGuiCond_Always);
     if(ImGui::Begin("Assets",nullptr,fixed_panel_flags())){
         ImGui::TextDisabled(document.playing ? "PLAY MODE" : "PROJECT ASSETS");
