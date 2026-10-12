@@ -5,6 +5,7 @@
 #include "seed/gameplay/GameplayRuntime.h"
 #include "seed/gameplay/AudioSystem.h"
 #include "seed/gameplay/GameplayFeedbackSystem.h"
+#include "seed/gameplay/GameplayRulesSystem.h"
 #include "seed/project/ProjectSerializer.h"
 #include "seed/project/SceneSerializer.h"
 #include "seed/render/RenderSystem.h"
@@ -185,6 +186,13 @@ int main(int argc, char** argv) {
         std::cout << "[SeedRuntime] Audio device unavailable; using silent output.\n";
     }
 
+    engine.register_update_system(
+        "Gameplay Rules",
+        seed::SystemPhase::EventDispatch,
+        [](seed::Scene& runtime_scene, double, seed::GameplayEventBus& events) {
+            seed::GameplayRulesSystem::consume_events(runtime_scene, events);
+        }
+    );
     engine.register_update_system(
         "Combat",
         seed::SystemPhase::EventDispatch,
