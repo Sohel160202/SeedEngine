@@ -9,6 +9,9 @@
 namespace seed {
 
 enum class GameplayEventType {
+    BeginPlay,
+    Trigger,
+    Quest,
     Animation,
     Footstep,
     Interaction,
