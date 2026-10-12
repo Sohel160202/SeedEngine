@@ -52,6 +52,7 @@ private:
     void update_quests(Scene& scene);
     void perform_attack(Scene& scene, GameplayEventBus* event_bus);
     void update_enemies(Scene& scene, double delta_seconds, GameplayEventBus* event_bus);
+    void update_triggers(Scene& scene, GameplayEventBus* event_bus);
     void advance_dialogue(Scene& scene, int choice_index = -1);
     void present_dialogue_line(Scene& scene);
     void apply_door_transform(Scene& scene, EntityId entity, const DoorRuntimeState& state);
@@ -93,6 +94,7 @@ private:
     PhysicsSystem::CharacterState m_character_state{};
     std::unordered_map<EntityId, DoorRuntimeState> m_doors;
     std::unordered_map<EntityId, float> m_enemy_attack_elapsed;
+    std::unordered_map<EntityId, bool> m_trigger_inside;
     bool m_victory_announced{false};
     EntityId m_dialogue_entity{InvalidEntity};
     std::size_t m_dialogue_line_index{0};
