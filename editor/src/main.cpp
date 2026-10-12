@@ -573,6 +573,17 @@ seed::EntityId duplicate_entity(seed::Scene& scene, seed::EntityId source) {
     if (const auto* v = scene.get_component<seed::EnemyAIComponent>(source)) {
         scene.add_component<seed::EnemyAIComponent>(copy, *v);
     }
+    if (const auto* v = scene.get_component<seed::GameplayVariablesComponent>(source)) {
+        scene.add_component<seed::GameplayVariablesComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::TriggerVolumeComponent>(source)) {
+        auto trigger = *v;
+        trigger.fired = false;
+        scene.add_component<seed::TriggerVolumeComponent>(copy, trigger);
+    }
+    if (const auto* v = scene.get_component<seed::SpawnPointComponent>(source)) {
+        scene.add_component<seed::SpawnPointComponent>(copy, *v);
+    }
     if (const auto* v = scene.get_component<seed::InventoryComponent>(source)) {
         scene.add_component<seed::InventoryComponent>(copy, *v);
     }
