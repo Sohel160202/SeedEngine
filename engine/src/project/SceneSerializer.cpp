@@ -152,6 +152,7 @@ bool SceneSerializer::save(
                     {"clip", animation->clip_name},
                     {"playback_speed", animation->playback_speed},
                     {"playing", animation->playing},
+                    {"blend_duration", animation->blend_duration_seconds},
                     {"locomotion_enabled", animation->locomotion_enabled},
                 };
             }
@@ -394,6 +395,10 @@ bool SceneSerializer::load(
                 animation.clip_name = value.value("clip", std::string{});
                 animation.playback_speed = value.value("playback_speed", 1.0f);
                 animation.playing = value.value("playing", true);
+                animation.blend_duration_seconds = std::max(
+                    0.0f,
+                    value.value("blend_duration", 0.15f)
+                );
                 animation.locomotion_enabled = value.value("locomotion_enabled", false);
                 animation.time_seconds = 0.0f;
                 animation.pose = {};
