@@ -656,6 +656,62 @@ seed::EntityId import_animated_character_into_project(
         return seed::InvalidEntity;
     }
 
+    seed::EntityId empty_player = seed::InvalidEntity;
+    scene.for_each<seed::TransformComponent, seed::PlayerControllerComponent, seed::SkinnedMeshComponent>(
+        [&](seed::EntityId candidate, seed::TransformComponent&, seed::PlayerControllerComponent& controller,
+            seed::SkinnedMeshComponent& character) {
+            if (empty_player != seed::InvalidEntity ||
+                controller.view_mode != seed::PlayerViewMode::ThirdPerson ||
+                !character.asset_id.empty()) {
+                return;
+            }
+            empty_player = candidate;
+        }
+    );
+
+    auto apply_character = [&](seed::EntityId entity) {
+        auto* character = scene.get_component<seed::SkinnedMeshComponent>(entity);
+        if (character == nullptr) {
+            character = &scene.add_component<seed::SkinnedMeshComponent>(entity);
+        }
+        character->mesh = resource->mesh;
+        character->asset_id = asset_id;
+        character->runtime_asset = resource;
+
+        auto* animation = scene.get_component<seed::AnimationPlayerComponent>(entity);
+        if (animation == nullptr) {
+            animation = &scene.add_component<seed::AnimationPlayerComponent>(entity);
+        }
+        animation->locomotion_enabled = true;
+        animation->blend_duration_seconds = 0.15f;
+
+        auto* material = scene.get_component<seed::MaterialComponent>(entity);
+        if (material == nullptr) {
+            material = &scene.add_component<seed::MaterialComponent>(entity);
+        }
+        material->shader = skinned_material_shader;
+        material->base_color_texture = resource->base_color_texture;
+        material->metallic_roughness_texture = resource->metallic_roughness_texture;
+        material->normal_texture = resource->normal_texture;
+        material->base_color = resource->base_color;
+        material->metallic = resource->metallic;
+        material->roughness = resource->roughness;
+        material->normal_scale = resource->normal_scale;
+        material->use_base_color_texture = static_cast<bool>(resource->base_color_texture);
+        material->use_metallic_roughness_texture = static_cast<bool>(resource->metallic_roughness_texture);
+        material->use_normal_texture = static_cast<bool>(resource->normal_texture);
+        material->asset_id = asset_id;
+        material->use_asset_defaults = false;
+    };
+
+    if (empty_player != seed::InvalidEntity) {
+        apply_character(empty_player);
+        workspace.dirty = true;
+        workspace.status_message = "Attached animated character to Third-Person Player: " + asset_id;
+        (void)material_shader;
+        return empty_player;
+    }
+
     const auto entity = scene.create_entity(
         imported->name.empty() ? source_file.stem().string() : imported->name
     );
