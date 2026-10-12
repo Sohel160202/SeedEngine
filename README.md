@@ -67,7 +67,7 @@ The old Godot experiment only proved the original **Add Gameplay** UX idea. It i
 - directional shadow pass
 - Linux renderer smoke test in CI
 
-The renderer resource layer also now defines the first Seed-native **skinned vertex** contract. GPU skinning itself is the next renderer milestone.
+The renderer now supports Seed-native **skinned vertices**, GPU joint-palette uploads, skinned material draws and skinned shadow draws.
 
 ### Projects + persistence
 
@@ -256,25 +256,9 @@ Seed skinning v0 currently caps characters at **96 joints** before they reach th
 
 ### Important current boundary
 
-**Animated character data imports, caches and evaluates correctly, but the OpenGL renderer does not visually skin the mesh yet.**
+**Animated character data imports, caches, evaluates and reaches the OpenGL renderer through a GPU skinning path.**
 
-The next renderer step is:
-
-```text
-Seed SkinnedVertex
-      ↓
-OpenGL skinned mesh layout
-      ↓
-Joint palette upload
-      ↓
-Skinned material vertex shader
-      ↓
-Skinned shadow pass
-      ↓
-Visible animated character
-```
-
-That boundary is deliberate: animation logic remains in Seed Animation, while the renderer only consumes vertices + matrix palettes.
+The renderer consumes Seed-owned vertices and matrix palettes while Seed Animation remains responsible for clip evaluation and pose solving. The remaining product work is authoring and validating a complete character locomotion preset.
 
 ## Applications
 
@@ -360,7 +344,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 Seed is now well past the empty-engine stage. It has its own desktop applications, editor, renderer, project/scene formats, asset import, gameplay authoring, first/third-person controllers, character collision, camera collision and CPU animation pipeline.
 
-The current technical milestone is **visible animated characters**: connect Seed's now-tested animated asset/runtime pipeline to the OpenGL backend's skinned vertex and joint-palette path, then build the beginner-facing `Idle / Walk / Run / Jump / Fall` locomotion preset.
+The current technical milestone is the beginner-facing character workflow: add a Player, assign an animated character, and use the built-in `Idle / Walk / Run / Jump / Fall` locomotion preset without writing code.
 
 ## v0.1 product target
 
