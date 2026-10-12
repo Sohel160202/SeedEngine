@@ -56,7 +56,9 @@ public:
             std::remove_if(
                 m_bindings.begin(),
                 m_bindings.end(),
-                [&](const Binding& binding) { return binding.key == key; }
+                [&](const Binding& binding) {
+                    return binding.action == action && binding.key == key;
+                }
             ),
             m_bindings.end()
         );
@@ -75,6 +77,16 @@ public:
             m_bindings.end()
         );
         return m_bindings.size() != old_size;
+    }
+
+    std::vector<InputAction> actions_for(KeyCode key) const {
+        std::vector<InputAction> actions;
+        for (const auto& binding : m_bindings) {
+            if (binding.key == key) {
+                actions.push_back(binding.action);
+            }
+        }
+        return actions;
     }
 
     InputAction action_for(KeyCode key) const noexcept {
