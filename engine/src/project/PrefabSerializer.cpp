@@ -30,7 +30,7 @@ bool PrefabSerializer::save(
         }
 
         Scene prefab_scene;
-        prefab_scene.copy_entity_from(scene, entity, scene.entity_name(entity));
+        prefab_scene.copy_hierarchy_from(scene, entity, scene.entity_name(entity));
 
         if (!SceneSerializer::save(prefab_scene, prefab_file, error)) return false;
 
@@ -78,8 +78,16 @@ bool PrefabSerializer::instantiate(
             return false;
         }
 
-        const EntityId instance = scene.copy_entity_from(prefab_scene, source_entity);
-        if (created_entity != nullptr) *created_entity = instance;
+        const auto instances = scene.copy_hierarchy_from(prefab_scene, source_entity);
+        if (instances.empty()) {
+            set_error(error, "Prefab hierarchy could not be instantiated: " + prefab_file.string());
+            return false;
+        }
+        auto& link = scene.add_component<PrefabInstanceComponent>(instances.front());
+        link.source_path = prefab_file.generic_string();
+        link.source_entity_id = prefab_scene.entity_persistent_id(source_entity);
+        link.linked = true;
+        if (created_entity != nullptr) *created_entity = instances.front();
         return true;
     } catch (const std::exception& exception) {
         set_error(error, exception.what());
