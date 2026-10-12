@@ -163,32 +163,34 @@ void GameplayRuntime::handle_event(const PlatformEvent& event) {
 
     if (event.type == PlatformEventType::Key) {
         const bool down = event.button_state != ButtonState::Released;
-        const InputAction action = m_input_map.action_for(event.key);
-        set_action_state(
-            action,
-            down,
-            m_forward,
-            m_backward,
-            m_left,
-            m_right,
-            m_down,
-            m_up,
-            m_fast
-        );
+        const auto actions = m_input_map.actions_for(event.key);
+        for (const InputAction action : actions) {
+            set_action_state(
+                action,
+                down,
+                m_forward,
+                m_backward,
+                m_left,
+                m_right,
+                m_down,
+                m_up,
+                m_fast
+            );
 
-        if (action == InputAction::Interact && event.button_state == ButtonState::Pressed) {
-            m_interact_requested = true;
-        }
-        if (event.button_state == ButtonState::Pressed) {
-            switch (action) {
-            case InputAction::DialogueChoice1: m_dialogue_choice_requested = 0; break;
-            case InputAction::DialogueChoice2: m_dialogue_choice_requested = 1; break;
-            case InputAction::DialogueChoice3: m_dialogue_choice_requested = 2; break;
-            default: break;
+            if (action == InputAction::Interact && event.button_state == ButtonState::Pressed) {
+                m_interact_requested = true;
             }
-        }
-        if (action == InputAction::Jump && event.button_state == ButtonState::Pressed) {
-            m_jump_requested = true;
+            if (event.button_state == ButtonState::Pressed) {
+                switch (action) {
+                case InputAction::DialogueChoice1: m_dialogue_choice_requested = 0; break;
+                case InputAction::DialogueChoice2: m_dialogue_choice_requested = 1; break;
+                case InputAction::DialogueChoice3: m_dialogue_choice_requested = 2; break;
+                default: break;
+                }
+            }
+            if (action == InputAction::Jump && event.button_state == ButtonState::Pressed) {
+                m_jump_requested = true;
+            }
         }
     }
 
