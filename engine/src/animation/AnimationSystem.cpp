@@ -2,6 +2,7 @@
 
 #include "seed/animation/AnimationComponents.h"
 #include "seed/assets/AssetRuntime.h"
+#include "seed/gameplay/GameplayEvents.h"
 #include "seed/scene/Scene.h"
 
 #include <algorithm>
@@ -305,9 +306,13 @@ void AnimationSystem::rebuild_matrices(
     }
 }
 
-void AnimationSystem::update_scene(Scene& scene, float delta_seconds) {
+void AnimationSystem::update_scene(
+    Scene& scene,
+    float delta_seconds,
+    GameplayEventBus* event_bus
+) {
     scene.for_each<SkinnedMeshComponent, AnimationPlayerComponent>(
-        [&](EntityId, SkinnedMeshComponent& mesh, AnimationPlayerComponent& player) {
+        [&](EntityId entity, SkinnedMeshComponent& mesh, AnimationPlayerComponent& player) {
             player.triggered_events.clear();
             const AnimatedModelAssetResource* asset = mesh.runtime_asset;
             if (asset == nullptr || asset->skeleton.joints.empty()) {
@@ -356,6 +361,7 @@ void AnimationSystem::update_scene(Scene& scene, float delta_seconds) {
             if (player.playing) {
                 player.time_seconds += delta_seconds * player.playback_speed;
                 if (delta_seconds > 0.0f && player.playback_speed > 0.0f) {
+                    const std::size_t first_event = player.triggered_events.size();
                     collect_animation_events(
                         *clip,
                         player.events,
@@ -363,6 +369,18 @@ void AnimationSystem::update_scene(Scene& scene, float delta_seconds) {
                         player.time_seconds,
                         player.triggered_events
                     );
+                    if (event_bus != nullptr) {
+                        for (std::size_t index = first_event;
+                             index < player.triggered_events.size();
+                             ++index) {
+                            event_bus->publish({
+                                .source_entity = entity,
+                                .type = GameplayEventType::Animation,
+                                .name = player.triggered_events[index],
+                                .time_seconds = player.time_seconds,
+                            });
+                        }
+                    }
                 }
             }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "seed/platform/IPlatform.h"
+#include "seed/gameplay/GameplayEvents.h"
 #include "seed/render/IRenderer.h"
 #include "seed/scene/Scene.h"
 
@@ -53,11 +54,15 @@ public:
     Scene& scene() noexcept { return m_scene; }
     const Scene& scene() const noexcept { return m_scene; }
 
+    GameplayEventBus& gameplay_events() noexcept { return m_gameplay_events; }
+    const GameplayEventBus& gameplay_events() const noexcept { return m_gameplay_events; }
+
 private:
     using Clock = std::chrono::steady_clock;
 
     EngineConfig m_config;
     Scene m_scene;
+    GameplayEventBus m_gameplay_events;
     std::unique_ptr<IPlatform> m_platform;
     std::unique_ptr<IRenderer> m_renderer;
     std::vector<PlatformEvent> m_frame_events;

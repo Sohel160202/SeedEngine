@@ -5,6 +5,7 @@
 namespace seed {
 
 class Scene;
+class GameplayEventBus;
 
 class AnimationSystem {
 public:
@@ -37,7 +38,11 @@ public:
     // Advances every Seed Animation Player whose Skinned Mesh has been hydrated
     // by AssetRuntime. Missing clips fall back to the first imported clip; assets
     // with no clips remain in bind pose.
-    static void update_scene(Scene& scene, float delta_seconds);
+    static void update_scene(
+        Scene& scene,
+        float delta_seconds,
+        GameplayEventBus* event_bus = nullptr
+    );
 };
 
 } // namespace seed
