@@ -11,7 +11,9 @@ namespace seed {
 enum class GameplayEventType {
     Animation,
     Footstep,
-    Interaction
+    Interaction,
+    Damage,
+    Combat
 };
 
 struct GameplayEvent {
@@ -19,6 +21,8 @@ struct GameplayEvent {
     GameplayEventType type{GameplayEventType::Animation};
     std::string name;
     float time_seconds{0.0f};
+    EntityId target_entity{InvalidEntity};
+    float value{0.0f};
 };
 
 // Frame-scoped, asset-independent event transport between engine systems.
