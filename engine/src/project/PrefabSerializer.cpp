@@ -1,6 +1,7 @@
 #include "seed/project/PrefabSerializer.h"
 
 #include "seed/project/SceneSerializer.h"
+#include "seed/gameplay/Components.h"
 #include "seed/scene/Scene.h"
 
 #include <nlohmann/json.hpp>
