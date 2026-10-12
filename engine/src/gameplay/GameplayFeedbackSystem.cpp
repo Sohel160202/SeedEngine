@@ -9,8 +9,9 @@
 namespace seed {
 namespace {
 
-GameplayFeedbackType feedback_type_for(GameplayEventType type) {
-    return type == GameplayEventType::Interaction
+GameplayFeedbackType feedback_type_for(const GameplayEvent& event) {
+    return event.type == GameplayEventType::Interaction ||
+        (event.type == GameplayEventType::Combat && event.name == "Death")
         ? GameplayFeedbackType::Visual
         : GameplayFeedbackType::Audio;
 }
@@ -25,6 +26,9 @@ bool is_supported_event(const GameplayEvent& event) {
             event.name == "DoorOpened" ||
             event.name == "DoorClosed" ||
             event.name == "Interact";
+    }
+    if (event.type == GameplayEventType::Combat) {
+        return event.name == "Hit" || event.name == "Death";
     }
     return false;
 }
@@ -55,7 +59,7 @@ void GameplayFeedbackSystem::consume_events(
 
         GameplayFeedbackRequest request{
             event.source_entity,
-            feedback_type_for(event.type),
+            feedback_type_for(event),
             event.name,
             event.time_seconds
         };
