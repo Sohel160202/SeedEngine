@@ -672,8 +672,12 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                         changed = true;
                     }
                 } else {
-                    changed |= ImGui::Checkbox("Require item", &(!rule.required_item.empty()));
-                    if (!rule.required_item.empty()) {
+                    bool require_item = !rule.required_item.empty();
+                    if (ImGui::Checkbox("Require item", &require_item)) {
+                        rule.required_item = require_item ? "Key" : std::string{};
+                        changed = true;
+                    }
+                    if (require_item) {
                         const char* required_items[] = {"Key", "Coin", "Potion"};
                         int required_index = 0;
                         for (int candidate = 0; candidate < 3; ++candidate) {
