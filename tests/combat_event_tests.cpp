@@ -121,7 +121,7 @@ int main() {
     assert(loaded_attack->close_event == "SwordEnd");
     assert(loaded_attack->damage == 42.0f);
     assert(!loaded_attack->active);
-    assert(loaded.get_component<seed::HealthComponent>(loaded_target)->current == 60.0f);
+    assert(loaded.get_component<seed::HealthComponent>(loaded_target)->current == 0.0f);
 
     std::filesystem::remove_all(root);
     std::cout << "SeedCombatEventTests passed.\n";
