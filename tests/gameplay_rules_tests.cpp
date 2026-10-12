@@ -34,15 +34,14 @@ int main() {
     seed::GameplayVariablesComponent variables;
     variables.values.push_back({"Score", 10.0f, false});
     scene.add_component<seed::GameplayVariablesComponent>(player, variables);
-    seed::GameplayRulesComponent conditional_rules;
-    conditional_rules.rules.push_back({
+    rules.rules.push_back({
         .when_event = "Talked",
         .condition = "Variable At Least",
         .condition_value = "Score=10",
         .action = "Complete Game",
         .once = true,
     });
-    scene.add_component<seed::GameplayRulesComponent>(player, conditional_rules);
+    scene.add_component<seed::GameplayRulesComponent>(player, rules);
 
     seed::GameplayEventBus events;
     events.publish({
