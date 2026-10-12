@@ -1,5 +1,7 @@
 #include "GameplayAuthoring.h"
 
+#include "seed/animation/AnimationComponents.h"
+
 #include "seed/gameplay/Components.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
@@ -78,6 +80,11 @@ void ensure_first_person_dependencies(Scene& scene, EntityId entity) {
     }
     if (!scene.has_component<CharacterBodyComponent>(entity)) {
         scene.add_component<CharacterBodyComponent>(entity);
+    }
+    if (!scene.has_component<AnimationPlayerComponent>(entity)) {
+        AnimationPlayerComponent animation;
+        animation.locomotion_enabled = true;
+        scene.add_component<AnimationPlayerComponent>(entity, std::move(animation));
     }
 }
 
