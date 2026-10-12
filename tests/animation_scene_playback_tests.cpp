@@ -2,6 +2,7 @@
 #include "seed/animation/AnimationSystem.h"
 #include "seed/assets/AssetRuntime.h"
 #include "seed/gameplay/Components.h"
+#include "seed/gameplay/GameplayEvents.h"
 #include "seed/render/IRenderer.h"
 #include "seed/render/RenderComponents.h"
 #include "seed/render/RenderSystem.h"
@@ -141,7 +142,8 @@ int main() {
     material.use_normal_texture = false;
     scene.add_component<seed::MaterialComponent>(actor, material);
 
-    seed::AnimationSystem::update_scene(scene, 0.5f);
+    seed::GameplayEventBus event_bus;
+    seed::AnimationSystem::update_scene(scene, 0.5f, &event_bus);
 
     auto* updated_player = scene.get_component<seed::AnimationPlayerComponent>(actor);
     assert(updated_player != nullptr);
@@ -150,6 +152,7 @@ int main() {
     assert(near(updated_player->pose.global_matrices[0].values[12], 0.5f));
     assert(near(updated_player->pose.skin_matrices[0].values[12], 0.5f));
     assert(updated_player->triggered_events.empty());
+    assert(event_bus.pending().empty());
 
     CaptureRenderer renderer;
     assert(seed::RenderSystem::render(scene, renderer, camera));
@@ -159,7 +162,7 @@ int main() {
     assert(renderer.last_palette.size() == 1);
     assert(near(renderer.last_palette[0].values[12], 0.5f));
 
-    seed::AnimationSystem::update_scene(scene, 0.75f);
+    seed::AnimationSystem::update_scene(scene, 0.75f, &event_bus);
     updated_player = scene.get_component<seed::AnimationPlayerComponent>(actor);
     assert(updated_player != nullptr);
     assert(near(updated_player->time_seconds, 1.25f));
@@ -167,6 +170,13 @@ int main() {
     assert(near(updated_player->pose.skin_matrices[0].values[12], 0.25f));
     assert(updated_player->triggered_events.size() == 1);
     assert(updated_player->triggered_events.front() == "Footstep");
+    assert(event_bus.pending().size() == 1);
+    assert(event_bus.pending().front().source_entity == actor);
+    assert(event_bus.pending().front().type == seed::GameplayEventType::Animation);
+    assert(event_bus.pending().front().name == "Footstep");
+    const auto drained_events = event_bus.drain();
+    assert(drained_events.size() == 1);
+    assert(event_bus.pending().empty());
 
     std::cout << "Seed scene animation playback + render routing tests passed.\n";
     return 0;
