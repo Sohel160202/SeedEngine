@@ -17,6 +17,7 @@
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/project/ProjectSerializer.h"
 #include "seed/project/SceneSerializer.h"
+#include "seed/project/PrefabSerializer.h"
 #include "seed/project/SceneRevision.h"
 #include "seed/render/RenderComponents.h"
 #include "seed/render/RenderSystem.h"
@@ -1683,6 +1684,51 @@ int main(int argc, char** argv) {
                 workspace.status_message = prepare_standalone_build(workspace, &build_error)
                     ? "Standalone build prepared in " + (workspace.project_file.parent_path() / "Build").string()
                     : "Build preparation failed: " + build_error;
+                break;
+            }
+            case seed::studio::StudioActionType::SavePrefab: {
+                if (has_pending_play_changes || workspace.project_file.empty()) break;
+                if (studio_ui.selected_entity() == seed::InvalidEntity ||
+                    !scene.is_alive(studio_ui.selected_entity())) {
+                    workspace.status_message = "Select an entity before saving a prefab.";
+                    break;
+                }
+                std::filesystem::path prefab_path = action.path;
+                if (prefab_path.is_relative()) prefab_path = workspace.project_file.parent_path() / prefab_path;
+                if (prefab_path.extension() != ".seedprefab") prefab_path += ".seedprefab";
+                std::string prefab_error;
+                workspace.status_message = seed::PrefabSerializer::save(
+                    scene,
+                    studio_ui.selected_entity(),
+                    prefab_path,
+                    &prefab_error
+                )
+                    ? "Saved prefab: " + prefab_path.string()
+                    : "Prefab save failed: " + prefab_error;
+                break;
+            }
+            case seed::studio::StudioActionType::InstantiatePrefab: {
+                if (has_pending_play_changes || workspace.project_file.empty()) break;
+                std::filesystem::path prefab_path = action.path;
+                if (prefab_path.is_relative()) prefab_path = workspace.project_file.parent_path() / prefab_path;
+                EntityId created = seed::InvalidEntity;
+                std::string prefab_error;
+                if (!seed::PrefabSerializer::instantiate(scene, prefab_path, &created, &prefab_error)) {
+                    workspace.status_message = "Prefab instantiate failed: " + prefab_error;
+                    break;
+                }
+                studio_ui.select_entity(created);
+                workspace.dirty = true;
+                std::string rebind_error;
+                const bool rebound = asset_runtime.bind_scene(
+                    scene,
+                    mesh_shader,
+                    skinned_mesh_shader,
+                    &rebind_error
+                );
+                workspace.status_message = rebound
+                    ? "Instantiated prefab: " + prefab_path.string()
+                    : "Instantiated prefab, but asset rebind reported: " + rebind_error;
                 break;
             }
             case seed::studio::StudioActionType::Save:
