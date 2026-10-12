@@ -420,6 +420,54 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
         ImGui::PopID();
     }
 
+    if (auto* variables = scene.get_component<GameplayVariablesComponent>(entity)) {
+        ImGui::PushID("SeedVariables");
+        if (ImGui::CollapsingHeader("Variables", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("Named values that rules can read without code.");
+            int remove_index = -1;
+            for (std::size_t index = 0; index < variables->values.size(); ++index) {
+                auto& variable = variables->values[index];
+                ImGui::PushID(static_cast<int>(index));
+                changed |= edit_string("Name", variable.name);
+                changed |= ImGui::DragFloat("Number", &variable.number, 0.1f);
+                changed |= ImGui::Checkbox("True", &variable.boolean);
+                if (ImGui::SmallButton("Remove Variable")) remove_index = static_cast<int>(index);
+                ImGui::PopID();
+            }
+            if (remove_index >= 0) {
+                variables->values.erase(variables->values.begin() + remove_index);
+                changed = true;
+            }
+            if (ImGui::Button("Add Variable")) {
+                variables->values.push_back({});
+                changed = true;
+            }
+            if (remove_component_button("Remove Variables")) {
+                scene.remove_component<GameplayVariablesComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
+    if (auto* trigger = scene.get_component<TriggerVolumeComponent>(entity)) {
+        ImGui::PushID("SeedTriggerVolume");
+        if (ImGui::CollapsingHeader("Trigger Volume", ImGuiTreeNodeFlags_DefaultOpen)) {
+            component_description("Fires EnterTrigger and ExitTrigger events when the player enters this radius.");
+            changed |= ImGui::Checkbox("Enabled", &trigger->enabled);
+            if (ImGui::DragFloat("Radius", &trigger->radius, 0.1f, 0.1f, 1000.0f)) {
+                trigger->radius = std::max(0.1f, trigger->radius);
+                changed = true;
+            }
+            changed |= ImGui::Checkbox("Fire Once", &trigger->fire_once);
+            if (remove_component_button("Remove Trigger Volume")) {
+                scene.remove_component<TriggerVolumeComponent>(entity);
+                changed = true;
+            }
+        }
+        ImGui::PopID();
+    }
+
     if (auto* dialogue = scene.get_component<DialogueComponent>(entity)) {
         ImGui::PushID("SeedDialogue");
         if (ImGui::CollapsingHeader("Dialogue", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -762,6 +810,8 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     const bool has_dialogue = scene.has_component<DialogueComponent>(entity);
     const bool has_quest = scene.has_component<QuestComponent>(entity);
     const bool has_rules = scene.has_component<GameplayRulesComponent>(entity);
+    const bool has_variables = scene.has_component<GameplayVariablesComponent>(entity);
+    const bool has_trigger = scene.has_component<TriggerVolumeComponent>(entity);
 
     ImGui::BeginDisabled(has_player);
     if (ImGui::MenuItem(has_player ? "Player — First Person [Added]" : "Player — First Person")) {
@@ -838,6 +888,21 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     }
     ImGui::EndDisabled();
 
+    ImGui::BeginDisabled(has_variables);
+    if (ImGui::MenuItem(has_variables ? "Variables [Added]" : "Variables")) {
+        scene.add_component<GameplayVariablesComponent>(entity);
+        changed = true;
+    }
+    ImGui::EndDisabled();
+
+    ImGui::BeginDisabled(has_trigger);
+    if (ImGui::MenuItem(has_trigger ? "Trigger Volume [Added]" : "Trigger Volume")) {
+        if (!scene.has_component<TransformComponent>(entity)) scene.add_component<TransformComponent>(entity);
+        scene.add_component<TriggerVolumeComponent>(entity);
+        changed = true;
+    }
+    ImGui::EndDisabled();
+
     ImGui::BeginDisabled(has_rules);
     if (ImGui::MenuItem(has_rules ? "Gameplay Rules [Added]" : "Gameplay Rules")) {
         GameplayRulesComponent gameplay_rules;
@@ -904,7 +969,7 @@ bool draw_add_gameplay_popup(Scene& scene, EntityId entity) {
     ImGui::EndDisabled();
 
     ImGui::Separator();
-    ImGui::TextDisabled("Next: Branching Dialogue, Quest Rewards, Save Game");
+    ImGui::TextDisabled("Next: Variables, Triggers, Branching Dialogue, Quest Rewards, Save Game");
     return changed;
 }
 
