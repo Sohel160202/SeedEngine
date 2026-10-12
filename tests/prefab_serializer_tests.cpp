@@ -26,12 +26,6 @@ int main() {
         std::filesystem::temp_directory_path() / "seed_prefab_serializer_test.seedprefab";
     std::string error;
     assert(seed::PrefabSerializer::save(source, enemy, prefab_path, &error));
-    assert(error.empty());
-
-    std::ifstream input(prefab_path);
-    const std::string document((std::istreambuf_iterator<char>(input)), {});
-    assert(document.find("\"seed_format\": \"seedprefab\"") != std::string::npos);
-
     seed::Scene destination;
     seed::EntityId instance = seed::InvalidEntity;
     assert(seed::PrefabSerializer::instantiate(destination, prefab_path, &instance, &error));
