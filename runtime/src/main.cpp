@@ -10,6 +10,7 @@
 #include "seed/project/SceneSerializer.h"
 #include "seed/render/RenderSystem.h"
 #include "seed/save/SaveGameService.h"
+#include "RuntimeUI.h"
 
 #include <charconv>
 #include <cstdint>
@@ -151,6 +152,10 @@ int main(int argc, char** argv) {
     );
     const bool save_enabled = scene.find_entity_by_persistent_id("player") != seed::InvalidEntity;
 
+    seed::runtime::RuntimeUI runtime_ui;
+    const bool runtime_ui_available =
+        runtime_ui.initialize(engine.platform()->window_handle());
+
     seed::GameplayRuntime gameplay_runtime;
     if (!gameplay_runtime.start(scene, player)) {
         engine.shutdown();
@@ -258,6 +263,8 @@ int main(int argc, char** argv) {
         }
 
         engine.update();
+        if (runtime_ui_available) runtime_ui.begin_frame();
+
         engine.begin_frame();
         if (engine.renderer() != nullptr) {
             seed::RenderSystem::render(
@@ -266,6 +273,11 @@ int main(int argc, char** argv) {
                 gameplay_runtime.camera_entity()
             );
         }
+        if (runtime_ui_available) {
+            const auto hud = seed::GameplayHUDSystem::capture(scene, gameplay_runtime);
+            runtime_ui.draw(hud, save_enabled);
+            runtime_ui.render();
+        }
         engine.end_frame();
 
         if (frame_limit > 0 && engine.frame_index() >= frame_limit) {
@@ -273,6 +285,7 @@ int main(int argc, char** argv) {
         }
     }
 
+    runtime_ui.shutdown();
     engine.shutdown();
     return 0;
 }
