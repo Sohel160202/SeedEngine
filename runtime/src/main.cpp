@@ -7,6 +7,7 @@
 #include "seed/gameplay/GameplayFeedbackSystem.h"
 #include "seed/project/ProjectSerializer.h"
 #include "seed/project/SceneSerializer.h"
+#include "seed/render/RenderSystem.h"
 
 #include <charconv>
 #include <cstdint>
@@ -225,7 +226,13 @@ int main(int argc, char** argv) {
 
         engine.update();
         engine.begin_frame();
-        // Future game-world rendering is submitted here.
+        if (engine.renderer() != nullptr) {
+            seed::RenderSystem::render(
+                scene,
+                *engine.renderer(),
+                gameplay_runtime.camera_entity()
+            );
+        }
         engine.end_frame();
 
         if (frame_limit > 0 && engine.frame_index() >= frame_limit) {
