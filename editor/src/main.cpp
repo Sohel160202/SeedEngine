@@ -10,6 +10,7 @@
 #include "seed/core/Engine.h"
 #include "seed/gameplay/Components.h"
 #include "seed/gameplay/GameplayRuntime.h"
+#include "seed/gameplay/GameplayHUD.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/project/ProjectSerializer.h"
 #include "seed/project/SceneSerializer.h"
@@ -1032,17 +1033,19 @@ seed::studio::StudioDocumentInfo document_info(
     );
     info.project_assets.assign(imported_assets.begin(), imported_assets.end());
 
-    if (playing) {
-        info.gameplay_prompt = gameplay.interaction_prompt();
-        info.gameplay_status = gameplay.status_message();
-        if (play_scene && play_player != seed::InvalidEntity && play_scene->is_alive(play_player)) {
-            if (const auto* inventory = play_scene->get_component<seed::InventoryComponent>(play_player)) {
-                for (const auto& [item_id, quantity] : inventory->items) {
-                    info.gameplay_inventory.emplace_back(item_id, quantity);
-                }
-                std::sort(info.gameplay_inventory.begin(), info.gameplay_inventory.end());
-            }
+    if (playing && play_scene != nullptr) {
+        const auto hud = seed::GameplayHUDSystem::capture(*play_scene, gameplay);
+        info.gameplay_prompt = hud.interaction_prompt;
+        info.gameplay_status = hud.status_message;
+        info.gameplay_health_visible = hud.health_visible;
+        info.gameplay_health_current = hud.health_current;
+        info.gameplay_health_maximum = hud.health_maximum;
+        info.gameplay_dialogue_visible = hud.dialogue_visible;
+        info.gameplay_objectives = hud.active_objectives;
+        for (const auto& [item_id, quantity] : hud.inventory) {
+            info.gameplay_inventory.emplace_back(item_id, quantity);
         }
+        std::sort(info.gameplay_inventory.begin(), info.gameplay_inventory.end());
     }
     return info;
 }
