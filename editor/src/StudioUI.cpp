@@ -199,9 +199,21 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Tools", !document.playing)) { if (ImGui::MenuItem("Save Scene Revision...", nullptr, false, document.has_project)) { copy_text(m_revision_label_buffer, "Before major change"); m_show_revision_dialog=true; } if (ImGui::MenuItem("Scene History...", nullptr, false, document.has_project)) m_show_revision_dialog=true; ImGui::Separator(); if (ImGui::MenuItem("Semantic Merge Review...", nullptr, false, document.has_project)) { m_merge_base_revision_index = document.revisions.size() > 2 ? 2 : -1; m_merge_ours_revision_index = document.revisions.size() > 1 ? 1 : -1; m_merge_theirs_revision_index = document.revisions.empty() ? -1 : 0; m_show_semantic_merge_dialog=true; } ImGui::EndMenu(); }
-    if (ImGui::BeginMenu("Build")) { if (document.playing) { if (ImGui::MenuItem("Stop","F5")) queue_action({.type=StudioActionType::Stop}); } else if (ImGui::MenuItem("Play","F5")) queue_action({.type=StudioActionType::Play}); ImGui::Separator(); ImGui::MenuItem("Build Game...",nullptr,false,false); ImGui::EndMenu(); }
+    if (ImGui::BeginMenu("Build")) {
+        if (document.playing) {
+            if (ImGui::MenuItem("Stop", "F5")) queue_action({.type=StudioActionType::Stop});
+        } else if (ImGui::MenuItem("Play", "F5")) {
+            queue_action({.type=StudioActionType::Play});
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Prepare Standalone Build", nullptr, false, document.has_project && !document.playing)) {
+            queue_action({.type=StudioActionType::BuildGame});
+        }
+        ImGui::EndMenu();
+    }
     if (ImGui::BeginMenu("Help")) {
-        if (ImGui::MenuItem("Beginner Guide")) {
+        if (ImGui::MenuItem("First Game Tutorial")) {
+            m_beginner_tutorial_step = 0;
             m_show_beginner_guide_dialog = true;
         }
         ImGui::EndMenu();
@@ -256,31 +268,28 @@ void StudioUI::draw_project_dialogs(const StudioDocumentInfo& document) {
     if(m_show_revision_dialog){center_next_dialog();if(ImGui::Begin("Scene History",&m_show_revision_dialog,flags)){ImGui::TextUnformatted("Create an immutable revision or restore a previous authored scene.");ImGui::InputText("Revision Label",m_revision_label_buffer.data(),m_revision_label_buffer.size());if(ImGui::Button("Save Revision",{130,0})&&m_revision_label_buffer[0]!=0){queue_action({.type=StudioActionType::SaveRevision,.path=m_revision_label_buffer.data()});m_show_revision_dialog=false;}ImGui::SameLine();if(ImGui::Button("Close",{110,0}))m_show_revision_dialog=false;ImGui::Separator();if(document.revisions.empty())ImGui::TextDisabled("No scene revisions yet.");for(const auto& revision:document.revisions){ImGui::PushID(revision.id.c_str());ImGui::Text("%s",revision.label.c_str());ImGui::SameLine();ImGui::TextDisabled("%s  •  %zu entities",revision.id.c_str(),revision.entity_count);ImGui::SameLine(ImGui::GetWindowWidth()-125.0f);if(ImGui::Button("Restore",{95,0})){queue_action({.type=StudioActionType::LoadRevision,.path=revision.id});m_show_revision_dialog=false;}ImGui::PopID();}}ImGui::End();}
     if(m_show_beginner_guide_dialog){
         center_next_dialog();
-        if(ImGui::Begin("Seed Beginner Guide",&m_show_beginner_guide_dialog,flags)){
-            ImGui::TextWrapped(
-                "You can make a complete small game in Seed without writing code."
-            );
-            ImGui::SeparatorText("1. Start");
-            ImGui::TextWrapped(
-                "Use File > New Project and choose Third-Person Adventure or Collect and Open."
-            );
-            ImGui::SeparatorText("2. Build");
-            ImGui::TextWrapped(
-                "Select an object, click + Add Gameplay, and choose Player, Pickup, Door, Health, Quest, or Gameplay Rules."
-            );
-            ImGui::SeparatorText("3. Add behavior");
-            ImGui::TextWrapped(
-                "In Gameplay Rules, choose When and Then. For example: when Interact, then Start Quest."
-            );
-            ImGui::SeparatorText("4. Play");
-            ImGui::TextWrapped(
-                "Press F5. Move with WASD, look with the right mouse button, interact with E, and attack with F."
-            );
-            ImGui::SeparatorText("5. Finish");
-            ImGui::TextWrapped(
-                "Use F5 in the standalone runtime to save, F9 to load, then use Build > export when your game is ready."
-            );
-            if(ImGui::Button("Close",{120,0}))m_show_beginner_guide_dialog=false;
+        if(ImGui::Begin("Seed First Game Tutorial",&m_show_beginner_guide_dialog,flags)){
+            static const char* titles[] = {
+                "Choose a starting point", "Create your game pieces",
+                "Teach the game a rule", "Play and finish", "Package your game"
+            };
+            static const char* text[] = {
+                "Use File > New Project and choose Third-Person Adventure. It already contains a player, a training enemy, lighting, and a playable space.",
+                "Use Beginner Presets or + Add Gameplay to create Player, Enemy, Pickup, Door, and Quest objects. You do not need to understand components yet.",
+                "Select an object, open Gameplay Rules, and choose When and Then from the dropdowns. Example: When Pickup Collected, Then Give Item.",
+                "Press F5. Use WASD to move, RMB to look, E to interact, and F to attack. Defeat the enemy to see the victory state.",
+                "Save the project, then choose Build > Prepare Standalone Build. Seed creates a Build folder with launch instructions and scripts."
+            };
+            const int step = std::clamp(m_beginner_tutorial_step, 0, 4);
+            ImGui::Text("Step %d of 5 — %s", step + 1, titles[step]);
+            ImGui::Separator();
+            ImGui::TextWrapped("%s", text[step]);
+            ImGui::Spacing();
+            if(step > 0){ if(ImGui::Button("Back",{100,0})) --m_beginner_tutorial_step; ImGui::SameLine(); }
+            if(step < 4){ if(ImGui::Button("Next",{100,0})) ++m_beginner_tutorial_step; }
+            else if(ImGui::Button("Finish",{100,0})) m_show_beginner_guide_dialog=false;
+            ImGui::SameLine();
+            if(ImGui::Button("Close",{100,0})) m_show_beginner_guide_dialog=false;
         }
         ImGui::End();
     }
