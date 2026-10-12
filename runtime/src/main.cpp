@@ -9,6 +9,7 @@
 #include "seed/project/ProjectSerializer.h"
 #include "seed/project/SceneSerializer.h"
 #include "seed/render/RenderSystem.h"
+#include "seed/save/SaveGameService.h"
 
 #include <charconv>
 #include <cstdint>
@@ -143,6 +144,13 @@ int main(int argc, char** argv) {
     }
     ensure_player_dependencies(scene, player);
 
+    seed::SaveGameService save_service(
+        project_file.empty()
+            ? std::filesystem::path{"Saves"}
+            : project_file.parent_path() / "Saves"
+    );
+    const bool save_enabled = scene.find_entity_by_persistent_id("player") != seed::InvalidEntity;
+
     seed::GameplayRuntime gameplay_runtime;
     if (!gameplay_runtime.start(scene, player)) {
         engine.shutdown();
@@ -226,9 +234,20 @@ int main(int argc, char** argv) {
     while (engine.tick()) {
         for (const auto& event : engine.frame_events()) {
             if (event.type == seed::PlatformEventType::Key &&
-                event.key == seed::KeyCode::Escape &&
                 event.button_state == seed::ButtonState::Pressed) {
-                engine.request_exit();
+                if (event.key == seed::KeyCode::Escape) {
+                    engine.request_exit();
+                } else if (event.key == seed::KeyCode::F5 && save_enabled) {
+                    const auto result = save_service.save_slot(scene, "autosave");
+                    std::cout << (result.saved
+                        ? "[SeedRuntime] Autosaved progress.\\n"
+                        : "[SeedRuntime] Autosave failed: " + result.error + "\\n");
+                } else if (event.key == seed::KeyCode::F9 && save_enabled) {
+                    const auto result = save_service.load_slot(scene, "autosave");
+                    std::cout << (result.loaded
+                        ? "[SeedRuntime] Loaded autosave progress.\\n"
+                        : "[SeedRuntime] Load failed: " + result.error + "\\n");
+                }
             }
         }
 
