@@ -132,6 +132,7 @@ struct OpenGLShaderResource {
     int receive_shadows_location{-1};
     int shadows_enabled_location{-1};
     int joint_matrices_location{-1};
+    int shadow_joint_matrices_location{-1};
 };
 
 struct OpenGLMeshResource {
@@ -386,6 +387,29 @@ public:
         if (!m_shadow_pass_active) return;
         const auto found = m_meshes.find(mesh.value);
         if (found == m_meshes.end()) return;
+        if (m_shadow_model_location >= 0) m_uniform_matrix4fv(m_shadow_model_location, 1, GlFalse, model.data());
+        m_bind_vertex_array(found->second.vertex_array);
+        m_draw_elements(GlTriangles, found->second.index_count, GlUnsignedInt, nullptr);
+        m_bind_vertex_array(0);
+    }
+
+    void draw_skinned_shadow_mesh(
+        MeshHandle mesh,
+        const Mat4& model,
+        std::span<const Mat4> joint_palette
+    ) override {
+        if (!m_shadow_pass_active || joint_palette.empty() || m_shadow_joint_matrices_location < 0) return;
+        const auto found = m_meshes.find(mesh.value);
+        if (found == m_meshes.end()) return;
+
+        const std::size_t count = std::min(joint_palette.size(), MaxSkinJoints);
+        if (count == 0) return;
+        m_uniform_matrix4fv(
+            m_shadow_joint_matrices_location,
+            static_cast<int>(count),
+            GlFalse,
+            joint_palette.front().data()
+        );
         if (m_shadow_model_location >= 0) m_uniform_matrix4fv(m_shadow_model_location, 1, GlFalse, model.data());
         m_bind_vertex_array(found->second.vertex_array);
         m_draw_elements(GlTriangles, found->second.index_count, GlUnsignedInt, nullptr);
@@ -709,10 +733,26 @@ void main() {
         constexpr std::string_view vertex = R"GLSL(
 #version 330 core
 layout(location = 0) in vec3 aPosition;
+layout(location = 4) in vec4 aJoints;
+layout(location = 5) in vec4 aWeights;
 uniform mat4 uModel;
 uniform mat4 uLightViewProjection;
+uniform mat4 uJointMatrices[96];
 void main() {
-    gl_Position = uLightViewProjection * uModel * vec4(aPosition, 1.0);
+    vec4 weights = max(aWeights, vec4(0.0));
+    float total = weights.x + weights.y + weights.z + weights.w;
+    if (total <= 0.000001) {
+        weights = vec4(1.0, 0.0, 0.0, 0.0);
+    } else {
+        weights /= total;
+    }
+    ivec4 joints = ivec4(aJoints + vec4(0.5));
+    mat4 skin =
+        uJointMatrices[joints.x] * weights.x +
+        uJointMatrices[joints.y] * weights.y +
+        uJointMatrices[joints.z] * weights.z +
+        uJointMatrices[joints.w] * weights.w;
+    gl_Position = uLightViewProjection * uModel * skin * vec4(aPosition, 1.0);
 }
 )GLSL";
         constexpr std::string_view fragment = R"GLSL(
@@ -723,6 +763,7 @@ void main() {}
         if (m_shadow_program == 0) return false;
         m_shadow_model_location = m_get_uniform_location(m_shadow_program, "uModel");
         m_shadow_light_view_projection_location = m_get_uniform_location(m_shadow_program, "uLightViewProjection");
+        m_shadow_joint_matrices_location = m_get_uniform_location(m_shadow_program, "uJointMatrices[0]");
 
         m_gen_textures(1, &m_shadow_depth_texture);
         m_bind_texture(GlTexture2D, m_shadow_depth_texture);
@@ -855,6 +896,7 @@ void main() {}
     unsigned int m_shadow_depth_texture{0};
     int m_shadow_model_location{-1};
     int m_shadow_light_view_projection_location{-1};
+    int m_shadow_joint_matrices_location{-1};
     bool m_shadow_pass_active{false};
 
     GlClearColorFn m_clear_color{nullptr};
