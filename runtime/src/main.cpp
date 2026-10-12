@@ -1,3 +1,4 @@
+#include "seed/animation/AnimationSystem.h"
 #include "seed/core/Engine.h"
 #include "seed/gameplay/Components.h"
 
@@ -66,6 +67,18 @@ int main(int argc, char** argv) {
         false
     );
 
+    engine.register_update_system(
+        "Animation",
+        seed::SystemPhase::Animation,
+        [](seed::Scene& runtime_scene, double delta_seconds, seed::GameplayEventBus& events) {
+            seed::AnimationSystem::update_scene(
+                runtime_scene,
+                static_cast<float>(delta_seconds),
+                &events
+            );
+        }
+    );
+
     std::cout << "[SeedRuntime] Scene booted with " << scene.entity_count() << " entities.\n";
     std::cout << "[SeedRuntime] Seed renderer active. Press Escape to close.\n";
 
@@ -78,6 +91,7 @@ int main(int argc, char** argv) {
             }
         }
 
+        engine.update();
         engine.begin_frame();
         // Future game-world rendering is submitted here.
         engine.end_frame();
