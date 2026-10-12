@@ -210,6 +210,8 @@ Seed now owns:
 - runtime `character:` asset cache
 - 96-joint skinning-v0 limit enforced before rendering
 - generated animated-character test fixture in CI
+- automatic Idle / Walk / Run / Jump / Fall clip selection
+- Studio locomotion toggle with conventional clip fallback
 
 Important: **animated characters are now visually skinned by the OpenGL renderer.** The camera pass and shadow pass both consume the evaluated joint palette, so deformation and silhouettes stay synchronized.
 
@@ -217,7 +219,6 @@ Important: **animated characters are now visually skinned by the OpenGL renderer
 
 - material/texture quality parity for animated characters
 - visible character preview and authoring workflow in Seed Studio
-- Idle / Walk / Run / Jump / Fall locomotion preset
 - animation blending
 - dialogue
 - quests

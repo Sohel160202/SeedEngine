@@ -1,5 +1,6 @@
 #include "seed/gameplay/GameplayRuntime.h"
 
+#include "seed/animation/AnimationComponents.h"
 #include "seed/gameplay/Components.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
@@ -47,6 +48,22 @@ float maximum_scale(const TransformComponent& transform) {
 
 float yaw_from_direction(const Vec3& direction) {
     return degrees(std::atan2(direction.x, -direction.z));
+}
+
+void publish_locomotion(
+    Scene& scene,
+    EntityId entity,
+    float speed,
+    bool grounded,
+    float vertical_velocity,
+    bool sprinting
+) {
+    auto* animation = scene.get_component<AnimationPlayerComponent>(entity);
+    if (animation == nullptr || !animation->locomotion_enabled) return;
+    animation->locomotion_speed = speed;
+    animation->locomotion_grounded = grounded;
+    animation->locomotion_vertical_velocity = vertical_velocity;
+    animation->locomotion_sprinting = sprinting;
 }
 
 } // namespace
@@ -323,6 +340,14 @@ void GameplayRuntime::update_player(Scene& scene, double delta_seconds) {
             m_character_state
         );
         m_jump_requested = false;
+        publish_locomotion(
+            scene,
+            m_player_entity,
+            length(wish) * speed,
+            m_character_state.grounded,
+            m_character_state.vertical_velocity,
+            m_fast && length(wish) > 0.0001f
+        );
         if (controller->view_mode == PlayerViewMode::ThirdPerson) {
             update_third_person_camera(scene);
         }
@@ -339,6 +364,14 @@ void GameplayRuntime::update_player(Scene& scene, double delta_seconds) {
         if (m_down) transform->position += world_up * -distance;
     }
 
+    publish_locomotion(
+        scene,
+        m_player_entity,
+        length(wish) * speed,
+        true,
+        0.0f,
+        m_fast && length(wish) > 0.0001f
+    );
     m_jump_requested = false;
     if (controller->view_mode == PlayerViewMode::ThirdPerson) {
         update_third_person_camera(scene);
