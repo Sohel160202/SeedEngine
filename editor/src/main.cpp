@@ -1655,6 +1655,15 @@ int main(int argc, char** argv) {
                         ", but asset rebind reported: " + rebind_error;
                 break;
             }
+            case seed::studio::StudioActionType::BuildGame: {
+                if (has_pending_play_changes || workspace.project_file.empty()) break;
+                if (!save_workspace(workspace, scene)) break;
+                std::string build_error;
+                workspace.status_message = prepare_standalone_build(workspace, &build_error)
+                    ? "Standalone build prepared in " + (workspace.project_file.parent_path() / "Build").string()
+                    : "Build preparation failed: " + build_error;
+                break;
+            }
             case seed::studio::StudioActionType::Save:
                 if (!has_pending_play_changes) save_workspace(workspace, scene);
                 break;
@@ -1752,6 +1761,22 @@ int main(int argc, char** argv) {
                 studio_ui.select_entity(entity);
                 workspace.dirty = true;
                 workspace.status_message = "Created Sky environment.";
+                break;
+            }
+            case seed::studio::StudioActionType::CreateBeginnerPreset: {
+                if (has_pending_play_changes) break;
+                const auto entity = create_beginner_preset(
+                    scene,
+                    action.path,
+                    editor_camera,
+                    cube_mesh,
+                    mesh_shader
+                );
+                if (entity != seed::InvalidEntity) {
+                    studio_ui.select_entity(entity);
+                    workspace.dirty = true;
+                    workspace.status_message = "Created beginner preset: " + action.path + ".";
+                }
                 break;
             }
             case seed::studio::StudioActionType::CreateFirstPersonPlayer: {
