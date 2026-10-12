@@ -47,6 +47,20 @@ struct AttackComponent {
     bool active{false};
 };
 
+struct GameplayRule {
+    std::string when_event{"Interact"};
+    std::string action{"Publish Event"};
+    std::string action_value{"RuleTriggered"};
+    std::string required_item{};
+    int quantity{1};
+    bool once{false};
+    bool fired{false}; // Runtime-only state; authored scenes always load this as false.
+};
+
+struct GameplayRulesComponent {
+    std::vector<GameplayRule> rules;
+};
+
 struct FeedbackCueBinding {
     std::string event_name{"Footstep"};
     std::string audio_asset{};
