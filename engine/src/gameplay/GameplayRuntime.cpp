@@ -172,6 +172,7 @@ void GameplayRuntime::stop() {
     m_doors.clear();
     m_enemy_attack_elapsed.clear();
     m_trigger_inside.clear();
+    m_begin_play_published = false;
     m_victory_announced = false;
     m_dialogue_entity = InvalidEntity;
     m_dialogue_line_index = 0;
@@ -274,6 +275,15 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBu
         return;
     }
     m_respawn_elapsed = 0.0f;
+
+    if (!m_begin_play_published && event_bus != nullptr) {
+        event_bus->publish({
+            .source_entity = m_player_entity,
+            .type = GameplayEventType::BeginPlay,
+            .name = "BeginPlay",
+        });
+        m_begin_play_published = true;
+    }
 
     update_player(scene, delta_seconds, event_bus);
     if (m_attack_requested) {
