@@ -1,6 +1,7 @@
 #pragma once
 
 #include "seed/core/Types.h"
+#include "seed/input/InputActions.h"
 #include "seed/math/Math.h"
 #include "seed/physics/PhysicsSystem.h"
 #include "seed/platform/IPlatform.h"
@@ -19,6 +20,9 @@ public:
 
     void handle_event(const PlatformEvent& event);
     void update(Scene& scene, double delta_seconds);
+
+    InputActionMap& input_map() noexcept { return m_input_map; }
+    const InputActionMap& input_map() const noexcept { return m_input_map; }
 
     bool active() const noexcept { return m_active; }
     EntityId player_entity() const noexcept { return m_player_entity; }
@@ -74,6 +78,7 @@ private:
     float m_third_person_yaw{0.0f};
     float m_third_person_pitch{-12.0f};
 
+    InputActionMap m_input_map;
     PhysicsSystem::CharacterState m_character_state{};
     std::unordered_map<EntityId, DoorRuntimeState> m_doors;
     EntityId m_dialogue_entity{InvalidEntity};

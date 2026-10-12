@@ -1,6 +1,7 @@
 #include "seed/animation/AnimationSystem.h"
 #include "seed/core/Engine.h"
 #include "seed/gameplay/Components.h"
+#include "seed/gameplay/GameplayRuntime.h"
 
 #include <charconv>
 #include <cstdint>
@@ -67,6 +68,28 @@ int main(int argc, char** argv) {
         false
     );
 
+    seed::GameplayRuntime gameplay_runtime;
+    if (!gameplay_runtime.start(scene, player)) {
+        engine.shutdown();
+        return 1;
+    }
+
+    engine.register_update_system(
+        "Input",
+        seed::SystemPhase::Input,
+        [&](seed::Scene&, double, seed::GameplayEventBus&) {
+            for (const auto& event : engine.frame_events()) {
+                gameplay_runtime.handle_event(event);
+            }
+        }
+    );
+    engine.register_update_system(
+        "Gameplay",
+        seed::SystemPhase::Gameplay,
+        [&](seed::Scene& runtime_scene, double delta_seconds, seed::GameplayEventBus&) {
+            gameplay_runtime.update(runtime_scene, delta_seconds);
+        }
+    );
     engine.register_update_system(
         "Animation",
         seed::SystemPhase::Animation,
