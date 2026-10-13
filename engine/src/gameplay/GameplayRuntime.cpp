@@ -150,7 +150,7 @@ void update_customers(
     if (clock != nullptr) {
         scene.for_each<StaffWorkerComponent>(
             [&](EntityId, StaffWorkerComponent& worker) {
-                if (!worker.enabled || worker.last_paid_day >= clock->day) return;
+                if (!worker.enabled || !worker.employed || worker.last_paid_day >= clock->day) return;
                 const int unpaid_days = std::max(
                     1, clock->day - std::max(1, worker.last_paid_day)
                 );
@@ -180,6 +180,7 @@ void update_customers(
             scene.for_each<StaffWorkerComponent>(
                 [&](EntityId, StaffWorkerComponent& worker) {
                     if (!worker.enabled ||
+                        !worker.employed ||
                         !worker_on_shift(worker) ||
                         worker.assigned_station_persistent_id !=
                             scene.entity_persistent_id(station_entity)) {
@@ -191,7 +192,8 @@ void update_customers(
                         return;
                     }
                     ++staffed_workers;
-                    combined_work_speed += std::max(0.1f, worker.work_speed);
+                    combined_work_speed += std::max(0.1f, worker.work_speed) *
+                        (1.0f + static_cast<float>(std::max(0, worker.skill_level - 1)) * 0.1f);
                 }
             );
 
@@ -1130,7 +1132,26 @@ void GameplayRuntime::refresh_interaction_target(Scene& scene) {
         return;
     }
 
-    if (scene.has_component<CheckoutStationComponent>(m_interaction_target)) {
+    if (const auto* worker = scene.get_component<StaffWorkerComponent>(m_interaction_target)) {
+        float cost = worker->employed ? worker->skill_upgrade_cost : worker->hiring_cost;
+        scene.for_each<ShopInventoryComponent, WalletComponent>(
+            [&](EntityId entity, ShopInventoryComponent&, WalletComponent&) {
+                const auto* manager = scene.get_component<StaffManagerComponent>(entity);
+                if (manager != nullptr && cost <= 0.0f) {
+                    cost = worker->employed
+                        ? manager->default_skill_upgrade_cost
+                        : manager->default_hiring_cost;
+                }
+            }
+        );
+        if (!worker->employed) {
+            m_interaction_prompt = "[E] Hire " + worker->role + " — " + std::to_string(cost);
+        } else if (worker->skill_level < worker->max_skill_level) {
+            m_interaction_prompt = "[E] Upgrade " + worker->role + " — " + std::to_string(cost);
+        } else {
+            m_interaction_prompt = "[E] " + worker->role + " (Max Skill)";
+        }
+    } else if (scene.has_component<CheckoutStationComponent>(m_interaction_target)) {
         bool customer_waiting = false;
         scene.for_each<CustomerBehaviorComponent, CustomerOrderComponent>(
             [&](EntityId, CustomerBehaviorComponent& behavior, CustomerOrderComponent& order) {
@@ -1195,6 +1216,92 @@ void GameplayRuntime::perform_interaction(Scene& scene, GameplayEventBus* event_
         present_dialogue_line(scene);
         if (event_bus != nullptr) {
             event_bus->publish({m_interaction_target, GameplayEventType::Interaction, "DialogueStarted", 0.0f});
+        }
+        return;
+    }
+
+    if (auto* worker = scene.get_component<StaffWorkerComponent>(m_interaction_target)) {
+        EntityId shop_entity = InvalidEntity;
+        WalletComponent* wallet = nullptr;
+        StaffManagerComponent* manager = nullptr;
+        SimulationClockComponent* clock = nullptr;
+        scene.for_each<ShopInventoryComponent, WalletComponent>(
+            [&](EntityId entity, ShopInventoryComponent&, WalletComponent& candidate_wallet) {
+                if (shop_entity != InvalidEntity) return;
+                shop_entity = entity;
+                wallet = &candidate_wallet;
+                manager = scene.get_component<StaffManagerComponent>(entity);
+                clock = scene.get_component<SimulationClockComponent>(entity);
+            }
+        );
+        if (wallet == nullptr) {
+            m_status_message = "This worker is not connected to a shop.";
+            return;
+        }
+
+        int employed_staff = 0;
+        scene.for_each<StaffWorkerComponent>(
+            [&](EntityId, StaffWorkerComponent& candidate) {
+                if (candidate.enabled && candidate.employed) ++employed_staff;
+            }
+        );
+
+        if (!worker->employed) {
+            const int max_staff = manager == nullptr ? 1000 : std::max(1, manager->max_staff);
+            if (employed_staff >= max_staff) {
+                m_status_message = "The staff roster is full.";
+                return;
+            }
+            const float hiring_cost = worker->hiring_cost > 0.0f
+                ? worker->hiring_cost
+                : (manager == nullptr ? 0.0f : manager->default_hiring_cost);
+            if (wallet->balance < hiring_cost) {
+                m_status_message = "Not enough money to hire this worker.";
+                return;
+            }
+            wallet->balance -= hiring_cost;
+            wallet->lifetime_expenses += hiring_cost;
+            worker->employed = true;
+            if (clock != nullptr) worker->last_paid_day = clock->day;
+            m_status_message = "Hired " + worker->role + " for " +
+                std::to_string(hiring_cost);
+            if (event_bus != nullptr) {
+                event_bus->publish({
+                    m_interaction_target,
+                    GameplayEventType::Interaction,
+                    "WorkerHired",
+                    hiring_cost,
+                    shop_entity
+                });
+            }
+            return;
+        }
+
+        const int max_skill = std::max(1, worker->max_skill_level);
+        if (worker->skill_level >= max_skill) {
+            m_status_message = "Worker skill is already at maximum.";
+            return;
+        }
+        const float upgrade_cost = worker->skill_upgrade_cost > 0.0f
+            ? worker->skill_upgrade_cost
+            : (manager == nullptr ? 0.0f : manager->default_skill_upgrade_cost);
+        if (wallet->balance < upgrade_cost) {
+            m_status_message = "Not enough money to upgrade this worker.";
+            return;
+        }
+        wallet->balance -= upgrade_cost;
+        wallet->lifetime_expenses += upgrade_cost;
+        ++worker->skill_level;
+        m_status_message = "Upgraded " + worker->role + " to Skill " +
+            std::to_string(worker->skill_level);
+        if (event_bus != nullptr) {
+            event_bus->publish({
+                m_interaction_target,
+                GameplayEventType::Interaction,
+                "WorkerUpgraded",
+                upgrade_cost,
+                shop_entity
+            });
         }
         return;
     }
