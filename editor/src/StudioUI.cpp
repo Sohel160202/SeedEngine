@@ -220,6 +220,7 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
             if (ImGui::MenuItem("Simulation Product")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_product"});
             if (ImGui::MenuItem("Customer Order")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_order"});
             if (ImGui::MenuItem("Checkout Station")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_checkout"});
+            if (ImGui::MenuItem("Staff Worker")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_staff"});
             if (ImGui::MenuItem("Shop Upgrade Board")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_upgrade"});
             ImGui::EndMenu();
         }
