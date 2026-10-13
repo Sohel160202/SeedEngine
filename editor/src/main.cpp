@@ -597,12 +597,20 @@ void build_project_template(
         add_product("snack", "Snack", "Food", 1.0f, 3.0f, 8, {0.0f, 0.65f, -2.0f});
         add_product("card_pack", "Card Pack", "TCG", 3.0f, 8.0f, 5, {2.2f, 0.65f, -2.0f});
 
-        const auto order_entity = scene.create_entity("Morning Customer Order");
+        const auto customer = create_cube(scene, cube_mesh, shader, "Customer");
+        auto* customer_transform = scene.get_component<seed::TransformComponent>(customer);
+        customer_transform->position = {-4.0f, 0.9f, -4.0f};
+        customer_transform->scale = {0.55f, 0.9f, 0.55f};
+        seed::CustomerBehaviorComponent behavior;
+        behavior.arrival_interval_seconds = 5.0f;
+        behavior.shopping_duration_seconds = 3.0f;
+        behavior.leave_duration_seconds = 4.0f;
+        scene.add_component<seed::CustomerBehaviorComponent>(customer, behavior);
         seed::CustomerOrderComponent order;
-        order.order_id = "order_001";
-        order.customer_name = "Morning Customer";
-        order.lines = {{"coffee", 2, 0, 5.0f}, {"snack", 1, 0, 3.0f}};
-        scene.add_component<seed::CustomerOrderComponent>(order_entity, order);
+        order.order_id = "customer-1";
+        order.customer_name = "Customer";
+        order.lines = {{"coffee", 1, 0, 5.0f}};
+        scene.add_component<seed::CustomerOrderComponent>(customer, order);
         return;
     }
 
