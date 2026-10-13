@@ -910,9 +910,6 @@ void StudioUI::draw_staff_panel(Scene& scene, const StudioDocumentInfo& document
         return;
     }
 
-    EntityId staff_shop_entity = shop_entity;
-
-    (void)staff_shop_entity;
     int employed_count = 0;
     int worker_count = 0;
     float daily_wages = 0.0f;
