@@ -264,25 +264,37 @@ void StudioUI::draw_project_dialogs(const StudioDocumentInfo& document) {
                 "Third-Person Adventure",
                 "First-Person Exploration",
                 "Collect and Open",
-                "Shop Simulator"
+                "Shop Simulator",
+                "Supermarket Simulator",
+                "Card Shop Simulator",
+                "Restaurant Simulator",
+                "Game Store Simulator"
             };
-            ImGui::Combo("Starting Point",&m_project_template_index,templates,5);
+            ImGui::Combo("Starting Point",&m_project_template_index,templates,9);
             const char* descriptions[] = {
                 "A clean scene with a camera, light, sky, and starter cube.",
                 "A ready player, ground, lighting, health, and interaction scene.",
                 "A first-person player and exploration-ready world.",
                 "A player, collectible key, locked door, inventory, and quest.",
-                "A first-person shop with products, stock, wallet, opening hours, clock, and a customer order."
+                "A first-person shop with products, stock, wallet, opening hours, clock, and a customer order.",
+                "A grocery shop with everyday products, customer demand, stock, and checkout.",
+                "A collectible card shop with booster packs, accessories, pricing, and customers.",
+                "A small food business with menu products, service capacity, and customer orders.",
+                "A game retailer with games, hardware accessories, staff, and checkout."
             };
-            ImGui::TextDisabled("%s",descriptions[std::clamp(m_project_template_index,0,4)]);
+            ImGui::TextDisabled("%s",descriptions[std::clamp(m_project_template_index,0,8)]);
 
             if(ImGui::Button("Create",{110,0})){
-                const char* ids[] = {"empty","third_person_adventure","first_person_exploration","collect_and_open","shop_simulator"};
+                const char* ids[] = {
+                    "empty", "third_person_adventure", "first_person_exploration",
+                    "collect_and_open", "shop_simulator", "supermarket_simulator",
+                    "card_shop_simulator", "restaurant_simulator", "game_store_simulator"
+                };
                 queue_action({
                     .type=StudioActionType::NewProject,
                     .path=m_project_folder_buffer.data(),
                     .project_name=m_project_name_buffer.data(),
-                    .path2=ids[std::clamp(m_project_template_index,0,3)]
+                    .path2=ids[std::clamp(m_project_template_index,0,8)]
                 });
                 m_show_new_project_dialog=false;
             }
