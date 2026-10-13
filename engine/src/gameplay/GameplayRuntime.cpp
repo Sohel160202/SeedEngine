@@ -161,14 +161,24 @@ void update_customers(
                 order.customer_name = scene.entity_name(customer_entity);
                 order.lines.clear();
 
-                bool created_order = false;
+                std::vector<ProductDefinitionComponent*> available_products;
                 scene.for_each<ProductDefinitionComponent>(
                     [&](EntityId, ProductDefinitionComponent& product) {
-                        if (created_order) return;
-                        order.lines.push_back({product.product_id, 1, 0, product.retail_price});
-                        created_order = true;
+                        available_products.push_back(&product);
                     }
                 );
+                const bool created_order = !available_products.empty();
+                if (created_order) {
+                    const std::size_t selected_index =
+                        static_cast<std::size_t>(customer_entity) % available_products.size();
+                    const auto& product = *available_products[selected_index];
+                    order.lines.push_back({
+                        product.product_id,
+                        1,
+                        0,
+                        product.retail_price
+                    });
+                }
                 order.fulfilled = false;
                 order.delivered = false;
                 if (!created_order) {
