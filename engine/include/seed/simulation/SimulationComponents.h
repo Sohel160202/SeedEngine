@@ -46,6 +46,7 @@ struct SimulationClockComponent {
 struct OrderLine {
     std::string product_id{"product"};
     int quantity{1};
+    int fulfilled_quantity{0};
     float unit_price{0.0f};
 };
 
