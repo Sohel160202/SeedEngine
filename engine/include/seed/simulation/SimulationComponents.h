@@ -90,6 +90,7 @@ struct OrderLine {
 
 struct CheckoutStationComponent {
     bool enabled{true};
+    int service_slots{1};
     float service_time_seconds{1.0f};
 };
 
