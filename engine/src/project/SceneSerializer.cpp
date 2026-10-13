@@ -335,6 +335,17 @@ bool SceneSerializer::save(
                     {"lifetime_expenses", wallet->lifetime_expenses},
                 };
             }
+            if (const auto* metrics = scene.get_component<ShopMetricsComponent>(entity)) {
+                components["ShopMetrics"] = {
+                    {"tracked_day", metrics->tracked_day},
+                    {"customers_served_today", metrics->customers_served_today},
+                    {"orders_completed_today", metrics->orders_completed_today},
+                    {"products_sold_today", metrics->products_sold_today},
+                    {"daily_revenue", metrics->daily_revenue},
+                    {"daily_satisfaction", metrics->daily_satisfaction},
+                    {"satisfaction_samples", metrics->satisfaction_samples},
+                };
+            }
             if (const auto* hours = scene.get_component<ShopHoursComponent>(entity)) {
                 components["ShopHours"] = {
                     {"opening_hour", hours->opening_hour},
@@ -838,6 +849,32 @@ bool SceneSerializer::load(
                 wallet.lifetime_revenue = value.value("lifetime_revenue", 0.0f);
                 wallet.lifetime_expenses = value.value("lifetime_expenses", 0.0f);
                 loaded_scene.add_component<WalletComponent>(entity, wallet);
+            }
+            if (components.contains("ShopMetrics")) {
+                const auto& value = components.at("ShopMetrics");
+                ShopMetricsComponent metrics;
+                metrics.tracked_day = std::max(1, value.value("tracked_day", 1));
+                metrics.customers_served_today = std::max(
+                    0, value.value("customers_served_today", 0)
+                );
+                metrics.orders_completed_today = std::max(
+                    0, value.value("orders_completed_today", 0)
+                );
+                metrics.products_sold_today = std::max(
+                    0, value.value("products_sold_today", 0)
+                );
+                metrics.daily_revenue = std::max(
+                    0.0f, value.value("daily_revenue", 0.0f)
+                );
+                metrics.daily_satisfaction = std::clamp(
+                    value.value("daily_satisfaction", 100.0f),
+                    0.0f,
+                    100.0f
+                );
+                metrics.satisfaction_samples = std::max(
+                    0, value.value("satisfaction_samples", 0)
+                );
+                loaded_scene.add_component<ShopMetricsComponent>(entity, metrics);
             }
             if (components.contains("ShopHours")) {
                 const auto& value = components.at("ShopHours");
