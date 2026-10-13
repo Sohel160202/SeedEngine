@@ -5,6 +5,7 @@
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
 #include "seed/save/PersistenceComponents.h"
+#include "seed/simulation/SimulationComponents.h"
 #include "seed/scene/Scene.h"
 
 #include <nlohmann/json.hpp>
@@ -304,6 +305,66 @@ bool SceneSerializer::save(
                     });
                 }
                 components["FeedbackCues"] = {{"bindings", std::move(bindings)}};
+            }
+            if (const auto* product = scene.get_component<ProductDefinitionComponent>(entity)) {
+                components["SimulationProduct"] = {
+                    {"product_id", product->product_id},
+                    {"display_name", product->display_name},
+                    {"category", product->category},
+                    {"wholesale_price", product->wholesale_price},
+                    {"retail_price", product->retail_price},
+                    {"max_stock", product->max_stock},
+                    {"perishable", product->perishable},
+                };
+            }
+            if (const auto* inventory = scene.get_component<ShopInventoryComponent>(entity)) {
+                nlohmann::json products = nlohmann::json::array();
+                for (const auto& stock : inventory->products) {
+                    products.push_back({
+                        {"product_id", stock.product_id},
+                        {"quantity", stock.quantity},
+                        {"shelf_capacity", stock.shelf_capacity},
+                    });
+                }
+                components["ShopInventory"] = {{"products", std::move(products)}};
+            }
+            if (const auto* wallet = scene.get_component<WalletComponent>(entity)) {
+                components["Wallet"] = {
+                    {"balance", wallet->balance},
+                    {"lifetime_revenue", wallet->lifetime_revenue},
+                    {"lifetime_expenses", wallet->lifetime_expenses},
+                };
+            }
+            if (const auto* hours = scene.get_component<ShopHoursComponent>(entity)) {
+                components["ShopHours"] = {
+                    {"opening_hour", hours->opening_hour},
+                    {"closing_hour", hours->closing_hour},
+                };
+            }
+            if (const auto* clock = scene.get_component<SimulationClockComponent>(entity)) {
+                components["SimulationClock"] = {
+                    {"day", clock->day},
+                    {"hour", clock->hour},
+                    {"time_scale", clock->time_scale},
+                    {"paused", clock->paused},
+                };
+            }
+            if (const auto* order = scene.get_component<CustomerOrderComponent>(entity)) {
+                nlohmann::json lines = nlohmann::json::array();
+                for (const auto& line : order->lines) {
+                    lines.push_back({
+                        {"product_id", line.product_id},
+                        {"quantity", line.quantity},
+                        {"unit_price", line.unit_price},
+                    });
+                }
+                components["CustomerOrder"] = {
+                    {"order_id", order->order_id},
+                    {"customer_name", order->customer_name},
+                    {"lines", std::move(lines)},
+                    {"fulfilled", order->fulfilled},
+                    {"delivered", order->delivered},
+                };
             }
             if (const auto* inventory = scene.get_component<InventoryComponent>(entity)) {
                 components["Inventory"] = {{"items", inventory->items}};
@@ -726,6 +787,74 @@ bool SceneSerializer::load(
                     }
                 }
                 loaded_scene.add_component<FeedbackCueComponent>(entity, std::move(feedback_cues));
+            }
+            if (components.contains("SimulationProduct")) {
+                const auto& value = components.at("SimulationProduct");
+                ProductDefinitionComponent product;
+                product.product_id = value.value("product_id", std::string{"product"});
+                product.display_name = value.value("display_name", std::string{"Product"});
+                product.category = value.value("category", std::string{"General"});
+                product.wholesale_price = value.value("wholesale_price", 1.0f);
+                product.retail_price = value.value("retail_price", 2.0f);
+                product.max_stock = std::max(0, value.value("max_stock", 100));
+                product.perishable = value.value("perishable", false);
+                loaded_scene.add_component<ProductDefinitionComponent>(entity, std::move(product));
+            }
+            if (components.contains("ShopInventory")) {
+                const auto& value = components.at("ShopInventory");
+                ShopInventoryComponent inventory;
+                if(value.contains("products") && value.at("products").is_array()) {
+                    for(const auto& item : value.at("products")) {
+                        ProductStock stock;
+                        stock.product_id = item.value("product_id", std::string{"product"});
+                        stock.quantity = std::max(0, item.value("quantity", 0));
+                        stock.shelf_capacity = std::max(0, item.value("shelf_capacity", 20));
+                        inventory.products.push_back(std::move(stock));
+                    }
+                }
+                loaded_scene.add_component<ShopInventoryComponent>(entity, std::move(inventory));
+            }
+            if (components.contains("Wallet")) {
+                const auto& value = components.at("Wallet");
+                WalletComponent wallet;
+                wallet.balance = value.value("balance", 1000.0f);
+                wallet.lifetime_revenue = value.value("lifetime_revenue", 0.0f);
+                wallet.lifetime_expenses = value.value("lifetime_expenses", 0.0f);
+                loaded_scene.add_component<WalletComponent>(entity, wallet);
+            }
+            if (components.contains("ShopHours")) {
+                const auto& value = components.at("ShopHours");
+                ShopHoursComponent hours;
+                hours.opening_hour = value.value("opening_hour", 8.0f);
+                hours.closing_hour = value.value("closing_hour", 20.0f);
+                loaded_scene.add_component<ShopHoursComponent>(entity, hours);
+            }
+            if (components.contains("SimulationClock")) {
+                const auto& value = components.at("SimulationClock");
+                SimulationClockComponent clock;
+                clock.day = std::max(1, value.value("day", 1));
+                clock.hour = value.value("hour", 8.0f);
+                clock.time_scale = value.value("time_scale", 1.0f);
+                clock.paused = value.value("paused", false);
+                loaded_scene.add_component<SimulationClockComponent>(entity, clock);
+            }
+            if (components.contains("CustomerOrder")) {
+                const auto& value = components.at("CustomerOrder");
+                CustomerOrderComponent order;
+                order.order_id = value.value("order_id", std::string{"order-1"});
+                order.customer_name = value.value("customer_name", std::string{"Customer"});
+                order.fulfilled = value.value("fulfilled", false);
+                order.delivered = value.value("delivered", false);
+                if(value.contains("lines") && value.at("lines").is_array()) {
+                    for(const auto& item : value.at("lines")) {
+                        OrderLine line;
+                        line.product_id = item.value("product_id", std::string{"product"});
+                        line.quantity = std::max(1, item.value("quantity", 1));
+                        line.unit_price = item.value("unit_price", 0.0f);
+                        order.lines.push_back(std::move(line));
+                    }
+                }
+                loaded_scene.add_component<CustomerOrderComponent>(entity, std::move(order));
             }
             if (components.contains("Inventory")) {
                 const auto& value = components.at("Inventory");

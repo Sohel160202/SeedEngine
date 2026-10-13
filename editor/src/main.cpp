@@ -23,6 +23,8 @@
 #include "seed/render/RenderSystem.h"
 #include "seed/render/SkinnedShaders.h"
 #include "seed/scene/SceneDiff.h"
+#include "seed/simulation/SimulationComponents.h"
+#include "seed/simulation/SimulationSystem.h"
 
 #include <algorithm>
 #include <array>
@@ -354,6 +356,36 @@ seed::EntityId create_beginner_preset(
     }
     if (preset == "player_third") {
         return create_third_person_player(scene, editor_camera, "Player");
+    }
+    if (preset == "simulation_shop") {
+        const auto entity = scene.create_entity("Shop");
+        scene.add_component<seed::TransformComponent>(entity);
+        scene.add_component<seed::ShopInventoryComponent>(entity);
+        scene.add_component<seed::WalletComponent>(entity);
+        scene.add_component<seed::ShopHoursComponent>(entity);
+        scene.add_component<seed::SimulationClockComponent>(entity);
+        return entity;
+    }
+    if (preset == "simulation_product") {
+        const auto entity = create_cube(scene, cube_mesh, shader, "Product");
+        seed::ProductDefinitionComponent product;
+        product.product_id = "coffee";
+        product.display_name = "Coffee";
+        product.category = "Food";
+        product.wholesale_price = 2.0f;
+        product.retail_price = 5.0f;
+        product.max_stock = 50;
+        scene.add_component<seed::ProductDefinitionComponent>(entity, product);
+        return entity;
+    }
+    if (preset == "simulation_order") {
+        const auto entity = scene.create_entity("Customer Order");
+        seed::CustomerOrderComponent order;
+        order.order_id = "order-1";
+        order.customer_name = "Customer";
+        order.lines = {{"coffee", 1, 5.0f}};
+        scene.add_component<seed::CustomerOrderComponent>(entity, order);
+        return entity;
     }
 
     const bool is_enemy =
@@ -691,6 +723,24 @@ seed::EntityId duplicate_entity(seed::Scene& scene, seed::EntityId source) {
     }
     if (const auto* v = scene.get_component<seed::PlayerControllerComponent>(source)) {
         scene.add_component<seed::PlayerControllerComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::ProductDefinitionComponent>(source)) {
+        scene.add_component<seed::ProductDefinitionComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::ShopInventoryComponent>(source)) {
+        scene.add_component<seed::ShopInventoryComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::WalletComponent>(source)) {
+        scene.add_component<seed::WalletComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::ShopHoursComponent>(source)) {
+        scene.add_component<seed::ShopHoursComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::SimulationClockComponent>(source)) {
+        scene.add_component<seed::SimulationClockComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::CustomerOrderComponent>(source)) {
+        scene.add_component<seed::CustomerOrderComponent>(copy, *v);
     }
     return copy;
 }
@@ -1561,6 +1611,14 @@ int main(int argc, char** argv) {
         if (stop_requested) stop_play_mode();
 
         if (playing) {
+            play_scene.for_each<seed::SimulationClockComponent>(
+                [&](seed::EntityId, seed::SimulationClockComponent& clock) {
+                    seed::SimulationSystem::advance_clock(
+                        clock,
+                        static_cast<float>(engine.delta_seconds())
+                    );
+                }
+            );
             auto& gameplay_events = engine.gameplay_events();
             gameplay.update(play_scene, engine.delta_seconds(), &gameplay_events);
             seed::AnimationSystem::update_scene(
