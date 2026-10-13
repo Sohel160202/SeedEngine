@@ -509,10 +509,10 @@ seed::EntityId create_beginner_preset(
             if (auto* spawner = scene.get_component<seed::CustomerSpawnerComponent>(shop)) {
                 spawner->customer_template_persistent_id = scene.entity_persistent_id(customer_entity);
             } else {
-                seed::CustomerSpawnerComponent spawner;
-                spawner.customer_template_persistent_id = scene.entity_persistent_id(customer_entity);
-                spawner.customer_name_prefix = prefix + " Customer";
-                scene.add_component<seed::CustomerSpawnerComponent>(shop, spawner);
+                seed::CustomerSpawnerComponent customer_spawner;
+                customer_spawner.customer_template_persistent_id = scene.entity_persistent_id(customer_entity);
+                customer_spawner.customer_name_prefix = prefix + " Customer";
+                scene.add_component<seed::CustomerSpawnerComponent>(shop, customer_spawner);
             }
             (void)shelf_entity; (void)product_entity; (void)checkout_entity; (void)cashier_entity;
             return shop;
