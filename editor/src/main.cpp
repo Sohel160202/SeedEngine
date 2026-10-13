@@ -432,7 +432,178 @@ seed::EntityId create_beginner_preset(
         return entity;
     }
 
-    const bool is_genre_preset =\n        preset == "supermarket_shelf" || preset == "supermarket_product" ||\n        preset == "supermarket_checkout" || preset == "supermarket_cashier" ||\n        preset == "supermarket_customer" || preset == "supermarket_rules" ||\n        preset == "supermarket_shop_kit" ||\n        preset == "card_shop_shelf" || preset == "card_shop_product" ||\n        preset == "card_shop_checkout" || preset == "card_shop_cashier" ||\n        preset == "card_shop_customer" || preset == "card_shop_rules" ||\n        preset == "card_shop_shop_kit" ||\n        preset == "restaurant_shelf" || preset == "restaurant_product" ||\n        preset == "restaurant_checkout" || preset == "restaurant_cashier" ||\n        preset == "restaurant_customer" || preset == "restaurant_rules" ||\n        preset == "restaurant_shop_kit" ||\n        preset == "game_store_shelf" || preset == "game_store_product" ||\n        preset == "game_store_checkout" || preset == "game_store_cashier" ||\n        preset == "game_store_customer" || preset == "game_store_rules" ||\n        preset == "game_store_shop_kit";\n    if (is_genre_preset) {\n        const bool supermarket = preset.starts_with("supermarket_");\n        const bool card_shop = preset.starts_with("card_shop_");\n        const bool restaurant = preset.starts_with("restaurant_");\n        const bool game_store = preset.starts_with("game_store_");\n        const std::string genre = supermarket ? "supermarket" : card_shop ? "card_shop" : restaurant ? "restaurant" : "game_store";\n        const std::string product_id =\n            supermarket ? "milk" : card_shop ? "booster_pack" : restaurant ? "burger" : "video_game";\n        const std::string product_name =\n            supermarket ? "Milk" : card_shop ? "Booster Pack" : restaurant ? "Burger" : "Video Game";\n        const std::string category =\n            supermarket ? "Grocery" : card_shop ? "Collectibles" : restaurant ? "Food" : "Games";\n        const float wholesale = supermarket ? 2.0f : card_shop ? 4.0f : restaurant ? 3.0f : 25.0f;\n        const float retail = supermarket ? 4.0f : card_shop ? 8.0f : restaurant ? 9.0f : 50.0f;\n        const std::string prefix = supermarket ? "Grocery" : card_shop ? "Card Shop" : restaurant ? "Restaurant" : "Game Store";\n        const bool kit = preset.ends_with("_shop_kit");\n        const bool rules = preset.ends_with("_rules");\n        const bool shelf = preset.ends_with("_shelf");\n        const bool product = preset.ends_with("_product");\n        const bool checkout = preset.ends_with("_checkout");\n        const bool cashier = preset.ends_with("_cashier");\n        const bool customer = preset.ends_with("_customer");\n\n        if (kit) {\n            const auto shop = scene.create_entity(prefix + " Starter Shop");\n            scene.add_component<seed::TransformComponent>(shop);\n            seed::ShopInventoryComponent inventory;\n            inventory.products = {{product_id, 25, 40}};\n            scene.add_component<seed::ShopInventoryComponent>(shop, inventory);\n            seed::WalletComponent wallet;\n            wallet.balance = 750.0f;\n            scene.add_component<seed::WalletComponent>(shop, wallet);\n            scene.add_component<seed::ShopMetricsComponent>(shop);\n            scene.add_component<seed::CustomerCapacityComponent>(shop);\n            scene.add_component<seed::ShopHoursComponent>(shop);\n            scene.add_component<seed::SimulationClockComponent>(shop);\n            scene.add_component<seed::StaffManagerComponent>(shop);\n            seed::GameplayRulesComponent starter_rules;\n            starter_rules.rules = {\n                seed::GameplayRule{.when_event = "CustomerPaymentCompleted", .action = "Adjust Money", .action_value = "5", .once = false},\n                seed::GameplayRule{.when_event = "ProductsRestocked", .action = "Show UI Message", .action_value = "Stock restocked", .once = false},\n                seed::GameplayRule{.when_event = "ShopUpgraded", .action = "Show UI Message", .action_value = "Business upgraded", .once = false}\n            };\n            scene.add_component<seed::GameplayRulesComponent>(shop, starter_rules);\n            scene.add_component<seed::InteractableComponent>(shop, "Open Shop", true);\n\n            const auto shelf_entity = create_beginner_preset(scene, genre + "_shelf", editor_camera, cube_mesh, shader);\n            const auto product_entity = create_beginner_preset(scene, genre + "_product", editor_camera, cube_mesh, shader);\n            const auto checkout_entity = create_beginner_preset(scene, genre + "_checkout", editor_camera, cube_mesh, shader);\n            const auto cashier_entity = create_beginner_preset(scene, genre + "_cashier", editor_camera, cube_mesh, shader);\n            const auto customer_entity = create_beginner_preset(scene, genre + "_customer", editor_camera, cube_mesh, shader);\n            if (auto* spawner = scene.get_component<seed::CustomerSpawnerComponent>(shop)) {\n                spawner->customer_template_persistent_id = scene.entity_persistent_id(customer_entity);\n            } else {\n                seed::CustomerSpawnerComponent spawner;\n                spawner.customer_template_persistent_id = scene.entity_persistent_id(customer_entity);\n                spawner.customer_name_prefix = prefix + " Customer";\n                scene.add_component<seed::CustomerSpawnerComponent>(shop, spawner);\n            }\n            (void)shelf_entity; (void)product_entity; (void)checkout_entity; (void)cashier_entity;\n            return shop;\n        }\n        if (rules) {\n            const auto entity = scene.create_entity(prefix + " Starter Rules");\n            seed::GameplayRulesComponent rule_pack;\n            rule_pack.rules = {\n                seed::GameplayRule{.when_event = "CustomerPaymentCompleted", .action = "Adjust Money", .action_value = "5", .once = false},\n                seed::GameplayRule{.when_event = "ProductsRestocked", .action = "Show UI Message", .action_value = prefix + " stock is ready", .once = false},\n                seed::GameplayRule{.when_event = "CustomerReadyForCheckout", .action = "Show UI Message", .action_value = "Serve the next customer", .once = false}\n            };\n            scene.add_component<seed::GameplayRulesComponent>(entity, rule_pack);\n            return entity;\n        }\n        if (shelf) {\n            const auto entity = create_cube(scene, cube_mesh, shader, prefix + " Shelf");\n            if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {\n                transform->position = {0.0f, 0.8f, -1.0f};\n                transform->scale = {1.5f, 0.8f, 0.35f};\n            }\n            scene.add_component<seed::InteractableComponent>(entity, "Restock Shelf", true);\n            seed::ShopUpgradeComponent upgrade;\n            upgrade.shelf_capacity_bonus = 10;\n            scene.add_component<seed::ShopUpgradeComponent>(entity, upgrade);\n            return entity;\n        }\n        if (product) {\n            const auto entity = create_cube(scene, cube_mesh, shader, product_name);\n            if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {\n                transform->position = {0.0f, 1.35f, -0.45f};\n                transform->scale = {0.45f, 0.45f, 0.45f};\n            }\n            seed::ProductDefinitionComponent definition;\n            definition.product_id = product_id;\n            definition.display_name = product_name;\n            definition.category = category;\n            definition.wholesale_price = wholesale;\n            definition.retail_price = retail;\n            definition.max_stock = 40;\n            definition.demand_weight = restaurant ? 1.25f : 1.0f;\n            scene.add_component<seed::ProductDefinitionComponent>(entity, definition);\n            scene.add_component<seed::InteractableComponent>(entity, "Sell " + product_name, true);\n            return entity;\n        }\n        if (checkout) {\n            const auto entity = create_cube(scene, cube_mesh, shader, prefix + " Checkout");\n            if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {\n                transform->position = {0.0f, 0.55f, 0.35f};\n                transform->scale = {1.5f, 0.55f, 0.5f};\n            }\n            seed::CheckoutStationComponent station;\n            station.service_slots = restaurant ? 2 : 1;\n            station.service_time_seconds = restaurant ? 2.0f : 1.0f;\n            scene.add_component<seed::CheckoutStationComponent>(entity, station);\n            seed::StationStaffingComponent staffing;\n            staffing.requires_staff = true;\n            staffing.required_role = restaurant ? "Server" : "Cashier";\n            scene.add_component<seed::StationStaffingComponent>(entity, staffing);\n            scene.add_component<seed::InteractableComponent>(entity, "Serve Customer", true);\n            return entity;\n        }\n        if (cashier) {\n            const auto entity = create_cube(scene, cube_mesh, shader, restaurant ? "Server Candidate" : "Cashier Candidate");\n            if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {\n                transform->position = {2.0f, 0.9f, -1.0f};\n                transform->scale = {0.45f, 0.9f, 0.45f};\n            }\n            seed::StaffWorkerComponent worker;\n            worker.employed = false;\n            worker.role = restaurant ? "Server" : "Cashier";\n            worker.wage_per_hour = restaurant ? 14.0f : 12.0f;\n            worker.hiring_cost = restaurant ? 140.0f : 100.0f;\n            scene.add_component<seed::StaffWorkerComponent>(entity, worker);\n            scene.add_component<seed::InteractableComponent>(entity, "Hire " + worker.role, true);\n            return entity;\n        }\n        if (customer) {\n            const auto entity = create_cube(scene, cube_mesh, shader, prefix + " Customer");\n            if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {\n                transform->position = {-2.0f, 0.9f, -1.0f};\n                transform->scale = {0.45f, 0.9f, 0.45f};\n            }\n            seed::CustomerBehaviorComponent behavior;\n            behavior.arrival_interval_seconds = restaurant ? 8.0f : 12.0f;\n            behavior.shopping_duration_seconds = restaurant ? 2.0f : 4.0f;\n            scene.add_component<seed::CustomerBehaviorComponent>(entity, behavior);\n            seed::CustomerOrderComponent order;\n            order.order_id = genre + "-order-1";\n            order.customer_name = prefix + " Customer";\n            order.lines = {{product_id, 1, 0, retail}};\n            scene.add_component<seed::CustomerOrderComponent>(entity, order);\n            return entity;\n        }\n    }\n\n    const bool is_enemy =
+    const bool is_genre_preset =
+        preset == "supermarket_shelf" || preset == "supermarket_product" ||
+        preset == "supermarket_checkout" || preset == "supermarket_cashier" ||
+        preset == "supermarket_customer" || preset == "supermarket_rules" ||
+        preset == "supermarket_shop_kit" ||
+        preset == "card_shop_shelf" || preset == "card_shop_product" ||
+        preset == "card_shop_checkout" || preset == "card_shop_cashier" ||
+        preset == "card_shop_customer" || preset == "card_shop_rules" ||
+        preset == "card_shop_shop_kit" ||
+        preset == "restaurant_shelf" || preset == "restaurant_product" ||
+        preset == "restaurant_checkout" || preset == "restaurant_cashier" ||
+        preset == "restaurant_customer" || preset == "restaurant_rules" ||
+        preset == "restaurant_shop_kit" ||
+        preset == "game_store_shelf" || preset == "game_store_product" ||
+        preset == "game_store_checkout" || preset == "game_store_cashier" ||
+        preset == "game_store_customer" || preset == "game_store_rules" ||
+        preset == "game_store_shop_kit";
+    if (is_genre_preset) {
+        const bool supermarket = preset.starts_with("supermarket_");
+        const bool card_shop = preset.starts_with("card_shop_");
+        const bool restaurant = preset.starts_with("restaurant_");
+        const bool game_store = preset.starts_with("game_store_");
+        const std::string genre = supermarket ? "supermarket" : card_shop ? "card_shop" : restaurant ? "restaurant" : "game_store";
+        const std::string product_id =
+            supermarket ? "milk" : card_shop ? "booster_pack" : restaurant ? "burger" : "video_game";
+        const std::string product_name =
+            supermarket ? "Milk" : card_shop ? "Booster Pack" : restaurant ? "Burger" : "Video Game";
+        const std::string category =
+            supermarket ? "Grocery" : card_shop ? "Collectibles" : restaurant ? "Food" : "Games";
+        const float wholesale = supermarket ? 2.0f : card_shop ? 4.0f : restaurant ? 3.0f : 25.0f;
+        const float retail = supermarket ? 4.0f : card_shop ? 8.0f : restaurant ? 9.0f : 50.0f;
+        const std::string prefix = supermarket ? "Grocery" : card_shop ? "Card Shop" : restaurant ? "Restaurant" : "Game Store";
+        const bool kit = preset.ends_with("_shop_kit");
+        const bool rules = preset.ends_with("_rules");
+        const bool shelf = preset.ends_with("_shelf");
+        const bool product = preset.ends_with("_product");
+        const bool checkout = preset.ends_with("_checkout");
+        const bool cashier = preset.ends_with("_cashier");
+        const bool customer = preset.ends_with("_customer");
+
+        if (kit) {
+            const auto shop = scene.create_entity(prefix + " Starter Shop");
+            scene.add_component<seed::TransformComponent>(shop);
+            seed::ShopInventoryComponent inventory;
+            inventory.products = {{product_id, 25, 40}};
+            scene.add_component<seed::ShopInventoryComponent>(shop, inventory);
+            seed::WalletComponent wallet;
+            wallet.balance = 750.0f;
+            scene.add_component<seed::WalletComponent>(shop, wallet);
+            scene.add_component<seed::ShopMetricsComponent>(shop);
+            scene.add_component<seed::CustomerCapacityComponent>(shop);
+            scene.add_component<seed::ShopHoursComponent>(shop);
+            scene.add_component<seed::SimulationClockComponent>(shop);
+            scene.add_component<seed::StaffManagerComponent>(shop);
+            seed::GameplayRulesComponent starter_rules;
+            starter_rules.rules = {
+                seed::GameplayRule{.when_event = "CustomerPaymentCompleted", .action = "Adjust Money", .action_value = "5", .once = false},
+                seed::GameplayRule{.when_event = "ProductsRestocked", .action = "Show UI Message", .action_value = "Stock restocked", .once = false},
+                seed::GameplayRule{.when_event = "ShopUpgraded", .action = "Show UI Message", .action_value = "Business upgraded", .once = false}
+            };
+            scene.add_component<seed::GameplayRulesComponent>(shop, starter_rules);
+            scene.add_component<seed::InteractableComponent>(shop, "Open Shop", true);
+
+            const auto shelf_entity = create_beginner_preset(scene, genre + "_shelf", editor_camera, cube_mesh, shader);
+            const auto product_entity = create_beginner_preset(scene, genre + "_product", editor_camera, cube_mesh, shader);
+            const auto checkout_entity = create_beginner_preset(scene, genre + "_checkout", editor_camera, cube_mesh, shader);
+            const auto cashier_entity = create_beginner_preset(scene, genre + "_cashier", editor_camera, cube_mesh, shader);
+            const auto customer_entity = create_beginner_preset(scene, genre + "_customer", editor_camera, cube_mesh, shader);
+            if (auto* spawner = scene.get_component<seed::CustomerSpawnerComponent>(shop)) {
+                spawner->customer_template_persistent_id = scene.entity_persistent_id(customer_entity);
+            } else {
+                seed::CustomerSpawnerComponent spawner;
+                spawner.customer_template_persistent_id = scene.entity_persistent_id(customer_entity);
+                spawner.customer_name_prefix = prefix + " Customer";
+                scene.add_component<seed::CustomerSpawnerComponent>(shop, spawner);
+            }
+            (void)shelf_entity; (void)product_entity; (void)checkout_entity; (void)cashier_entity;
+            return shop;
+        }
+        if (rules) {
+            const auto entity = scene.create_entity(prefix + " Starter Rules");
+            seed::GameplayRulesComponent rule_pack;
+            rule_pack.rules = {
+                seed::GameplayRule{.when_event = "CustomerPaymentCompleted", .action = "Adjust Money", .action_value = "5", .once = false},
+                seed::GameplayRule{.when_event = "ProductsRestocked", .action = "Show UI Message", .action_value = prefix + " stock is ready", .once = false},
+                seed::GameplayRule{.when_event = "CustomerReadyForCheckout", .action = "Show UI Message", .action_value = "Serve the next customer", .once = false}
+            };
+            scene.add_component<seed::GameplayRulesComponent>(entity, rule_pack);
+            return entity;
+        }
+        if (shelf) {
+            const auto entity = create_cube(scene, cube_mesh, shader, prefix + " Shelf");
+            if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+                transform->position = {0.0f, 0.8f, -1.0f};
+                transform->scale = {1.5f, 0.8f, 0.35f};
+            }
+            scene.add_component<seed::InteractableComponent>(entity, "Restock Shelf", true);
+            seed::ShopUpgradeComponent upgrade;
+            upgrade.shelf_capacity_bonus = 10;
+            scene.add_component<seed::ShopUpgradeComponent>(entity, upgrade);
+            return entity;
+        }
+        if (product) {
+            const auto entity = create_cube(scene, cube_mesh, shader, product_name);
+            if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+                transform->position = {0.0f, 1.35f, -0.45f};
+                transform->scale = {0.45f, 0.45f, 0.45f};
+            }
+            seed::ProductDefinitionComponent definition;
+            definition.product_id = product_id;
+            definition.display_name = product_name;
+            definition.category = category;
+            definition.wholesale_price = wholesale;
+            definition.retail_price = retail;
+            definition.max_stock = 40;
+            definition.demand_weight = restaurant ? 1.25f : 1.0f;
+            scene.add_component<seed::ProductDefinitionComponent>(entity, definition);
+            scene.add_component<seed::InteractableComponent>(entity, "Sell " + product_name, true);
+            return entity;
+        }
+        if (checkout) {
+            const auto entity = create_cube(scene, cube_mesh, shader, prefix + " Checkout");
+            if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+                transform->position = {0.0f, 0.55f, 0.35f};
+                transform->scale = {1.5f, 0.55f, 0.5f};
+            }
+            seed::CheckoutStationComponent station;
+            station.service_slots = restaurant ? 2 : 1;
+            station.service_time_seconds = restaurant ? 2.0f : 1.0f;
+            scene.add_component<seed::CheckoutStationComponent>(entity, station);
+            seed::StationStaffingComponent staffing;
+            staffing.requires_staff = true;
+            staffing.required_role = restaurant ? "Server" : "Cashier";
+            scene.add_component<seed::StationStaffingComponent>(entity, staffing);
+            scene.add_component<seed::InteractableComponent>(entity, "Serve Customer", true);
+            return entity;
+        }
+        if (cashier) {
+            const auto entity = create_cube(scene, cube_mesh, shader, restaurant ? "Server Candidate" : "Cashier Candidate");
+            if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+                transform->position = {2.0f, 0.9f, -1.0f};
+                transform->scale = {0.45f, 0.9f, 0.45f};
+            }
+            seed::StaffWorkerComponent worker;
+            worker.employed = false;
+            worker.role = restaurant ? "Server" : "Cashier";
+            worker.wage_per_hour = restaurant ? 14.0f : 12.0f;
+            worker.hiring_cost = restaurant ? 140.0f : 100.0f;
+            scene.add_component<seed::StaffWorkerComponent>(entity, worker);
+            scene.add_component<seed::InteractableComponent>(entity, "Hire " + worker.role, true);
+            return entity;
+        }
+        if (customer) {
+            const auto entity = create_cube(scene, cube_mesh, shader, prefix + " Customer");
+            if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+                transform->position = {-2.0f, 0.9f, -1.0f};
+                transform->scale = {0.45f, 0.9f, 0.45f};
+            }
+            seed::CustomerBehaviorComponent behavior;
+            behavior.arrival_interval_seconds = restaurant ? 8.0f : 12.0f;
+            behavior.shopping_duration_seconds = restaurant ? 2.0f : 4.0f;
+            scene.add_component<seed::CustomerBehaviorComponent>(entity, behavior);
+            seed::CustomerOrderComponent order;
+            order.order_id = genre + "-order-1";
+            order.customer_name = prefix + " Customer";
+            order.lines = {{product_id, 1, 0, retail}};
+            scene.add_component<seed::CustomerOrderComponent>(entity, order);
+            return entity;
+        }
+    }
+
+    const bool is_enemy =
         preset == "enemy" ||
         preset == "enemy_basic" ||
         preset == "enemy_fast" ||
