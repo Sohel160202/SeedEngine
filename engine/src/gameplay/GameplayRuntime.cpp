@@ -130,6 +130,16 @@ void update_customers(
             (1.0f + std::max(0, simulation_day - 1) *
                 std::max(0.0f, capacity->daily_growth_rate));
 
+    int checkout_capacity = 0;
+    scene.for_each<CheckoutStationComponent>(
+        [&](EntityId, CheckoutStationComponent& station) {
+            if (station.enabled) {
+                checkout_capacity += std::max(1, station.service_slots);
+            }
+        }
+    );
+    checkout_capacity = std::max(1, checkout_capacity);
+
     if (spawner != nullptr && spawner->enabled && shop_open) {
         spawner->timer_seconds += dt;
         int customer_count = 0;
@@ -353,8 +363,15 @@ void update_customers(
             }
 
             if (customer.state == "queued") {
-                if (queue_position != 0) return;
-                if (!move_customer_toward({0.0f, 0.9f, -0.2f})) return;
+                if (queue_position >= static_cast<std::size_t>(checkout_capacity)) return;
+                const int service_slot = static_cast<int>(queue_position);
+                const float lane = static_cast<float>(service_slot % 3) - 1.0f;
+                const float row = static_cast<float>(service_slot / 3);
+                if (!move_customer_toward({
+                        lane * 1.4f,
+                        0.9f,
+                        -0.2f - row * 0.9f
+                    })) return;
                 customer.state = "shopping";
                 customer.timer_seconds = 0.0f;
                 status_message = order.customer_name + " reached checkout.";
