@@ -1060,6 +1060,41 @@ void GameplayRuntime::perform_interaction(Scene& scene, GameplayEventBus* event_
             total += transaction.total;
         }
 
+        if (auto* metrics = scene.get_component<ShopMetricsComponent>(shop_entity)) {
+            int waiting_customers = 0;
+            scene.for_each<CustomerBehaviorComponent, CustomerOrderComponent>(
+                [&](EntityId, CustomerBehaviorComponent& behavior,
+                    CustomerOrderComponent& order) {
+                    if (behavior.enabled &&
+                        (behavior.state == "queued" ||
+                         behavior.state == "shopping" ||
+                         behavior.state == "awaiting_payment") &&
+                        !order.fulfilled) {
+                        ++waiting_customers;
+                    }
+                }
+            );
+
+            metrics->daily_revenue += total;
+            ++metrics->customers_served_today;
+            ++metrics->orders_completed_today;
+            for (const auto& line : customer_order->lines) {
+                metrics->products_sold_today += line.quantity;
+            }
+            const float satisfaction = std::max(
+                0.0f,
+                100.0f - static_cast<float>(std::max(0, waiting_customers - 1)) * 10.0f
+            );
+            metrics->daily_satisfaction =
+                metrics->satisfaction_samples == 0
+                    ? satisfaction
+                    : (metrics->daily_satisfaction *
+                       static_cast<float>(metrics->satisfaction_samples) +
+                       satisfaction) /
+                        static_cast<float>(metrics->satisfaction_samples + 1);
+            ++metrics->satisfaction_samples;
+        }
+
         customer_order->fulfilled = true;
         customer_order->delivered = true;
         customer_behavior->state = "leaving";

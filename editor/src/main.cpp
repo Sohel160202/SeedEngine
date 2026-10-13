@@ -585,6 +585,7 @@ void build_project_template(
         seed::WalletComponent wallet;
         wallet.balance = 250.0f;
         scene.add_component<seed::WalletComponent>(shop, wallet);
+        scene.add_component<seed::ShopMetricsComponent>(shop);
         scene.add_component<seed::ShopHoursComponent>(shop);
         scene.add_component<seed::SimulationClockComponent>(shop);
         scene.add_component<seed::InteractableComponent>(shop, "Restock Shop", true);
@@ -1434,6 +1435,15 @@ seed::studio::StudioDocumentInfo document_info(
                     "  Revenue " + std::to_string(wallet.lifetime_revenue) +
                     "  Expenses " + std::to_string(wallet.lifetime_expenses)
                 );
+                if (const auto* metrics =
+                        play_scene->get_component<seed::ShopMetricsComponent>(entity)) {
+                    info.gameplay_objectives.push_back(
+                        "TODAY  Sales " + std::to_string(metrics->daily_revenue) +
+                        "  Customers " + std::to_string(metrics->customers_served_today) +
+                        "  Products " + std::to_string(metrics->products_sold_today) +
+                        "  Satisfaction " + std::to_string(metrics->daily_satisfaction)
+                    );
+                }
                 if (const auto* clock = play_scene->get_component<seed::SimulationClockComponent>(entity)) {
                     const auto* hours = play_scene->get_component<seed::ShopHoursComponent>(entity);
                     const bool open = hours == nullptr ||
@@ -1747,11 +1757,22 @@ int main(int argc, char** argv) {
 
         if (playing) {
             play_scene.for_each<seed::SimulationClockComponent>(
-                [&](seed::EntityId, seed::SimulationClockComponent& clock) {
+                [&](seed::EntityId entity, seed::SimulationClockComponent& clock) {
                     seed::SimulationSystem::advance_clock(
                         clock,
                         static_cast<float>(engine.delta_seconds())
                     );
+                    if (auto* metrics =
+                            play_scene.get_component<seed::ShopMetricsComponent>(entity);
+                        metrics != nullptr && metrics->tracked_day != clock.day) {
+                        metrics->tracked_day = clock.day;
+                        metrics->customers_served_today = 0;
+                        metrics->orders_completed_today = 0;
+                        metrics->products_sold_today = 0;
+                        metrics->daily_revenue = 0.0f;
+                        metrics->daily_satisfaction = 100.0f;
+                        metrics->satisfaction_samples = 0;
+                    }
                 }
             );
             auto& gameplay_events = engine.gameplay_events();

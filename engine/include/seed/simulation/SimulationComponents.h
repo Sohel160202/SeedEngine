@@ -31,6 +31,16 @@ struct WalletComponent {
     float lifetime_expenses{0.0f};
 };
 
+struct ShopMetricsComponent {
+    int tracked_day{1};
+    int customers_served_today{0};
+    int orders_completed_today{0};
+    int products_sold_today{0};
+    float daily_revenue{0.0f};
+    float daily_satisfaction{100.0f};
+    int satisfaction_samples{0};
+};
+
 struct ShopHoursComponent {
     float opening_hour{8.0f};
     float closing_hour{20.0f};
