@@ -107,7 +107,8 @@ void update_customers(
             if (!customer.enabled) return;
             if (customer.state == "arriving" ||
                 customer.state == "queued" ||
-                customer.state == "shopping") {
+                customer.state == "shopping" ||
+                customer.state == "awaiting_payment") {
                 queued_customers.push_back(entity);
             }
         }
