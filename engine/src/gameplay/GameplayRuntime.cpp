@@ -133,13 +133,45 @@ void update_customers(
     int checkout_capacity = 0;
     std::vector<float> checkout_service_times;
     scene.for_each<CheckoutStationComponent>(
-        [&](EntityId, CheckoutStationComponent& station) {
+        [&](EntityId station_entity, CheckoutStationComponent& station) {
             if (!station.enabled) return;
+
+            const auto* staffing = scene.get_component<StationStaffingComponent>(
+                station_entity
+            );
+            int staffed_workers = 0;
+            float combined_work_speed = 0.0f;
+            scene.for_each<StaffWorkerComponent>(
+                [&](EntityId, StaffWorkerComponent& worker) {
+                    if (!worker.enabled ||
+                        worker.assigned_station_persistent_id !=
+                            scene.entity_persistent_id(station_entity)) {
+                        return;
+                    }
+                    if (staffing != nullptr &&
+                        !staffing->required_role.empty() &&
+                        worker.role != staffing->required_role) {
+                        return;
+                    }
+                    ++staffed_workers;
+                    combined_work_speed += std::max(0.1f, worker.work_speed);
+                }
+            );
+
+            if (staffing != nullptr &&
+                staffing->requires_staff &&
+                staffed_workers < std::max(1, staffing->required_workers)) {
+                return;
+            }
+
+            const float service_speed = combined_work_speed > 0.0f
+                ? combined_work_speed
+                : 1.0f;
             const int slots = std::max(1, station.service_slots);
             checkout_capacity += slots;
             for (int slot = 0; slot < slots; ++slot) {
                 checkout_service_times.push_back(
-                    std::max(0.1f, station.service_time_seconds)
+                    std::max(0.1f, station.service_time_seconds) / service_speed
                 );
             }
         }
