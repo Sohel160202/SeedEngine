@@ -498,6 +498,13 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
             if(ImGui::CollapsingHeader("Checkout Station",ImGuiTreeNodeFlags_DefaultOpen)){
                 bool changed=false;
                 changed|=ImGui::Checkbox("Enabled",&checkout->enabled);
+                changed|=ImGui::DragInt(
+                    "Service Slots",
+                    &checkout->service_slots,
+                    1,
+                    1,
+                    100
+                );
                 changed|=ImGui::DragFloat(
                     "Service Time",
                     &checkout->service_time_seconds,
