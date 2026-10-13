@@ -392,6 +392,20 @@ seed::EntityId create_beginner_preset(
         );
         return entity;
     }
+    if (preset == "simulation_upgrade") {
+        const entity = create_cube(scene, cube_mesh, shader, "Shop Upgrade Board");
+        if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+            transform->position = {3.6f, 0.8f, -1.0f};
+            transform->scale = {0.7f, 0.9f, 0.25f};
+        }
+        scene.add_component<seed::ShopUpgradeComponent>(entity);
+        scene.add_component<seed::InteractableComponent>(
+            entity,
+            "Upgrade Shop",
+            true
+        );
+        return entity;
+    }
     if (preset == "simulation_order") {
         const auto entity = scene.create_entity("Customer Order");
         seed::CustomerOrderComponent order;
@@ -620,6 +634,17 @@ void build_project_template(
         scene.add_component<seed::InteractableComponent>(
             checkout,
             "Checkout Customer",
+            true
+        );
+
+        const auto upgrade_board = create_cube(scene, cube_mesh, shader, "Shop Upgrade Board");
+        auto* upgrade_transform = scene.get_component<seed::TransformComponent>(upgrade_board);
+        upgrade_transform->position = {3.6f, 0.8f, -1.0f};
+        upgrade_transform->scale = {0.7f, 0.9f, 0.25f};
+        scene.add_component<seed::ShopUpgradeComponent>(upgrade_board);
+        scene.add_component<seed::InteractableComponent>(
+            upgrade_board,
+            "Upgrade Shop",
             true
         );
 
@@ -1461,6 +1486,24 @@ seed::studio::StudioDocumentInfo document_info(
                         std::to_string(stock.shelf_capacity)
                     );
                 }
+            }
+        );
+
+        play_scene->for_each<seed::ShopUpgradeComponent>(
+            [&](seed::EntityId, const seed::ShopUpgradeComponent& upgrade) {
+                const float next_cost = upgrade.level >= upgrade.max_level
+                    ? 0.0f
+                    : upgrade.base_upgrade_cost * std::pow(
+                        std::max(1.0f, upgrade.cost_multiplier),
+                        static_cast<float>(std::max(0, upgrade.level - 1))
+                    );
+                info.gameplay_objectives.push_back(
+                    "SHOP LEVEL  " + std::to_string(upgrade.level) + "/" +
+                    std::to_string(upgrade.max_level) + "  NEXT UPGRADE " +
+                    (upgrade.level >= upgrade.max_level
+                        ? "MAX"
+                        : std::to_string(next_cost))
+                );
             }
         );
 
