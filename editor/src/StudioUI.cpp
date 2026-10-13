@@ -222,6 +222,44 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
             if (ImGui::MenuItem("Checkout Station")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_checkout"});
             if (ImGui::MenuItem("Staff Worker")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_staff"});
             if (ImGui::MenuItem("Shop Upgrade Board")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_upgrade"});
+            ImGui::Separator();
+            if (ImGui::BeginMenu("Supermarket Presets")) {
+                if (ImGui::MenuItem("Full Supermarket Starter Shop")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="supermarket_shop_kit"});
+                if (ImGui::MenuItem("Grocery Shelf")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="supermarket_shelf"});
+                if (ImGui::MenuItem("Milk Product")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="supermarket_product"});
+                if (ImGui::MenuItem("Checkout Counter")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="supermarket_checkout"});
+                if (ImGui::MenuItem("Cashier Candidate")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="supermarket_cashier"});
+                if (ImGui::MenuItem("Customer")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="supermarket_customer"});
+                if (ImGui::MenuItem("Shop Starter Rules")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="supermarket_rules"});
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Card Shop Presets")) {
+                if (ImGui::MenuItem("Full Card Shop Starter")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="card_shop_shop_kit"});
+                if (ImGui::MenuItem("Card Display Shelf")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="card_shop_shelf"});
+                if (ImGui::MenuItem("Booster Pack")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="card_shop_product"});
+                if (ImGui::MenuItem("Card Shop Checkout")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="card_shop_checkout"});
+                if (ImGui::MenuItem("Card Shop Customer")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="card_shop_customer"});
+                if (ImGui::MenuItem("Shop Starter Rules")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="card_shop_rules"});
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Restaurant Presets")) {
+                if (ImGui::MenuItem("Full Restaurant Starter")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="restaurant_shop_kit"});
+                if (ImGui::MenuItem("Service Counter")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="restaurant_checkout"});
+                if (ImGui::MenuItem("Menu Item")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="restaurant_product"});
+                if (ImGui::MenuItem("Server Candidate")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="restaurant_cashier"});
+                if (ImGui::MenuItem("Restaurant Customer")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="restaurant_customer"});
+                if (ImGui::MenuItem("Restaurant Starter Rules")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="restaurant_rules"});
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("Game Store Presets")) {
+                if (ImGui::MenuItem("Full Game Store Starter")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="game_store_shop_kit"});
+                if (ImGui::MenuItem("Game Display Shelf")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="game_store_shelf"});
+                if (ImGui::MenuItem("Video Game Product")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="game_store_product"});
+                if (ImGui::MenuItem("Game Store Checkout")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="game_store_checkout"});
+                if (ImGui::MenuItem("Game Store Customer")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="game_store_customer"});
+                if (ImGui::MenuItem("Game Store Starter Rules")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="game_store_rules"});
+                ImGui::EndMenu();
+            }
             ImGui::EndMenu();
         }
         ImGui::EndMenu();
