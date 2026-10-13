@@ -410,6 +410,9 @@ bool SceneSerializer::save(
                     {"role", worker->role},
                     {"work_speed", worker->work_speed},
                     {"wage_per_hour", worker->wage_per_hour},
+                    {"shift_start_hour", worker->shift_start_hour},
+                    {"shift_end_hour", worker->shift_end_hour},
+                    {"last_paid_day", worker->last_paid_day},
                     {"assigned_station_persistent_id", worker->assigned_station_persistent_id},
                 };
             }
@@ -1037,6 +1040,11 @@ bool SceneSerializer::load(
                 );
                 worker.wage_per_hour = std::max(
                     0.0f, value.value("wage_per_hour", 10.0f)
+                );
+                worker.shift_start_hour = value.value("shift_start_hour", 8.0f);
+                worker.shift_end_hour = value.value("shift_end_hour", 20.0f);
+                worker.last_paid_day = std::max(
+                    1, value.value("last_paid_day", 1)
                 );
                 worker.assigned_station_persistent_id = value.value(
                     "assigned_station_persistent_id", std::string{}
