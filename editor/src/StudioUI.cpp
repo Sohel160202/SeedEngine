@@ -517,6 +517,22 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
                 if(changed)m_scene_edited=true;
             }
         }
+        if(auto* manager=scene.get_component<StaffManagerComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Staff Manager",ImGuiTreeNodeFlags_DefaultOpen)){
+                bool changed=false;
+                changed|=ImGui::DragInt("Max Staff",&manager->max_staff,1,1,1000);
+                changed|=ImGui::DragFloat("Default Hiring Cost",&manager->default_hiring_cost,1.0f,0.0f,1000000.0f,"%.2f");
+                changed|=ImGui::DragFloat("Default Skill Upgrade Cost",&manager->default_skill_upgrade_cost,1.0f,0.0f,1000000.0f,"%.2f");
+                int employed=0;
+                scene.for_each<StaffWorkerComponent>(
+                    [&](EntityId,StaffWorkerComponent& worker){
+                        if(worker.enabled && worker.employed) ++employed;
+                    }
+                );
+                ImGui::Text("Employed %d / %d",employed,manager->max_staff);
+                if(changed)m_scene_edited=true;
+            }
+        }
         if(auto* staffing=scene.get_component<StationStaffingComponent>(m_selected_entity)){
             if(ImGui::CollapsingHeader("Station Staffing",ImGuiTreeNodeFlags_DefaultOpen)){
                 bool changed=false;
@@ -530,8 +546,13 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
             if(ImGui::CollapsingHeader("Staff Worker",ImGuiTreeNodeFlags_DefaultOpen)){
                 bool changed=false;
                 changed|=ImGui::Checkbox("Enabled",&worker->enabled);
+                changed|=ImGui::Checkbox("Employed",&worker->employed);
+                changed|=ImGui::DragInt("Skill Level",&worker->skill_level,1,1,100);
+                changed|=ImGui::DragInt("Max Skill Level",&worker->max_skill_level,1,worker->skill_level,100);
                 changed|=ImGui::DragFloat("Work Speed",&worker->work_speed,0.05f,0.1f,10.0f,"%.2fx");
                 changed|=ImGui::DragFloat("Wage per Hour",&worker->wage_per_hour,0.5f,0.0f,100000.0f,"%.2f");
+                changed|=ImGui::DragFloat("Hiring Cost",&worker->hiring_cost,1.0f,0.0f,1000000.0f,"%.2f");
+                changed|=ImGui::DragFloat("Skill Upgrade Cost",&worker->skill_upgrade_cost,1.0f,0.0f,1000000.0f,"%.2f");
                 changed|=ImGui::DragFloat("Shift Starts",&worker->shift_start_hour,0.25f,0.0f,24.0f,"%.2f");
                 changed|=ImGui::DragFloat("Shift Ends",&worker->shift_end_hour,0.25f,0.0f,24.0f,"%.2f");
                 ImGui::TextDisabled("Role: %s",worker->role.c_str());
