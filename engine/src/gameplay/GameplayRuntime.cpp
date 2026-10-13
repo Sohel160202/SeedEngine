@@ -104,6 +104,23 @@ void update_customers(
         [&](EntityId customer_entity, CustomerBehaviorComponent& customer,
             CustomerOrderComponent& order) {
             if (!customer.enabled) return;
+
+            auto move_customer_toward = [&](const Vec3& target) {
+                auto* transform = scene.get_component<TransformComponent>(customer_entity);
+                if (transform == nullptr) return true;
+                Vec3 offset = target - transform->position;
+                offset.y = 0.0f;
+                const float distance = length(offset);
+                if (distance <= 0.15f) {
+                    transform->position.y = target.y;
+                    return true;
+                }
+                const Vec3 direction = normalize(offset);
+                transform->position += direction * std::min(distance, dt * 2.5f);
+                transform->rotation_degrees.y = yaw_from_direction(direction);
+                return false;
+            };
+
             if (!shop_open) {
                 customer.state = "waiting";
                 customer.timer_seconds = 0.0f;
@@ -115,7 +132,7 @@ void update_customers(
                 if (customer.timer_seconds < customer.arrival_interval_seconds) return;
 
                 customer.timer_seconds = 0.0f;
-                customer.state = "shopping";
+                customer.state = "arriving";
                 order.order_id = "customer-" + std::to_string(customer.order_sequence);
                 order.customer_name = scene.entity_name(customer_entity);
                 order.lines.clear();
@@ -149,7 +166,16 @@ void update_customers(
                 return;
             }
 
+            if (customer.state == "arriving") {
+                if (!move_customer_toward({0.0f, 0.9f, -1.0f})) return;
+                customer.state = "shopping";
+                customer.timer_seconds = 0.0f;
+                status_message = order.customer_name + " is browsing.";
+                return;
+            }
+
             if (customer.state == "shopping") {
+                if (!move_customer_toward({0.0f, 0.9f, -0.2f})) return;
                 if (customer.timer_seconds < customer.shopping_duration_seconds) return;
                 customer.timer_seconds = 0.0f;
 
@@ -194,11 +220,13 @@ void update_customers(
                 return;
             }
 
-            if (customer.state == "leaving" &&
-                customer.timer_seconds >= customer.leave_duration_seconds) {
-                customer.timer_seconds = 0.0f;
-                customer.state = "waiting";
-                ++customer.order_sequence;
+            if (customer.state == "leaving") {
+                if (!move_customer_toward({-4.0f, 0.9f, 4.0f})) return;
+                if (customer.timer_seconds >= customer.leave_duration_seconds) {
+                    customer.timer_seconds = 0.0f;
+                    customer.state = "waiting";
+                    ++customer.order_sequence;
+                }
             }
         }
     );
