@@ -378,6 +378,20 @@ seed::EntityId create_beginner_preset(
         scene.add_component<seed::ProductDefinitionComponent>(entity, product);
         return entity;
     }
+    if (preset == "simulation_checkout") {
+        const entity = create_cube(scene, cube_mesh, shader, "Checkout Counter");
+        if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+            transform->position = {0.0f, 0.55f, 0.35f};
+            transform->scale = {1.5f, 0.55f, 0.5f};
+        }
+        scene.add_component<seed::CheckoutStationComponent>(entity);
+        scene.add_component<seed::InteractableComponent>(
+            entity,
+            "Checkout Customer",
+            true
+        );
+        return entity;
+    }
     if (preset == "simulation_order") {
         const auto entity = scene.create_entity("Customer Order");
         seed::CustomerOrderComponent order;
@@ -596,6 +610,17 @@ void build_project_template(
         add_product("coffee", "Coffee", "Food", 2.0f, 5.0f, 12, {-2.2f, 0.65f, -2.0f});
         add_product("snack", "Snack", "Food", 1.0f, 3.0f, 8, {0.0f, 0.65f, -2.0f});
         add_product("card_pack", "Card Pack", "TCG", 3.0f, 8.0f, 5, {2.2f, 0.65f, -2.0f});
+
+        const auto checkout = create_cube(scene, cube_mesh, shader, "Checkout Counter");
+        auto* checkout_transform = scene.get_component<seed::TransformComponent>(checkout);
+        checkout_transform->position = {0.0f, 0.55f, 0.35f};
+        checkout_transform->scale = {1.5f, 0.55f, 0.5f};
+        scene.add_component<seed::CheckoutStationComponent>(checkout);
+        scene.add_component<seed::InteractableComponent>(
+            checkout,
+            "Checkout Customer",
+            true
+        );
 
         const auto add_customer = [&](const char* name, seed::Vec3 position, float arrival_interval) {
             const auto customer = create_cube(scene, cube_mesh, shader, name);
