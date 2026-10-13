@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstdio>
 #include <functional>
+#include <filesystem>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -481,6 +482,31 @@ void StudioUI::draw_assets_panel(Scene& scene, const StudioDocumentInfo& documen
                     ImGui::EndDragDropSource();
                 }
             }
+            if(!document.project_prefabs.empty()){
+                ImGui::SeparatorText("Beginner Prefabs");
+                ImGui::TextDisabled("Click to place. Drag onto the viewport to place at the scene origin.");
+                for(const auto& prefab_path : document.project_prefabs){
+                    const std::filesystem::path path(prefab_path);
+                    const std::string key = path.stem().string();
+                    const char* description = "Reusable Seed object.";
+                    if(key.find("Player") != std::string::npos) description = "Ready-to-use player with camera and controls.";
+                    else if(key.find("Enemy") != std::string::npos) description = "Enemy preset with health, attack, and AI.";
+                    else if(key == "Pickup") description = "Collectible item with inventory interaction.";
+                    else if(key == "Door") description = "Interactable door with collision.";
+                    else if(key == "NPC_Dialogue") description = "NPC with a starter two-line dialogue.";
+                    else if(key == "Quest") description = "Starter quest objective.";
+                    ImGui::PushID(prefab_path.c_str());
+                    if(ImGui::Button(("Place " + key).c_str(), {-1, 0}))
+                        queue_action({.type=StudioActionType::InstantiatePrefab, .path=prefab_path});
+                    ImGui::TextDisabled("%s", description);
+                    if(ImGui::BeginDragDropSource()){
+                        ImGui::SetDragDropPayload("SEED_PREFAB", prefab_path.c_str(), prefab_path.size()+1);
+                        ImGui::Text("Place %s", key.c_str());
+                        ImGui::EndDragDropSource();
+                    }
+                    ImGui::PopID();
+                }
+            }
             ImGui::TextDisabled("Drag an imported model onto the selected entity in Inspector.");
             if(!document.status_message.empty())
                 ImGui::TextWrapped("%s",document.status_message.c_str());
@@ -502,7 +528,17 @@ void StudioUI::draw_viewport_frame(Scene& scene,const StudioDocumentInfo& docume
         if(m_gizmo_tool!=GizmoTool::Select){ImGuizmo::OPERATION op=ImGuizmo::TRANSLATE;if(m_gizmo_tool==GizmoTool::Rotate)op=ImGuizmo::ROTATE;if(m_gizmo_tool==GizmoTool::Scale)op=ImGuizmo::SCALE;float snap[3]={m_move_snap,m_move_snap,m_move_snap};if(m_gizmo_tool==GizmoTool::Rotate)snap[0]=snap[1]=snap[2]=m_rotate_snap;if(m_gizmo_tool==GizmoTool::Scale)snap[0]=snap[1]=snap[2]=m_scale_snap;ImGuizmo::Manipulate(view.data(),projection.data(),op,m_local_space?ImGuizmo::LOCAL:ImGuizmo::WORLD,world.data(),nullptr,m_snap_enabled?snap:nullptr);if(ImGuizmo::IsUsing()){Mat4 local=world;const EntityId p=parent_entity(scene,m_selected_entity);if(p!=InvalidEntity){Mat4 inv{};if(inverse_matrix(world_transform_matrix(scene,p),inv))local=inv*world;}Vec3 pos{},rot{},scale{1,1,1};if(decompose_transform_matrix(local,pos,rot,scale)){auto*t=scene.get_component<TransformComponent>(m_selected_entity);t->position=pos;t->rotation_degrees=rot;t->scale=scale;m_scene_edited=true;}}}
         ImVec2 screen{};float depth=0;if(project_to_screen(vp,matrix_position(world_transform_matrix(scene,m_selected_entity)),screen,depth))dl->AddCircle(screen,18,IM_COL32(86,235,130,230),24,2);
     }
-    const bool inside=io.MousePos.x>=min.x&&io.MousePos.x<=max.x&&io.MousePos.y>=min.y&&io.MousePos.y<=max.y;if(!document.playing&&camera&&inside&&!io.WantCaptureMouse&&ImGui::IsMouseClicked(ImGuiMouseButton_Left)&&!ImGuizmo::IsOver()&&!ImGuizmo::IsUsing()){EntityId best=InvalidEntity;float score=1e9f;scene.for_each<TransformComponent,MeshComponent>([&](EntityId e,TransformComponent&,MeshComponent&m){if(!m.visible)return;ImVec2 s{};float d=0;if(!project_to_screen(vp,matrix_position(world_transform_matrix(scene,e)),s,d))return;const float dx=s.x-io.MousePos.x,dy=s.y-io.MousePos.y,dist=std::sqrt(dx*dx+dy*dy);if(dist>42)return;const float candidate=dist+(d+1)*3;if(candidate<score){score=candidate;best=e;}});m_selected_entity=best;}
+    const bool inside=io.MousePos.x>=min.x&&io.MousePos.x<=max.x&&io.MousePos.y>=min.y&&io.MousePos.y<=max.y;
+    ImGui::SetCursorScreenPos(min);
+    ImGui::InvisibleButton("##SeedViewportDrop", {max.x-min.x, max.y-min.y});
+    if(!document.playing && ImGui::BeginDragDropTarget()){
+        if(const ImGuiPayload* payload=ImGui::AcceptDragDropPayload("SEED_PREFAB")){
+            const std::string prefab_path(static_cast<const char*>(payload->Data));
+            queue_action({.type=StudioActionType::InstantiatePrefab, .path=prefab_path});
+        }
+        ImGui::EndDragDropTarget();
+    }
+    if(!document.playing&&camera&&inside&&!io.WantCaptureMouse&&ImGui::IsMouseClicked(ImGuiMouseButton_Left)&&!ImGuizmo::IsOver()&&!ImGuizmo::IsUsing()){EntityId best=InvalidEntity;float score=1e9f;scene.for_each<TransformComponent,MeshComponent>([&](EntityId e,TransformComponent&,MeshComponent&m){if(!m.visible)return;ImVec2 s{};float d=0;if(!project_to_screen(vp,matrix_position(world_transform_matrix(scene,e)),s,d))return;const float dx=s.x-io.MousePos.x,dy=s.y-io.MousePos.y,dist=std::sqrt(dx*dx+dy*dy);if(dist>42)return;const float candidate=dist+(d+1)*3;if(candidate<score){score=candidate;best=e;}});m_selected_entity=best;}
     const char*controls=document.playing?"RMB Look   WASD Walk   Space Jump   Shift Sprint   E Interact   F5 Stop":"Click Select   Q Select   W Move   E Rotate   R Scale   F Focus   RMB+WASD Navigate";const ImVec2 ts=ImGui::CalcTextSize(controls);dl->AddText({min.x+(max.x-min.x-ts.x)*0.5f,max.y-ts.y-10},IM_COL32(160,188,170,220),controls);
     if(document.playing&&!document.gameplay_prompt.empty()){const ImVec2 ps=ImGui::CalcTextSize(document.gameplay_prompt.c_str());const ImVec2 pmin{min.x+(max.x-min.x-ps.x)*0.5f-14,max.y-88};const ImVec2 pmax{pmin.x+ps.x+28,pmin.y+ps.y+16};dl->AddRectFilled(pmin,pmax,IM_COL32(4,9,6,220),5);dl->AddText({pmin.x+14,pmin.y+8},IM_COL32(230,245,234,255),document.gameplay_prompt.c_str());}
 }
