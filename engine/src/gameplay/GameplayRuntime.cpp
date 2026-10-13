@@ -188,7 +188,7 @@ void update_customers(
             customer.timer_seconds += dt;
             if (customer.state == "waiting") {
                 if (active_customer_count >= max_active_customers) return;
-                const effective_arrival_interval =
+                const float effective_arrival_interval =
                     customer.arrival_interval_seconds / growth_multiplier;
                 if (customer.timer_seconds < effective_arrival_interval) return;
 
