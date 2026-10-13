@@ -186,6 +186,8 @@ The simulation foundation currently includes:
 - day-based demand growth for management progression
 - deterministic checkout queues
 - multi-counter checkout capacity with configurable service speed
+- reusable staff workers with roles and work-speed modifiers
+- station staffing requirements and worker assignments
 - customer purchases and order-completion events
 - restocking interactions
 - a working Shop Simulator starter template
