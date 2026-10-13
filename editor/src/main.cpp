@@ -674,7 +674,7 @@ void build_project_template(
             true
         );
 
-        const cashier = create_cube(scene, cube_mesh, shader, "Cashier");
+        const auto cashier = create_cube(scene, cube_mesh, shader, "Cashier");
         auto* cashier_transform = scene.get_component<seed::TransformComponent>(cashier);
         cashier_transform->position = {-1.8f, 0.9f, 1.0f};
         cashier_transform->scale = {0.45f, 0.9f, 0.45f};
