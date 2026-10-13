@@ -43,6 +43,14 @@ struct ShopMetricsComponent {
     int satisfaction_samples{0};
 };
 
+struct ShopUpgradeComponent {
+    int level{1};
+    int max_level{5};
+    float base_upgrade_cost{100.0f};
+    float cost_multiplier{1.5f};
+    int shelf_capacity_bonus{5};
+};
+
 struct ShopHoursComponent {
     float opening_hour{8.0f};
     float closing_hour{20.0f};

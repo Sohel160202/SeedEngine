@@ -348,6 +348,15 @@ bool SceneSerializer::save(
                     {"satisfaction_samples", metrics->satisfaction_samples},
                 };
             }
+            if (const auto* upgrade = scene.get_component<ShopUpgradeComponent>(entity)) {
+                components["ShopUpgrade"] = {
+                    {"level", upgrade->level},
+                    {"max_level", upgrade->max_level},
+                    {"base_upgrade_cost", upgrade->base_upgrade_cost},
+                    {"cost_multiplier", upgrade->cost_multiplier},
+                    {"shelf_capacity_bonus", upgrade->shelf_capacity_bonus},
+                };
+            }
             if (const auto* hours = scene.get_component<ShopHoursComponent>(entity)) {
                 components["ShopHours"] = {
                     {"opening_hour", hours->opening_hour},
@@ -883,6 +892,22 @@ bool SceneSerializer::load(
                     0, value.value("satisfaction_samples", 0)
                 );
                 loaded_scene.add_component<ShopMetricsComponent>(entity, metrics);
+            }
+            if (components.contains("ShopUpgrade")) {
+                const auto& value = components.at("ShopUpgrade");
+                ShopUpgradeComponent upgrade;
+                upgrade.level = std::clamp(value.value("level", 1), 1, 1000);
+                upgrade.max_level = std::clamp(value.value("max_level", 5), upgrade.level, 1000);
+                upgrade.base_upgrade_cost = std::max(
+                    0.0f, value.value("base_upgrade_cost", 100.0f)
+                );
+                upgrade.cost_multiplier = std::max(
+                    1.0f, value.value("cost_multiplier", 1.5f)
+                );
+                upgrade.shelf_capacity_bonus = std::max(
+                    0, value.value("shelf_capacity_bonus", 5)
+                );
+                loaded_scene.add_component<ShopUpgradeComponent>(entity, upgrade);
             }
             if (components.contains("ShopHours")) {
                 const auto& value = components.at("ShopHours");
