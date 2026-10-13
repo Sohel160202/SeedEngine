@@ -7,6 +7,8 @@
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
 #include "seed/scene/Hierarchy.h"
+#include "seed/simulation/SimulationComponents.h"
+#include "seed/simulation/SimulationSystem.h"
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -409,6 +411,62 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
                         if(ImGui::Button("Add Event")){a->events.push_back({.clip_name=a->clip_name,.name="Event",.time_seconds=0.0f});c=true;}
                         if(c)m_scene_edited=true;}}}
         if(auto*m=scene.get_component<MaterialComponent>(m_selected_entity)){if(ImGui::CollapsingHeader("Material — PBR",ImGuiTreeNodeFlags_DefaultOpen)){ImGui::TextWrapped("Asset: %s",m->asset_id.c_str());bool c=false;ImGui::SeparatorText("Surface");c|=ImGui::ColorEdit4("Base Color",&m->base_color.x);c|=ImGui::SliderFloat("Metallic",&m->metallic,0,1,"%.2f");c|=ImGui::SliderFloat("Roughness",&m->roughness,0.04f,1,"%.2f");ImGui::SeparatorText("Texture Maps");if(m->base_color_texture)c|=ImGui::Checkbox("Use Base Color Map",&m->use_base_color_texture);else ImGui::TextDisabled("Base Color Map: None");if(m->metallic_roughness_texture)c|=ImGui::Checkbox("Use Metallic/Roughness Map",&m->use_metallic_roughness_texture);else ImGui::TextDisabled("Metallic/Roughness Map: None");if(m->normal_texture){c|=ImGui::Checkbox("Use Normal Map",&m->use_normal_texture);ImGui::BeginDisabled(!m->use_normal_texture);c|=ImGui::SliderFloat("Normal Strength",&m->normal_scale,0,4,"%.2f");ImGui::EndDisabled();}else ImGui::TextDisabled("Normal Map: None");if(c){m->use_asset_defaults=false;m_scene_edited=true;}}}
+        if(auto* product=scene.get_component<ProductDefinitionComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Simulation Product",ImGuiTreeNodeFlags_DefaultOpen)){
+                bool changed=false;
+                ImGui::TextDisabled("%s  •  %s",product->product_id.c_str(),product->category.c_str());
+                changed|=ImGui::DragFloat("Wholesale Price",&product->wholesale_price,0.05f,0.0f,100000.0f,"%.2f");
+                changed|=ImGui::DragFloat("Retail Price",&product->retail_price,0.05f,0.0f,100000.0f,"%.2f");
+                changed|=ImGui::DragInt("Maximum Stock",&product->max_stock,1,0,100000);
+                changed|=ImGui::Checkbox("Perishable",&product->perishable);
+                if(changed)m_scene_edited=true;
+            }
+        }
+        if(auto* inventory=scene.get_component<ShopInventoryComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Shop Inventory",ImGuiTreeNodeFlags_DefaultOpen)){
+                if(inventory->products.empty()) ImGui::TextDisabled("No products stocked yet.");
+                for(const auto& stock : inventory->products)
+                    ImGui::BulletText("%s  %d / %d",stock.product_id.c_str(),stock.quantity,stock.shelf_capacity);
+            }
+        }
+        if(auto* wallet=scene.get_component<WalletComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Shop Wallet",ImGuiTreeNodeFlags_DefaultOpen)){
+                bool changed=false;
+                changed|=ImGui::DragFloat("Starting Balance",&wallet->balance,1.0f,0.0f,100000000.0f,"%.2f");
+                ImGui::TextDisabled("Revenue %.2f  •  Expenses %.2f",wallet->lifetime_revenue,wallet->lifetime_expenses);
+                if(changed)m_scene_edited=true;
+            }
+        }
+        if(auto* hours=scene.get_component<ShopHoursComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Shop Hours",ImGuiTreeNodeFlags_DefaultOpen)){
+                bool changed=false;
+                changed|=ImGui::DragFloat("Opens At",&hours->opening_hour,0.25f,0.0f,24.0f,"%.2f");
+                changed|=ImGui::DragFloat("Closes At",&hours->closing_hour,0.25f,0.0f,24.0f,"%.2f");
+                if(changed)m_scene_edited=true;
+            }
+        }
+        if(auto* clock=scene.get_component<SimulationClockComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Simulation Clock",ImGuiTreeNodeFlags_DefaultOpen)){
+                bool changed=false;
+                changed|=ImGui::DragInt("Day",&clock->day,1,1,100000);
+                changed|=ImGui::DragFloat("Hour",&clock->hour,0.1f,0.0f,24.0f,"%.2f");
+                changed|=ImGui::DragFloat("Time Scale",&clock->time_scale,0.1f,0.1f,100.0f,"%.1fx");
+                changed|=ImGui::Checkbox("Paused",&clock->paused);
+                if(changed)m_scene_edited=true;
+            }
+        }
+        if(auto* order=scene.get_component<CustomerOrderComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Customer Order",ImGuiTreeNodeFlags_DefaultOpen)){
+                ImGui::Text("%s  •  %s",order->order_id.c_str(),order->customer_name.c_str());
+                for(const auto& line : order->lines)
+                    ImGui::BulletText("%s  x%d  %.2f",line.product_id.c_str(),line.quantity,line.unit_price);
+                ImGui::Text("Total %.2f",SimulationSystem::order_total(*order));
+                bool changed=false;
+                changed|=ImGui::Checkbox("Fulfilled",&order->fulfilled);
+                changed|=ImGui::Checkbox("Delivered",&order->delivered);
+                if(changed)m_scene_edited=true;
+            }
+        }
         if(!editor_only){m_scene_edited|=draw_gameplay_components(scene,m_selected_entity);ImGui::Spacing();if(ImGui::Button("+ Add Gameplay",{-1,0}))ImGui::OpenPopup("AddGameplayPopup");if(ImGui::BeginPopup("AddGameplayPopup")){if(draw_add_gameplay_popup(scene,m_selected_entity)){m_scene_edited=true;ImGui::CloseCurrentPopup();}ImGui::EndPopup();}}else ImGui::TextDisabled("Editor-only entities cannot receive gameplay components.");
         ImGui::EndDisabled();}
     ImGui::End();
