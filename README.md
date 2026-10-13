@@ -189,6 +189,7 @@ The simulation foundation currently includes:
 - reusable staff workers with roles and work-speed modifiers
 - station staffing requirements and worker assignments
 - worker shifts, daily payroll, and staffing-based availability
+- hiring limits, candidate workers, and skill upgrades
 - customer purchases and order-completion events
 - restocking interactions
 - a working Shop Simulator starter template
