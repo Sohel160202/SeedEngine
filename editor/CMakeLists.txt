@@ -37,5 +37,6 @@ add_executable(SeedStudio
 )
 
 target_include_directories(SeedStudio PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_definitions(SeedStudio PRIVATE SEED_STARTER_ASSET_DIR="${CMAKE_SOURCE_DIR}/assets/SeedStarterPack")
 target_link_libraries(SeedStudio PRIVATE SeedEngine SeedStudioUI)
 target_compile_features(SeedStudio PRIVATE cxx_std_20)
