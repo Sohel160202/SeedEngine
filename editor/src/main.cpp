@@ -645,7 +645,7 @@ void build_project_template(
             true
         );
 
-        const checkout_two = create_cube(scene, cube_mesh, shader, "Checkout Counter 2");
+        const auto checkout_two = create_cube(scene, cube_mesh, shader, "Checkout Counter 2");
         auto* checkout_two_transform = scene.get_component<seed::TransformComponent>(checkout_two);
         checkout_two_transform->position = {2.0f, 0.55f, 0.35f};
         checkout_two_transform->scale = {1.5f, 0.55f, 0.5f};
