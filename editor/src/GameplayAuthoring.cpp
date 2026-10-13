@@ -684,7 +684,10 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                 const char* triggers[] = {
                     "BeginPlay", "Interact", "EnterTrigger", "ExitTrigger",
                     "DialogueStarted", "PickupCollected", "DoorOpened",
-                    "Hit", "Death", "QuestCompleted", "Talked"
+                    "Hit", "Death", "QuestCompleted", "Talked",
+                    "CustomerSpawned", "CustomerReadyForCheckout",
+                    "CustomerPaymentCompleted", "ProductSold", "OrderFulfilled",
+                    "ProductsRestocked", "WorkerHired", "WorkerUpgraded", "ShopUpgraded"
                 };
                 int trigger_index = 0;
                 for (int candidate = 0; candidate < static_cast<int>(std::size(triggers)); ++candidate) {
@@ -700,7 +703,8 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
 
                 const char* conditions[] = {
                     "Always", "Has Item", "Health Below", "Quest Completed",
-                    "Enemy Defeated", "Variable True", "Variable At Least"
+                    "Enemy Defeated", "Variable True", "Variable At Least",
+                    "Stock Below", "Money At Least", "Customers Served At Least"
                 };
                 int condition_index = 0;
                 for (int candidate = 0; candidate < static_cast<int>(std::size(conditions)); ++candidate) {
@@ -713,13 +717,21 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                 }
                 if (condition_index != 0) {
                     changed |= edit_string("Condition Value", rule.condition_value);
-                    ImGui::TextDisabled("Examples: Key, 25, find_key, or Score=10");
+                    if (rule.condition == "Stock Below") {
+                        ImGui::TextDisabled("Use product_id=amount, for example coffee=3");
+                    } else if (rule.condition == "Money At Least" ||
+                               rule.condition == "Customers Served At Least") {
+                        ImGui::TextDisabled("Use a number, for example 250");
+                    } else {
+                        ImGui::TextDisabled("Examples: Key, 25, find_key, or Score=10");
+                    }
                 }
 
                 const char* actions[] = {
                     "Publish Event", "Start Quest", "Complete Quest",
                     "Give Item", "Apply Damage", "Open Door",
-                    "Move Object", "Show Message", "Spawn Object", "Complete Game"
+                    "Move Object", "Show Message", "Spawn Object", "Complete Game",
+                    "Restock Products", "Adjust Money"
                 };
                 int action_index = 0;
                 for (int candidate = 0; candidate < static_cast<int>(std::size(actions)); ++candidate) {
@@ -744,11 +756,16 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                         break;
                     }
                 }
-                if (ImGui::Combo("What", &value_index, values, static_cast<int>(std::size(values)))) {
+                if (rule.action == "Adjust Money") {
+                    changed |= edit_string("Amount", rule.action_value);
+                    ImGui::TextDisabled("Positive adds money; negative records an expense.");
+                } else if (ImGui::Combo("What", &value_index, values, static_cast<int>(std::size(values)))) {
                     rule.action_value = values[value_index];
                     changed = true;
                 }
-                if (rule.action == "Give Item" || rule.action == "Apply Damage") {
+                if (rule.action == "Give Item" ||
+                    rule.action == "Apply Damage" ||
+                    rule.action == "Restock Products") {
                     if (ImGui::DragInt("Amount", &rule.quantity, 1.0f, 1, 9999)) {
                         rule.quantity = std::max(1, rule.quantity);
                         changed = true;
@@ -772,6 +789,13 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                     }
                 }
                 changed |= ImGui::Checkbox("Run Once", &rule.once);
+                if (rule.condition != "Always" && rule.condition_value.empty()) {
+                    ImGui::TextDisabled("Needs a condition value before this rule can work.");
+                }
+                if (rule.action != "Adjust Money" && rule.action_value.empty()) {
+                    ImGui::TextDisabled("Needs an action value before this rule can work.");
+                }
+                ImGui::TextDisabled("When %s  →  Then %s", rule.when_event.c_str(), rule.action.c_str());
                 ImGui::TextDisabled("Runtime: %s", rule.fired ? "Triggered" : "Waiting");
 
                 if (ImGui::SmallButton("Remove Rule")) {

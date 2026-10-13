@@ -1,6 +1,8 @@
 #include "seed/gameplay/GameplayRulesSystem.h"
 
 #include "seed/gameplay/Components.h"
+#include "seed/simulation/SimulationComponents.h"
+#include "seed/simulation/SimulationSystem.h"
 #include "seed/scene/Scene.h"
 
 #include <algorithm>
@@ -73,6 +75,39 @@ bool condition_matches(const Scene& scene, EntityId owner, const GameplayRule& r
         });
         return found_enemy && all_defeated;
     }
+    if (rule.condition == "Stock Below") {
+        const auto* inventory = scene.get_component<ShopInventoryComponent>(owner);
+        if (inventory == nullptr) return false;
+        const auto separator = rule.condition_value.find('=');
+        const std::string product_id = separator == std::string::npos
+            ? rule.condition_value
+            : rule.condition_value.substr(0, separator);
+        const std::string threshold_text = separator == std::string::npos
+            ? std::to_string(std::max(1, rule.quantity))
+            : rule.condition_value.substr(separator + 1);
+        float threshold = 0.0f;
+        if (!number_value(threshold_text, threshold)) return false;
+        for (const auto& stock : inventory->products) {
+            if (stock.product_id == product_id) {
+                return static_cast<float>(stock.quantity) < threshold;
+            }
+        }
+        return true;
+    }
+    if (rule.condition == "Money At Least") {
+        const auto* wallet = scene.get_component<WalletComponent>(owner);
+        float threshold = 0.0f;
+        return wallet != nullptr &&
+            number_value(rule.condition_value, threshold) &&
+            wallet->balance >= threshold;
+    }
+    if (rule.condition == "Customers Served At Least") {
+        const auto* metrics = scene.get_component<ShopMetricsComponent>(owner);
+        float threshold = 0.0f;
+        return metrics != nullptr &&
+            number_value(rule.condition_value, threshold) &&
+            static_cast<float>(metrics->customers_served_today) >= threshold;
+    }
     return false;
 }
 
@@ -109,7 +144,7 @@ void GameplayRulesSystem::consume_events(Scene& scene, GameplayEventBus& events)
             if (!scene.is_alive(owner)) return;
 
             for (const GameplayEvent& trigger : triggers) {
-                if (trigger.source_entity != owner) continue;
+                if (trigger.source_entity != owner && trigger.target_entity != owner) continue;
 
                 for (GameplayRule& rule : rules.rules) {
                     if (rule.fired || rule.when_event != trigger.name) continue;
@@ -173,6 +208,46 @@ void GameplayRulesSystem::consume_events(Scene& scene, GameplayEventBus& events)
                                 .target_entity = target,
                                 .value = static_cast<float>(std::max(1, rule.quantity)),
                             });
+                        }
+                    } else if (rule.action == "Restock Products") {
+                        auto* inventory = scene.get_component<ShopInventoryComponent>(owner);
+                        auto* wallet = scene.get_component<WalletComponent>(owner);
+                        if (inventory != nullptr && wallet != nullptr) {
+                            int restocked_units = 0;
+                            float total_cost = 0.0f;
+                            scene.for_each<ProductDefinitionComponent>(
+                                [&](EntityId, ProductDefinitionComponent& product) {
+                                    const auto transaction = SimulationSystem::restock_product(
+                                        *inventory, *wallet, product, std::max(1, rule.quantity)
+                                    );
+                                    if (transaction.succeeded) {
+                                        restocked_units += transaction.quantity;
+                                        total_cost += transaction.total;
+                                    }
+                                }
+                            );
+                            if (restocked_units > 0) {
+                                events.publish({
+                                    .source_entity = owner,
+                                    .type = GameplayEventType::Interaction,
+                                    .name = "ProductsRestocked",
+                                    .time_seconds = trigger.time_seconds,
+                                    .value = total_cost,
+                                    .target_entity = owner,
+                                });
+                            }
+                        }
+                    } else if (rule.action == "Adjust Money") {
+                        auto* wallet = scene.get_component<WalletComponent>(owner);
+                        float amount = 0.0f;
+                        if (wallet != nullptr && number_value(rule.action_value, amount)) {
+                            wallet->balance += amount;
+                            if (amount >= 0.0f) {
+                                wallet->lifetime_revenue += amount;
+                            } else {
+                                wallet->lifetime_expenses += -amount;
+                            }
+                            publish_rule_event(events, owner, trigger, "MoneyAdjusted");
                         }
                     }
 

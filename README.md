@@ -194,6 +194,7 @@ The simulation foundation currently includes:
 - visual Products & Stock panel for prices, capacity, and restocking
 - visual Customers & Orders panel for queues, demand, and order progress
 - visual Business Dashboard for money, performance, shop hours, and upgrades
+- simulation-aware no-code Rules with customer, stock, money, and progression events
 - customer purchases and order-completion events
 - restocking interactions
 - a working Shop Simulator starter template
