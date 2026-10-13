@@ -169,9 +169,46 @@ void update_customers(
                 );
                 const bool created_order = !available_products.empty();
                 if (created_order) {
-                    const std::size_t selected_index =
-                        static_cast<std::size_t>(customer_entity) % available_products.size();
-                    const auto& product = *available_products[selected_index];
+                    auto demand_score = [](const ProductDefinitionComponent& product) {
+                        const float reference_price = std::max(
+                            0.01f, product.wholesale_price * 2.0f
+                        );
+                        const float markup_penalty = std::max(
+                            0.0f, product.retail_price / reference_price - 1.0f
+                        );
+                        return std::max(0.0f, product.demand_weight) /
+                            (1.0f + std::max(0.0f, product.price_sensitivity) *
+                                markup_penalty);
+                    };
+
+                    float total_demand = 0.0f;
+                    for (const auto* product : available_products) {
+                        total_demand += demand_score(*product);
+                    }
+                    const bool use_uniform_demand = total_demand <= 0.0f;
+                    if (use_uniform_demand) {
+                        total_demand = static_cast<float>(available_products.size());
+                    }
+
+                    const auto customer_seed =
+                        static_cast<std::size_t>(customer_entity) * 17u +
+                        static_cast<std::size_t>(customer.order_sequence) * 31u;
+                    const float sample =
+                        static_cast<float>(customer_seed % 1000u) / 1000.0f *
+                        total_demand;
+
+                    const ProductDefinitionComponent* selected_product =
+                        available_products.back();
+                    float cursor = 0.0f;
+                    for (const auto* product : available_products) {
+                        cursor += use_uniform_demand ? 1.0f : demand_score(*product);
+                        if (cursor > sample) {
+                            selected_product = product;
+                            break;
+                        }
+                    }
+
+                    const auto& product = *selected_product;
                     order.lines.push_back({
                         product.product_id,
                         1,

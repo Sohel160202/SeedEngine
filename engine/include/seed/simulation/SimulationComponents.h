@@ -11,6 +11,8 @@ struct ProductDefinitionComponent {
     std::string category{"General"};
     float wholesale_price{1.0f};
     float retail_price{2.0f};
+    float demand_weight{1.0f};
+    float price_sensitivity{1.0f};
     int max_stock{100};
     bool perishable{false};
 };
