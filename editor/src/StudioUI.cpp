@@ -420,6 +420,8 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
                 ImGui::TextDisabled("%s  •  %s",product->product_id.c_str(),product->category.c_str());
                 changed|=ImGui::DragFloat("Wholesale Price",&product->wholesale_price,0.05f,0.0f,100000.0f,"%.2f");
                 changed|=ImGui::DragFloat("Retail Price",&product->retail_price,0.05f,0.0f,100000.0f,"%.2f");
+                changed|=ImGui::DragFloat("Demand Weight",&product->demand_weight,0.05f,0.0f,100.0f,"%.2f");
+                changed|=ImGui::DragFloat("Price Sensitivity",&product->price_sensitivity,0.05f,0.0f,10.0f,"%.2f");
                 changed|=ImGui::DragInt("Maximum Stock",&product->max_stock,1,0,100000);
                 changed|=ImGui::Checkbox("Perishable",&product->perishable);
                 if(changed)m_scene_edited=true;
