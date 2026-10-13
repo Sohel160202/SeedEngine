@@ -645,6 +645,17 @@ void build_project_template(
             true
         );
 
+        const checkout_two = create_cube(scene, cube_mesh, shader, "Checkout Counter 2");
+        auto* checkout_two_transform = scene.get_component<seed::TransformComponent>(checkout_two);
+        checkout_two_transform->position = {2.0f, 0.55f, 0.35f};
+        checkout_two_transform->scale = {1.5f, 0.55f, 0.5f};
+        scene.add_component<seed::CheckoutStationComponent>(checkout_two);
+        scene.add_component<seed::InteractableComponent>(
+            checkout_two,
+            "Checkout Customer",
+            true
+        );
+
         const auto upgrade_board = create_cube(scene, cube_mesh, shader, "Shop Upgrade Board");
         auto* upgrade_transform = scene.get_component<seed::TransformComponent>(upgrade_board);
         upgrade_transform->position = {3.6f, 0.8f, -1.0f};
