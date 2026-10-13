@@ -465,6 +465,17 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
                 if(changed)m_scene_edited=true;
             }
         }
+        if(auto* spawner=scene.get_component<CustomerSpawnerComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Customer Spawner",ImGuiTreeNodeFlags_DefaultOpen)){
+                bool changed=false;
+                changed|=ImGui::Checkbox("Enabled",&spawner->enabled);
+                changed|=ImGui::DragInt("Max Customers",&spawner->max_customers,1,1,1000);
+                changed|=ImGui::DragFloat("Spawn Interval",&spawner->spawn_interval_seconds,0.25f,0.1f,3600.0f,"%.2fs");
+                changed|=ImGui::DragInt("Next Customer Number",&spawner->next_customer_number,1,1,100000);
+                ImGui::InputText("Name Prefix",spawner->customer_name_prefix.data(),spawner->customer_name_prefix.capacity()+1);
+                if(changed)m_scene_edited=true;
+            }
+        }
         if(auto* hours=scene.get_component<ShopHoursComponent>(m_selected_entity)){
             if(ImGui::CollapsingHeader("Shop Hours",ImGuiTreeNodeFlags_DefaultOpen)){
                 bool changed=false;
