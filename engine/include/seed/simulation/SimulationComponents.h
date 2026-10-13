@@ -58,4 +58,14 @@ struct CustomerOrderComponent {
     bool delivered{false};
 };
 
+struct CustomerBehaviorComponent {
+    bool enabled{true};
+    float arrival_interval_seconds{12.0f};
+    float shopping_duration_seconds{4.0f};
+    float leave_duration_seconds{5.0f};
+    float timer_seconds{0.0f};
+    std::string state{"waiting"};
+    int order_sequence{1};
+};
+
 } // namespace seed
