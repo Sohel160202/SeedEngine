@@ -379,7 +379,7 @@ seed::EntityId create_beginner_preset(
         return entity;
     }
     if (preset == "simulation_checkout") {
-        const entity = create_cube(scene, cube_mesh, shader, "Checkout Counter");
+        const auto entity = create_cube(scene, cube_mesh, shader, "Checkout Counter");
         if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
             transform->position = {0.0f, 0.55f, 0.35f};
             transform->scale = {1.5f, 0.55f, 0.5f};
