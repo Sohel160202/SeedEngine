@@ -260,19 +260,21 @@ void StudioUI::draw_project_dialogs(const StudioDocumentInfo& document) {
                 "Empty World",
                 "Third-Person Adventure",
                 "First-Person Exploration",
-                "Collect and Open"
+                "Collect and Open",
+                "Shop Simulator"
             };
-            ImGui::Combo("Starting Point",&m_project_template_index,templates,4);
+            ImGui::Combo("Starting Point",&m_project_template_index,templates,5);
             const char* descriptions[] = {
                 "A clean scene with a camera, light, sky, and starter cube.",
                 "A ready player, ground, lighting, health, and interaction scene.",
                 "A first-person player and exploration-ready world.",
-                "A player, collectible key, locked door, inventory, and quest."
+                "A player, collectible key, locked door, inventory, and quest.",
+                "A first-person shop with products, stock, wallet, opening hours, clock, and a customer order."
             };
-            ImGui::TextDisabled("%s",descriptions[std::clamp(m_project_template_index,0,3)]);
+            ImGui::TextDisabled("%s",descriptions[std::clamp(m_project_template_index,0,4)]);
 
             if(ImGui::Button("Create",{110,0})){
-                const char* ids[] = {"empty","third_person_adventure","first_person_exploration","collect_and_open"};
+                const char* ids[] = {"empty","third_person_adventure","first_person_exploration","collect_and_open","shop_simulator"};
                 queue_action({
                     .type=StudioActionType::NewProject,
                     .path=m_project_folder_buffer.data(),
