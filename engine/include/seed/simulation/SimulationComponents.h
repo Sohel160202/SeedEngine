@@ -51,6 +51,14 @@ struct ShopUpgradeComponent {
     int shelf_capacity_bonus{5};
 };
 
+struct CustomerCapacityComponent {
+    int max_active_customers{4};
+    int max_queue_length{3};
+    int customers_per_upgrade{1};
+    float arrival_rate_multiplier{1.0f};
+    float daily_growth_rate{0.05f};
+};
+
 struct ShopHoursComponent {
     float opening_hour{8.0f};
     float closing_hour{20.0f};
