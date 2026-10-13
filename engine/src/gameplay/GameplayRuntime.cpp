@@ -1231,6 +1231,62 @@ void GameplayRuntime::perform_interaction(Scene& scene, GameplayEventBus* event_
         return;
     }
 
+    if (auto* upgrade = scene.get_component<ShopUpgradeComponent>(m_interaction_target)) {
+        EntityId shop_entity = InvalidEntity;
+        ShopInventoryComponent* inventory = nullptr;
+        WalletComponent* wallet = nullptr;
+        scene.for_each<ShopInventoryComponent, WalletComponent>(
+            [&](EntityId entity, ShopInventoryComponent& candidate_inventory,
+                WalletComponent& candidate_wallet) {
+                if (shop_entity != InvalidEntity) return;
+                shop_entity = entity;
+                inventory = &candidate_inventory;
+                wallet = &candidate_wallet;
+            }
+        );
+
+        if (inventory == nullptr || wallet == nullptr) {
+            m_status_message = "Upgrade station is not connected to a shop.";
+            return;
+        }
+        if (upgrade->level >= upgrade->max_level) {
+            m_status_message = "The shop is already fully upgraded.";
+            return;
+        }
+
+        const float upgrade_cost = upgrade->base_upgrade_cost *
+            std::pow(
+                std::max(1.0f, upgrade->cost_multiplier),
+                static_cast<float>(std::max(0, upgrade->level - 1))
+            );
+        if (wallet->balance < upgrade_cost) {
+            m_status_message = "Upgrade costs " + std::to_string(upgrade_cost) +
+                ". Keep serving customers.";
+            return;
+        }
+
+        wallet->balance -= upgrade_cost;
+        wallet->lifetime_expenses += upgrade_cost;
+        ++upgrade->level;
+        for (auto& stock : inventory->products) {
+            stock.shelf_capacity += std::max(0, upgrade->shelf_capacity_bonus);
+        }
+
+        m_status_message = "Shop upgraded to Level " +
+            std::to_string(upgrade->level) + " for " +
+            std::to_string(upgrade_cost) + ".";
+        if (event_bus != nullptr) {
+            event_bus->publish({
+                m_interaction_target,
+                GameplayEventType::Interaction,
+                "ShopUpgraded",
+                upgrade_cost,
+                shop_entity
+            });
+        }
+        return;
+    }
+
     if (auto* inventory = scene.get_component<ShopInventoryComponent>(m_interaction_target)) {
         auto* wallet = scene.get_component<WalletComponent>(m_interaction_target);
         if (wallet == nullptr) {
