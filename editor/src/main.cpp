@@ -23,6 +23,7 @@
 #include "seed/render/RenderSystem.h"
 #include "seed/render/SkinnedShaders.h"
 #include "seed/scene/SceneDiff.h"
+#include "seed/simulation/SimulationComponents.h"
 
 #include <algorithm>
 #include <array>
@@ -691,6 +692,24 @@ seed::EntityId duplicate_entity(seed::Scene& scene, seed::EntityId source) {
     }
     if (const auto* v = scene.get_component<seed::PlayerControllerComponent>(source)) {
         scene.add_component<seed::PlayerControllerComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::ProductDefinitionComponent>(source)) {
+        scene.add_component<seed::ProductDefinitionComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::ShopInventoryComponent>(source)) {
+        scene.add_component<seed::ShopInventoryComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::WalletComponent>(source)) {
+        scene.add_component<seed::WalletComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::ShopHoursComponent>(source)) {
+        scene.add_component<seed::ShopHoursComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::SimulationClockComponent>(source)) {
+        scene.add_component<seed::SimulationClockComponent>(copy, *v);
+    }
+    if (const auto* v = scene.get_component<seed::CustomerOrderComponent>(source)) {
+        scene.add_component<seed::CustomerOrderComponent>(copy, *v);
     }
     return copy;
 }
