@@ -185,7 +185,8 @@ void update_customers(
                     for (const auto* product : available_products) {
                         total_demand += demand_score(*product);
                     }
-                    if (total_demand <= 0.0f) {
+                    const bool use_uniform_demand = total_demand <= 0.0f;
+                    if (use_uniform_demand) {
                         total_demand = static_cast<float>(available_products.size());
                     }
 
@@ -200,7 +201,7 @@ void update_customers(
                         available_products.back();
                     float cursor = 0.0f;
                     for (const auto* product : available_products) {
-                        cursor += demand_score(*product);
+                        cursor += use_uniform_demand ? 1.0f : demand_score(*product);
                         if (cursor > sample) {
                             selected_product = product;
                             break;
