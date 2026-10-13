@@ -130,6 +130,42 @@ void update_customers(
             (1.0f + std::max(0, simulation_day - 1) *
                 std::max(0.0f, capacity->daily_growth_rate));
 
+    const auto shift_hours = [](const StaffWorkerComponent& worker) {
+        const float start = std::clamp(worker.shift_start_hour, 0.0f, 24.0f);
+        const float end = std::clamp(worker.shift_end_hour, 0.0f, 24.0f);
+        if (std::fabs(start - end) < 0.001f) return 24.0f;
+        return start < end ? end - start : (24.0f - start) + end;
+    };
+    const auto worker_on_shift = [&](const StaffWorkerComponent& worker) {
+        if (clock == nullptr) return true;
+        const float start = std::clamp(worker.shift_start_hour, 0.0f, 24.0f);
+        const float end = std::clamp(worker.shift_end_hour, 0.0f, 24.0f);
+        if (std::fabs(start - end) < 0.001f) return true;
+        if (start < end) {
+            return clock->hour >= start && clock->hour < end;
+        }
+        return clock->hour >= start || clock->hour < end;
+    };
+
+    if (clock != nullptr) {
+        scene.for_each<StaffWorkerComponent>(
+            [&](EntityId, StaffWorkerComponent& worker) {
+                if (!worker.enabled || worker.last_paid_day >= clock->day) return;
+                const int unpaid_days = std::max(
+                    1, clock->day - std::max(1, worker.last_paid_day)
+                );
+                const float wages = std::max(0.0f, worker.wage_per_hour) *
+                    shift_hours(worker) * static_cast<float>(unpaid_days);
+                wallet->balance -= wages;
+                wallet->lifetime_expenses += wages;
+                worker.last_paid_day = clock->day;
+                status_message = wages > 0.0f
+                    ? "Paid staff wages: " + std::to_string(wages)
+                    : status_message;
+            }
+        );
+    }
+
     int checkout_capacity = 0;
     std::vector<float> checkout_service_times;
     scene.for_each<CheckoutStationComponent>(
@@ -144,6 +180,7 @@ void update_customers(
             scene.for_each<StaffWorkerComponent>(
                 [&](EntityId, StaffWorkerComponent& worker) {
                     if (!worker.enabled ||
+                        !worker_on_shift(worker) ||
                         worker.assigned_station_persistent_id !=
                             scene.entity_persistent_id(station_entity)) {
                         return;
