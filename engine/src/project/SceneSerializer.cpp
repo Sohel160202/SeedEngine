@@ -397,6 +397,22 @@ bool SceneSerializer::save(
                     {"service_time_seconds", checkout->service_time_seconds},
                 };
             }
+            if (const auto* staffing = scene.get_component<StationStaffingComponent>(entity)) {
+                components["StationStaffing"] = {
+                    {"requires_staff", staffing->requires_staff},
+                    {"required_workers", staffing->required_workers},
+                    {"required_role", staffing->required_role},
+                };
+            }
+            if (const auto* worker = scene.get_component<StaffWorkerComponent>(entity)) {
+                components["StaffWorker"] = {
+                    {"enabled", worker->enabled},
+                    {"role", worker->role},
+                    {"work_speed", worker->work_speed},
+                    {"wage_per_hour", worker->wage_per_hour},
+                    {"assigned_station_persistent_id", worker->assigned_station_persistent_id},
+                };
+            }
             if (const auto* order = scene.get_component<CustomerOrderComponent>(entity)) {
                 nlohmann::json lines = nlohmann::json::array();
                 for (const auto& line : order->lines) {
@@ -998,6 +1014,34 @@ bool SceneSerializer::load(
                     0.1f, value.value("service_time_seconds", 1.0f)
                 );
                 loaded_scene.add_component<CheckoutStationComponent>(entity, checkout);
+            }
+            if (components.contains("StationStaffing")) {
+                const auto& value = components.at("StationStaffing");
+                StationStaffingComponent staffing;
+                staffing.requires_staff = value.value("requires_staff", false);
+                staffing.required_workers = std::max(
+                    1, value.value("required_workers", 1)
+                );
+                staffing.required_role = value.value(
+                    "required_role", std::string{"Staff"}
+                );
+                loaded_scene.add_component<StationStaffingComponent>(entity, staffing);
+            }
+            if (components.contains("StaffWorker")) {
+                const auto& value = components.at("StaffWorker");
+                StaffWorkerComponent worker;
+                worker.enabled = value.value("enabled", true);
+                worker.role = value.value("role", std::string{"Staff"});
+                worker.work_speed = std::max(
+                    0.1f, value.value("work_speed", 1.0f)
+                );
+                worker.wage_per_hour = std::max(
+                    0.0f, value.value("wage_per_hour", 10.0f)
+                );
+                worker.assigned_station_persistent_id = value.value(
+                    "assigned_station_persistent_id", std::string{}
+                );
+                loaded_scene.add_component<StaffWorkerComponent>(entity, worker);
             }
             if (components.contains("CustomerOrder")) {
                 const auto& value = components.at("CustomerOrder");

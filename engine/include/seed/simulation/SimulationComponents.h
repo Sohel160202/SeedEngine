@@ -94,6 +94,20 @@ struct CheckoutStationComponent {
     float service_time_seconds{1.0f};
 };
 
+struct StationStaffingComponent {
+    bool requires_staff{false};
+    int required_workers{1};
+    std::string required_role{"Staff"};
+};
+
+struct StaffWorkerComponent {
+    bool enabled{true};
+    std::string role{"Staff"};
+    float work_speed{1.0f};
+    float wage_per_hour{10.0f};
+    std::string assigned_station_persistent_id;
+};
+
 struct CustomerOrderComponent {
     std::string order_id{"order-1"};
     std::string customer_name{"Customer"};
