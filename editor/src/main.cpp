@@ -671,9 +671,21 @@ void build_project_template(
             order.customer_name = name;
             order.lines = {{"coffee", 1, 0, 5.0f}};
             scene.add_component<seed::CustomerOrderComponent>(customer, order);
+            return customer;
         };
-        add_customer("Customer A", {-4.0f, 0.9f, -4.0f}, 5.0f);
+        const auto customer_a = add_customer(
+            "Customer A",
+            {-4.0f, 0.9f, -4.0f},
+            5.0f
+        );
         add_customer("Customer B", {-5.0f, 0.9f, -3.2f}, 10.0f);
+        seed::CustomerSpawnerComponent spawner;
+        spawner.max_customers = 8;
+        spawner.spawn_interval_seconds = 8.0f;
+        spawner.next_customer_number = 3;
+        spawner.customer_template_persistent_id = scene.entity_persistent_id(customer_a);
+        spawner.customer_name_prefix = "Customer";
+        scene.add_component<seed::CustomerSpawnerComponent>(shop, spawner);
         return;
     }
 
