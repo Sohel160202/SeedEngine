@@ -485,29 +485,92 @@ void StudioUI::draw_assets_panel(Scene& scene, const StudioDocumentInfo& documen
             }
             if(!document.project_asset_files.empty()){
                 ImGui::SeparatorText("Asset Browser");
-                ImGui::TextDisabled("Project files grouped by type. Model files can be dragged onto an entity.");
+                ImGui::TextDisabled("Select an asset to preview it. Drag GLTF/GLB models onto an entity.");
+                std::unordered_map<std::string, std::vector<std::string>> grouped_assets;
                 for(const auto& asset_file : document.project_asset_files){
-                    const std::filesystem::path path(asset_file);
-                    std::string extension = path.extension().string();
-                    std::transform(extension.begin(), extension.end(), extension.begin(),
-                        [](unsigned char value){ return static_cast<char>(std::tolower(value)); });
-                    const char* icon = "[FILE]";
-                    const bool model = extension == ".glb" || extension == ".gltf";
-                    if(model) icon = "[MODEL]";
-                    else if(extension == ".png" || extension == ".jpg" || extension == ".jpeg") icon = "[IMAGE]";
-                    else if(extension == ".wav" || extension == ".ogg" || extension == ".mp3") icon = "[AUDIO]";
-                    ImGui::PushID(asset_file.c_str());
-                    ImGui::Text("%s", icon);
-                    ImGui::SameLine();
-                    ImGui::TextDisabled("%s", asset_file.c_str());
-                    if(model && ImGui::BeginDragDropSource()){
-                        const std::string asset_id = AssetRuntime::make_model_asset_id(asset_file);
-                        ImGui::SetDragDropPayload("SEED_ASSET", asset_id.c_str(), asset_id.size()+1);
-                        ImGui::Text("Assign %s", path.filename().string().c_str());
-                        ImGui::EndDragDropSource();
-                    }
-                    ImGui::PopID();
+                    grouped_assets[std::filesystem::path(asset_file).parent_path().generic_string()].push_back(asset_file);
                 }
+                std::vector<std::string> folders;
+                folders.reserve(grouped_assets.size());
+                for(const auto&[folder, _] : grouped_assets) folders.push_back(folder);
+                std::sort(folders.begin(), folders.end());
+                for(const auto& folder : folders){
+                    const std::string folder_label = folder.empty() ? "Assets" : folder;
+                    if(!ImGui::TreeNode(folder_label.c_str())) continue;
+                    auto& files = grouped_assets[folder];
+                    std::sort(files.begin(), files.end());
+                    for(const auto& asset_file : files){
+                        const std::filesystem::path path(asset_file);
+                        std::string extension = path.extension().string();
+                        std::transform(extension.begin(), extension.end(), extension.begin(),
+                            [](unsigned char value){ return static_cast<char>(std::tolower(value)); });
+                        const char* icon = "[FILE]";
+                        const bool model = extension == ".glb" || extension == ".gltf";
+                        if(model) icon = "[MODEL]";
+                        else if(extension == ".png" || extension == ".jpg" || extension == ".jpeg") icon = "[IMAGE]";
+                        else if(extension == ".wav" || extension == ".ogg" || extension == ".mp3") icon = "[AUDIO]";
+                        ImGui::PushID(asset_file.c_str());
+                        ImGui::Text("%s", icon);
+                        ImGui::SameLine();
+                        if(ImGui::Selectable(path.filename().string().c_str())){
+                            m_asset_preview_path = asset_file;
+                            ImGui::OpenPopup("AssetPreview");
+                        }
+                        ImGui::SameLine();
+                        ImGui::TextDisabled("%s", asset_file.c_str());
+                        if(model && ImGui::BeginDragDropSource()){
+                            const std::string asset_id = AssetRuntime::make_model_asset_id(asset_file);
+                            ImGui::SetDragDropPayload("SEED_ASSET", asset_id.c_str(), asset_id.size()+1);
+                            ImGui::Text("Assign %s", path.filename().string().c_str());
+                            ImGui::EndDragDropSource();
+                        }
+                        ImGui::PopID();
+                    }
+                    ImGui::TreePop();
+                }
+            }
+            if(ImGui::BeginPopupModal("AssetPreview", nullptr, ImGuiWindowFlags_AlwaysAutoResize)){
+                const std::filesystem::path preview_path(m_asset_preview_path);
+                const std::string extension = preview_path.extension().string();
+                ImGui::TextUnformatted(preview_path.filename().string().c_str());
+                ImGui::TextDisabled("%s", m_asset_preview_path.c_str());
+                ImGui::Separator();
+                const bool model = extension == ".glb" || extension == ".gltf" ||
+                                   extension == ".GLB" || extension == ".GLTF";
+                if(model){
+                    ImGui::TextUnformatted("GLTF / GLB model");
+                    const std::string asset_id = AssetRuntime::make_model_asset_id(m_asset_preview_path);
+                    const auto* skinned = m_selected_entity != InvalidEntity
+                        ? scene.get_component<SkinnedMeshComponent>(m_selected_entity)
+                        : nullptr;
+                    if(skinned != nullptr && skinned->asset_id == asset_id &&
+                       skinned->runtime_asset != nullptr){
+                        ImGui::Text("Skeleton: %zu joints", skinned->runtime_asset->skeleton.joints.size());
+                        ImGui::Text("Animation clips: %zu", skinned->runtime_asset->animations.size());
+                        ImGui::SeparatorText("Animation Clips");
+                        if(skinned->runtime_asset->animations.empty()){
+                            ImGui::TextDisabled("No animation clips found.");
+                        }else{
+                            for(const auto& clip : skinned->runtime_asset->animations){
+                                ImGui::BulletText("%s  (%.2f s)", clip.name.c_str(), clip.duration_seconds);
+                            }
+                        }
+                    }else{
+                        ImGui::TextDisabled("Assign this model to a character entity to inspect its skeleton and animation clips.");
+                    }
+                }else if(extension == ".png" || extension == ".jpg" || extension == ".jpeg" ||
+                         extension == ".PNG" || extension == ".JPG" || extension == ".JPEG"){
+                    ImGui::TextUnformatted("Texture / image asset");
+                    ImGui::TextDisabled("Texture preview will use the imported material thumbnail.");
+                }else if(extension == ".wav" || extension == ".ogg" || extension == ".mp3" ||
+                         extension == ".WAV" || extension == ".OGG" || extension == ".MP3"){
+                    ImGui::TextUnformatted("Audio asset");
+                    ImGui::TextDisabled("Audio assignment is supported by the upcoming beginner audio workflow.");
+                }else{
+                    ImGui::TextUnformatted("Project asset");
+                }
+                if(ImGui::Button("Close")) ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
             }
             if(!document.project_prefabs.empty()){
                 ImGui::SeparatorText("Beginner Prefabs");
