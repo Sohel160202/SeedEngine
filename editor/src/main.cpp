@@ -358,7 +358,7 @@ seed::EntityId create_beginner_preset(
         return create_third_person_player(scene, editor_camera, "Player");
     }
     if (preset == "simulation_shop") {
-        const entity = scene.create_entity("Shop");
+        const auto entity = scene.create_entity("Shop");
         scene.add_component<seed::TransformComponent>(entity);
         scene.add_component<seed::ShopInventoryComponent>(entity);
         scene.add_component<seed::WalletComponent>(entity);
@@ -367,7 +367,7 @@ seed::EntityId create_beginner_preset(
         return entity;
     }
     if (preset == "simulation_product") {
-        const entity = create_cube(scene, cube_mesh, shader, "Product");
+        const auto entity = create_cube(scene, cube_mesh, shader, "Product");
         seed::ProductDefinitionComponent product;
         product.product_id = "coffee";
         product.display_name = "Coffee";
