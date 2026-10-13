@@ -37,7 +37,7 @@ int main() {
     assert(clock.hour > 0.4f && clock.hour < 0.6f);
 
     seed::CustomerOrderComponent order;
-    order.lines = {{"milk", 2, 4.0f}, {"bread", 1, 3.0f}};
+    order.lines = {{"milk", 2, 0, 4.0f}, {"bread", 1, 0, 3.0f}};
     assert(seed::SimulationSystem::order_total(order) == 11.0f);
     return 0;
 }

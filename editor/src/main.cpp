@@ -383,7 +383,7 @@ seed::EntityId create_beginner_preset(
         seed::CustomerOrderComponent order;
         order.order_id = "order-1";
         order.customer_name = "Customer";
-        order.lines = {{"coffee", 1, 5.0f}};
+        order.lines = {{"coffee", 1, 0, 5.0f}};
         scene.add_component<seed::CustomerOrderComponent>(entity, order);
         return entity;
     }
@@ -573,6 +573,7 @@ void build_project_template(
         scene.add_component<seed::WalletComponent>(shop, wallet);
         scene.add_component<seed::ShopHoursComponent>(shop);
         scene.add_component<seed::SimulationClockComponent>(shop);
+        scene.add_component<seed::InteractableComponent>(shop, "Restock Shop", true);
 
         const auto add_product = [&](const char* id, const char* name, const char* category,
                                      float wholesale, float retail, int stock, seed::Vec3 position) {
@@ -600,7 +601,7 @@ void build_project_template(
         seed::CustomerOrderComponent order;
         order.order_id = "order_001";
         order.customer_name = "Morning Customer";
-        order.lines = {{"coffee", 2, 5.0f}, {"snack", 1, 3.0f}};
+        order.lines = {{"coffee", 2, 0, 5.0f}, {"snack", 1, 0, 3.0f}};
         scene.add_component<seed::CustomerOrderComponent>(order_entity, order);
         return;
     }

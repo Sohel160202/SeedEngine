@@ -355,6 +355,7 @@ bool SceneSerializer::save(
                     lines.push_back({
                         {"product_id", line.product_id},
                         {"quantity", line.quantity},
+                        {"fulfilled_quantity", line.fulfilled_quantity},
                         {"unit_price", line.unit_price},
                     });
                 }
@@ -850,6 +851,11 @@ bool SceneSerializer::load(
                         OrderLine line;
                         line.product_id = item.value("product_id", std::string{"product"});
                         line.quantity = std::max(1, item.value("quantity", 1));
+                        line.fulfilled_quantity = std::clamp(
+                            item.value("fulfilled_quantity", 0),
+                            0,
+                            line.quantity
+                        );
                         line.unit_price = item.value("unit_price", 0.0f);
                         order.lines.push_back(std::move(line));
                     }
