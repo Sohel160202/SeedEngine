@@ -393,6 +393,19 @@ seed::EntityId create_beginner_preset(
         );
         return entity;
     }
+    if (preset == "simulation_staff") {
+        const auto entity = create_cube(scene, cube_mesh, shader, "Staff Worker");
+        if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+            transform->position = {0.0f, 0.9f, -1.0f};
+            transform->scale = {0.45f, 0.9f, 0.45f};
+        }
+        seed::StaffWorkerComponent worker;
+        worker.role = "Staff";
+        worker.work_speed = 1.0f;
+        worker.wage_per_hour = 10.0f;
+        scene.add_component<seed::StaffWorkerComponent>(entity, worker);
+        return entity;
+    }
     if (preset == "simulation_upgrade") {
         const auto entity = create_cube(scene, cube_mesh, shader, "Shop Upgrade Board");
         if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
@@ -639,6 +652,11 @@ void build_project_template(
         checkout_transform->position = {0.0f, 0.55f, 0.35f};
         checkout_transform->scale = {1.5f, 0.55f, 0.5f};
         scene.add_component<seed::CheckoutStationComponent>(checkout);
+        seed::StationStaffingComponent checkout_staffing;
+        checkout_staffing.requires_staff = true;
+        checkout_staffing.required_workers = 1;
+        checkout_staffing.required_role = "Cashier";
+        scene.add_component<seed::StationStaffingComponent>(checkout, checkout_staffing);
         scene.add_component<seed::InteractableComponent>(
             checkout,
             "Checkout Customer",
@@ -655,6 +673,18 @@ void build_project_template(
             "Checkout Customer",
             true
         );
+
+        const cashier = create_cube(scene, cube_mesh, shader, "Cashier");
+        auto* cashier_transform = scene.get_component<seed::TransformComponent>(cashier);
+        cashier_transform->position = {-1.8f, 0.9f, 1.0f};
+        cashier_transform->scale = {0.45f, 0.9f, 0.45f};
+        seed::StaffWorkerComponent cashier_worker;
+        cashier_worker.role = "Cashier";
+        cashier_worker.work_speed = 1.0f;
+        cashier_worker.wage_per_hour = 12.0f;
+        cashier_worker.assigned_station_persistent_id =
+            scene.entity_persistent_id(checkout);
+        scene.add_component<seed::StaffWorkerComponent>(cashier, cashier_worker);
 
         const auto upgrade_board = create_cube(scene, cube_mesh, shader, "Shop Upgrade Board");
         auto* upgrade_transform = scene.get_component<seed::TransformComponent>(upgrade_board);
