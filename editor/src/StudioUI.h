@@ -131,6 +131,7 @@ private:
     bool m_history_transaction_active{false};
     std::string m_history_document_key;
     std::string m_history_structural_signature;
+    std::string m_asset_preview_path;
 
     std::array<char,128> m_project_name_buffer{};
     std::array<char,512> m_project_folder_buffer{};
