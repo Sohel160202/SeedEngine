@@ -232,8 +232,8 @@ void GameplayRulesSystem::consume_events(Scene& scene, GameplayEventBus& events)
                                     .type = GameplayEventType::Interaction,
                                     .name = "ProductsRestocked",
                                     .time_seconds = trigger.time_seconds,
-                                    .value = total_cost,
                                     .target_entity = owner,
+                                    .value = total_cost,
                                 });
                             }
                         }
