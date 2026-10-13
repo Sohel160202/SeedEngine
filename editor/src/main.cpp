@@ -345,6 +345,15 @@ seed::EntityId create_cube(
     return cube;
 }
 
+void use_starter_asset(seed::Scene& scene, seed::EntityId entity, const char* relative_path) {
+    auto* mesh = scene.get_component<seed::MeshComponent>(entity);
+    if (mesh == nullptr) return;
+    mesh->asset_id = seed::AssetRuntime::make_model_asset_id(
+        std::filesystem::path{"Assets/SeedStarterPack"} / relative_path
+    );
+    mesh->mesh = {};
+}
+
 seed::EntityId create_beginner_preset(
     seed::Scene& scene,
     const std::string& preset,
@@ -535,6 +544,7 @@ seed::EntityId create_beginner_preset(
                 transform->scale = {1.5f, 0.8f, 0.35f};
             }
             scene.add_component<seed::InteractableComponent>(entity, "Restock Shelf", true);
+            use_starter_asset(scene, entity, "shop_shelf.gltf");
             seed::ShopUpgradeComponent upgrade;
             upgrade.shelf_capacity_bonus = 10;
             scene.add_component<seed::ShopUpgradeComponent>(entity, upgrade);
@@ -556,6 +566,9 @@ seed::EntityId create_beginner_preset(
             definition.demand_weight = restaurant ? 1.25f : 1.0f;
             scene.add_component<seed::ProductDefinitionComponent>(entity, definition);
             scene.add_component<seed::InteractableComponent>(entity, "Sell " + product_name, true);
+            use_starter_asset(scene, entity,
+                supermarket ? "grocery_box.gltf" : card_shop ? "card_booster_pack.gltf" :
+                restaurant ? "restaurant_plate.gltf" : "game_case.gltf");
             return entity;
         }
         if (checkout) {
@@ -573,6 +586,7 @@ seed::EntityId create_beginner_preset(
             staffing.required_role = restaurant ? "Server" : "Cashier";
             scene.add_component<seed::StationStaffingComponent>(entity, staffing);
             scene.add_component<seed::InteractableComponent>(entity, "Serve Customer", true);
+            use_starter_asset(scene, entity, "checkout_counter.gltf");
             return entity;
         }
         if (cashier) {
@@ -588,6 +602,7 @@ seed::EntityId create_beginner_preset(
             worker.hiring_cost = restaurant ? 140.0f : 100.0f;
             scene.add_component<seed::StaffWorkerComponent>(entity, worker);
             scene.add_component<seed::InteractableComponent>(entity, "Hire " + worker.role, true);
+            use_starter_asset(scene, entity, "cash_register.gltf");
             return entity;
         }
         if (customer) {
@@ -2724,7 +2739,12 @@ int main(int argc, char** argv) {
                 if (entity != seed::InvalidEntity) {
                     studio_ui.select_entity(entity);
                     workspace.dirty = true;
-                    workspace.status_message = "Created beginner preset: " + action.path + ".";
+                    std::string asset_error;
+                    if (!asset_runtime.bind_scene(scene, mesh_shader, &asset_error)) {
+                        workspace.status_message = "Created beginner preset, but asset binding failed: " + asset_error;
+                    } else {
+                        workspace.status_message = "Created beginner preset: " + action.path + ".";
+                    }
                 }
                 break;
             }
