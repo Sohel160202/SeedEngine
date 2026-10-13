@@ -482,6 +482,32 @@ void StudioUI::draw_assets_panel(Scene& scene, const StudioDocumentInfo& documen
                     ImGui::EndDragDropSource();
                 }
             }
+            if(!document.project_asset_files.empty()){
+                ImGui::SeparatorText("Asset Browser");
+                ImGui::TextDisabled("Project files grouped by type. Model files can be dragged onto an entity.");
+                for(const auto& asset_file : document.project_asset_files){
+                    const std::filesystem::path path(asset_file);
+                    std::string extension = path.extension().string();
+                    std::transform(extension.begin(), extension.end(), extension.begin(),
+                        [](unsigned char value){ return static_cast<char>(std::tolower(value)); });
+                    const char* icon = "[FILE]";
+                    const bool model = extension == ".glb" || extension == ".gltf";
+                    if(model) icon = "[MODEL]";
+                    else if(extension == ".png" || extension == ".jpg" || extension == ".jpeg") icon = "[IMAGE]";
+                    else if(extension == ".wav" || extension == ".ogg" || extension == ".mp3") icon = "[AUDIO]";
+                    ImGui::PushID(asset_file.c_str());
+                    ImGui::Text("%s", icon);
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("%s", asset_file.c_str());
+                    if(model && ImGui::BeginDragDropSource()){
+                        const std::string asset_id = AssetRuntime::make_model_asset_id(asset_file);
+                        ImGui::SetDragDropPayload("SEED_ASSET", asset_id.c_str(), asset_id.size()+1);
+                        ImGui::Text("Assign %s", path.filename().string().c_str());
+                        ImGui::EndDragDropSource();
+                    }
+                    ImGui::PopID();
+                }
+            }
             if(!document.project_prefabs.empty()){
                 ImGui::SeparatorText("Beginner Prefabs");
                 ImGui::TextDisabled("Click to place. Drag onto the viewport to place at the scene origin.");
