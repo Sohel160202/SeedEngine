@@ -1543,6 +1543,23 @@ seed::studio::StudioDocumentInfo document_info(
             }
         );
 
+        play_scene->for_each<seed::CustomerSpawnerComponent>(
+            [&](seed::EntityId entity, const seed::CustomerSpawnerComponent& spawner) {
+                int customers = 0;
+                play_scene->for_each<seed::CustomerBehaviorComponent>(
+                    [&](seed::EntityId, const seed::CustomerBehaviorComponent&) {
+                        ++customers;
+                    }
+                );
+                info.gameplay_objectives.push_back(
+                    "POPULATION  " + std::to_string(customers) + "/" +
+                    std::to_string(spawner.max_customers) + "  SPAWNER " +
+                    (spawner.enabled ? "ON" : "OFF")
+                );
+                (void)entity;
+            }
+        );
+
         play_scene->for_each<seed::CustomerOrderComponent>(
             [&](seed::EntityId, const seed::CustomerOrderComponent& order) {
                 int fulfilled = 0;
