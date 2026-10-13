@@ -180,6 +180,8 @@ The simulation foundation currently includes:
 - automatic customer arrivals
 - visible customer movement
 - reusable customer capacity limits
+- dynamic customer spawning from reusable templates
+- population caps and configurable spawn intervals
 - queue-length limits and upgrade-based customer growth
 - day-based demand growth for management progression
 - deterministic checkout queues

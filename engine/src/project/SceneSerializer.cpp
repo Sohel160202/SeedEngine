@@ -366,6 +366,16 @@ bool SceneSerializer::save(
                     {"daily_growth_rate", capacity->daily_growth_rate},
                 };
             }
+            if (const auto* spawner = scene.get_component<CustomerSpawnerComponent>(entity)) {
+                components["CustomerSpawner"] = {
+                    {"enabled", spawner->enabled},
+                    {"max_customers", spawner->max_customers},
+                    {"spawn_interval_seconds", spawner->spawn_interval_seconds},
+                    {"next_customer_number", spawner->next_customer_number},
+                    {"customer_template_persistent_id", spawner->customer_template_persistent_id},
+                    {"customer_name_prefix", spawner->customer_name_prefix},
+                };
+            }
             if (const auto* hours = scene.get_component<ShopHoursComponent>(entity)) {
                 components["ShopHours"] = {
                     {"opening_hour", hours->opening_hour},
@@ -937,6 +947,28 @@ bool SceneSerializer::load(
                     0.0f, value.value("daily_growth_rate", 0.05f)
                 );
                 loaded_scene.add_component<CustomerCapacityComponent>(entity, capacity);
+            }
+            if (components.contains("CustomerSpawner")) {
+                const auto& value = components.at("CustomerSpawner");
+                CustomerSpawnerComponent spawner;
+                spawner.enabled = value.value("enabled", true);
+                spawner.max_customers = std::max(
+                    1, value.value("max_customers", 8)
+                );
+                spawner.spawn_interval_seconds = std::max(
+                    0.1f, value.value("spawn_interval_seconds", 10.0f)
+                );
+                spawner.timer_seconds = 0.0f;
+                spawner.next_customer_number = std::max(
+                    1, value.value("next_customer_number", 3)
+                );
+                spawner.customer_template_persistent_id = value.value(
+                    "customer_template_persistent_id", std::string{}
+                );
+                spawner.customer_name_prefix = value.value(
+                    "customer_name_prefix", std::string{"Customer"}
+                );
+                loaded_scene.add_component<CustomerSpawnerComponent>(entity, spawner);
             }
             if (components.contains("ShopHours")) {
                 const auto& value = components.at("ShopHours");

@@ -59,6 +59,16 @@ struct CustomerCapacityComponent {
     float daily_growth_rate{0.05f};
 };
 
+struct CustomerSpawnerComponent {
+    bool enabled{true};
+    int max_customers{8};
+    float spawn_interval_seconds{10.0f};
+    float timer_seconds{0.0f};
+    int next_customer_number{3};
+    std::string customer_template_persistent_id;
+    std::string customer_name_prefix{"Customer"};
+};
+
 struct ShopHoursComponent {
     float opening_hour{8.0f};
     float closing_hour{20.0f};
