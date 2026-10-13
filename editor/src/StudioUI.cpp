@@ -786,22 +786,129 @@ void StudioUI::draw_staff_panel(Scene& scene, const StudioDocumentInfo& document
     ImGui::SetNextWindowPos({0.0f, std::max(menu, io.DisplaySize.y - BottomPanelHeight)}, ImGuiCond_Always);
     ImGui::SetNextWindowSize({io.DisplaySize.x, BottomPanelHeight}, ImGuiCond_Always);
 
-    if (!ImGui::Begin("Staff & Stations", nullptr, fixed_panel_flags())) {
+    if (!ImGui::Begin("Shop Management", nullptr, fixed_panel_flags())) {
         ImGui::End();
         return;
     }
 
+    if (ImGui::Button("Staff & Stations", m_management_panel_tab == 0 ? ImVec2{150.0f, 0.0f} : ImVec2{0.0f, 0.0f})) {
+        m_management_panel_tab = 0;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Products & Stock", m_management_panel_tab == 1 ? ImVec2{150.0f, 0.0f} : ImVec2{0.0f, 0.0f})) {
+        m_management_panel_tab = 1;
+    }
+    ImGui::Separator();
+
     EntityId shop_entity = InvalidEntity;
     StaffManagerComponent* manager = nullptr;
+    ShopInventoryComponent* inventory = nullptr;
     WalletComponent* wallet = nullptr;
     scene.for_each<ShopInventoryComponent, WalletComponent>(
-        [&](EntityId entity, ShopInventoryComponent&, WalletComponent& candidate_wallet) {
+        [&](EntityId entity, ShopInventoryComponent& candidate_inventory, WalletComponent& candidate_wallet) {
             if (shop_entity != InvalidEntity) return;
             shop_entity = entity;
+            inventory = &candidate_inventory;
             manager = scene.get_component<StaffManagerComponent>(entity);
             wallet = &candidate_wallet;
         }
     );
+
+    if (m_management_panel_tab == 1) {
+        ImGui::TextUnformatted("PRODUCTS & STOCK");
+        ImGui::SameLine();
+        ImGui::TextDisabled("Tune prices, see available stock, and restock the shop.");
+        ImGui::Separator();
+
+        if (inventory == nullptr) {
+            ImGui::TextDisabled("Create a shop with Inventory and Wallet components first.");
+            ImGui::End();
+            return;
+        }
+
+        int product_count = 0;
+        scene.for_each<ProductDefinitionComponent>(
+            [&](EntityId, ProductDefinitionComponent&) { ++product_count; }
+        );
+        if (product_count == 0) {
+            ImGui::TextDisabled("No products yet. Add Product definitions to the scene.");
+            ImGui::End();
+            return;
+        }
+
+        ImGui::BeginChild("##product_roster", {0.0f, 0.0f}, false);
+        ImGui::Columns(7, "##product_columns", true);
+        ImGui::Text("Product"); ImGui::NextColumn();
+        ImGui::Text("Wholesale"); ImGui::NextColumn();
+        ImGui::Text("Retail"); ImGui::NextColumn();
+        ImGui::Text("Stock"); ImGui::NextColumn();
+        ImGui::Text("Capacity"); ImGui::NextColumn();
+        ImGui::Text("Cost"); ImGui::NextColumn();
+        ImGui::Text("Action"); ImGui::NextColumn();
+        ImGui::Separator();
+
+        ImGui::BeginDisabled(document.playing);
+        scene.for_each<ProductDefinitionComponent>(
+            [&](EntityId product_entity, ProductDefinitionComponent& product) {
+                ImGui::PushID(static_cast<int>(product_entity));
+                ImGui::Text("%s", product.display_name.c_str());
+                ImGui::TextDisabled("%s", product.product_id.c_str());
+                ImGui::NextColumn();
+
+                bool changed = false;
+                changed |= ImGui::DragFloat("##wholesale", &product.wholesale_price, 0.25f, 0.0f, 1000000.0f, "%.2f");
+                ImGui::NextColumn();
+                changed |= ImGui::DragFloat("##retail", &product.retail_price, 0.25f, 0.0f, 1000000.0f, "%.2f");
+                ImGui::NextColumn();
+
+                ProductStock* stock = nullptr;
+                for (auto& candidate : inventory->products) {
+                    if (candidate.product_id == product.product_id) {
+                        stock = &candidate;
+                        break;
+                    }
+                }
+                if (stock == nullptr) {
+                    ImGui::TextDisabled("Not configured");
+                    ImGui::NextColumn();
+                    ImGui::TextDisabled("—");
+                    ImGui::NextColumn();
+                    ImGui::TextDisabled("—");
+                    ImGui::NextColumn();
+                    ImGui::TextDisabled("Add stock entry");
+                    ImGui::NextColumn();
+                } else {
+                    changed |= ImGui::DragInt("##quantity", &stock->quantity, 1, 0, 100000);
+                    ImGui::NextColumn();
+                    changed |= ImGui::DragInt("##capacity", &stock->shelf_capacity, 1, 1, 100000);
+                    ImGui::NextColumn();
+
+                    const float restock_cost = std::max(0.0f, product.wholesale_price) * 5.0f;
+                    ImGui::Text("%.2f", restock_cost);
+                    ImGui::NextColumn();
+
+                    ImGui::BeginDisabled(wallet == nullptr);
+                    if (ImGui::Button("Restock 5")) {
+                        const SimulationTransaction transaction =
+                            SimulationSystem::restock_product(*inventory, *wallet, product, 5);
+                        if (transaction.succeeded) {
+                            changed = true;
+                        }
+                    }
+                    ImGui::EndDisabled();
+                    ImGui::NextColumn();
+                }
+
+                if (changed) m_scene_edited = true;
+                ImGui::PopID();
+            }
+        );
+        ImGui::EndDisabled();
+        ImGui::Columns(1);
+        ImGui::EndChild();
+        ImGui::End();
+        return;
+    }
 
     int employed_count = 0;
     int worker_count = 0;
