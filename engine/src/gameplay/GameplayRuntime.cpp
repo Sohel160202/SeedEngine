@@ -72,6 +72,138 @@ void publish_locomotion(
     animation->locomotion_sprinting = sprinting;
 }
 
+void update_customers(
+    Scene& scene,
+    double delta_seconds,
+    GameplayEventBus* event_bus,
+    std::string& status_message
+) {
+    const float dt = static_cast<float>(std::max(0.0, delta_seconds));
+    EntityId shop_entity = InvalidEntity;
+    ShopInventoryComponent* inventory = nullptr;
+    WalletComponent* wallet = nullptr;
+    ShopHoursComponent* hours = nullptr;
+    SimulationClockComponent* clock = nullptr;
+
+    scene.for_each<ShopInventoryComponent, WalletComponent>(
+        [&](EntityId entity, ShopInventoryComponent& candidate_inventory, WalletComponent& candidate_wallet) {
+            if (shop_entity != InvalidEntity) return;
+            shop_entity = entity;
+            inventory = &candidate_inventory;
+            wallet = &candidate_wallet;
+            hours = scene.get_component<ShopHoursComponent>(entity);
+            clock = scene.get_component<SimulationClockComponent>(entity);
+        }
+    );
+    if (inventory == nullptr || wallet == nullptr) return;
+
+    const bool shop_open = hours == nullptr || clock == nullptr ||
+        SimulationSystem::is_shop_open(*hours, *clock);
+
+    scene.for_each<CustomerBehaviorComponent, CustomerOrderComponent>(
+        [&](EntityId customer_entity, CustomerBehaviorComponent& customer,
+            CustomerOrderComponent& order) {
+            if (!customer.enabled) return;
+            if (!shop_open) {
+                customer.state = "waiting";
+                customer.timer_seconds = 0.0f;
+                return;
+            }
+
+            customer.timer_seconds += dt;
+            if (customer.state == "waiting") {
+                if (customer.timer_seconds < customer.arrival_interval_seconds) return;
+
+                customer.timer_seconds = 0.0f;
+                customer.state = "shopping";
+                order.order_id = "customer-" + std::to_string(customer.order_sequence);
+                order.customer_name = scene.entity_name(customer_entity);
+                order.lines.clear();
+
+                bool created_order = false;
+                scene.for_each<ProductDefinitionComponent>(
+                    [&](EntityId, ProductDefinitionComponent& product) {
+                        if (created_order) return;
+                        order.lines.push_back({product.product_id, 1, 0, product.retail_price});
+                        created_order = true;
+                    }
+                );
+                order.fulfilled = false;
+                order.delivered = false;
+                if (!created_order) {
+                    customer.state = "waiting";
+                    status_message = "Customer arrived, but the shop has no products.";
+                    return;
+                }
+
+                status_message = order.customer_name + " is shopping.";
+                if (event_bus != nullptr) {
+                    event_bus->publish({
+                        customer_entity,
+                        GameplayEventType::Interaction,
+                        "CustomerArrived",
+                        0.0f,
+                        shop_entity
+                    });
+                }
+                return;
+            }
+
+            if (customer.state == "shopping") {
+                if (customer.timer_seconds < customer.shopping_duration_seconds) return;
+                customer.timer_seconds = 0.0f;
+
+                ProductDefinitionComponent* product = nullptr;
+                if (!order.lines.empty()) {
+                    const std::string product_id = order.lines.front().product_id;
+                    scene.for_each<ProductDefinitionComponent>(
+                        [&](EntityId, ProductDefinitionComponent& candidate) {
+                            if (product == nullptr && candidate.product_id == product_id) {
+                                product = &candidate;
+                            }
+                        }
+                    );
+                }
+                if (product == nullptr || order.lines.empty()) {
+                    customer.state = "waiting";
+                    status_message = order.customer_name + " could not find its product.";
+                    return;
+                }
+
+                const SimulationTransaction transaction =
+                    SimulationSystem::sell_product(*inventory, *wallet, *product, 1);
+                if (!transaction.succeeded) {
+                    status_message = order.customer_name + " is waiting for stock.";
+                    return;
+                }
+
+                order.lines.front().fulfilled_quantity = 1;
+                order.fulfilled = true;
+                order.delivered = true;
+                customer.state = "leaving";
+                status_message = order.customer_name + " bought " + product->display_name + ".";
+                if (event_bus != nullptr) {
+                    event_bus->publish({
+                        customer_entity,
+                        GameplayEventType::Interaction,
+                        "CustomerOrderFulfilled",
+                        transaction.total,
+                        shop_entity
+                    });
+                }
+                return;
+            }
+
+            if (customer.state == "leaving" &&
+                customer.timer_seconds >= customer.leave_duration_seconds) {
+                customer.timer_seconds = 0.0f;
+                customer.state = "waiting";
+                ++customer.order_sequence;
+            }
+        }
+    );
+}
+
 } // namespace
 
 bool GameplayRuntime::start(Scene& scene, EntityId player_entity) {
@@ -297,6 +429,7 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBu
     refresh_interaction_target(scene);
 
     update_enemies(scene, delta_seconds, event_bus);
+    update_customers(scene, delta_seconds, event_bus, m_status_message);
     update_triggers(scene, event_bus);
 
     if (m_dialogue_choice_requested >= 0) {
