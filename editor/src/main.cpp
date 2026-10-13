@@ -562,7 +562,7 @@ void build_project_template(
         const auto shop = scene.create_entity("Corner Shop");
         scene.add_component<seed::TransformComponent>(shop);
         seed::ShopInventoryComponent inventory;
-        inventory.stock = {
+        inventory.products = {
             {"coffee", 12, 12},
             {"snack", 8, 8},
             {"card_pack", 5, 5}
