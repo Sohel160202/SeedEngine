@@ -540,7 +540,7 @@ void build_project_template(
     }
 
     seed::EntityId player = seed::InvalidEntity;
-    if (template_id == "first_person_exploration") {
+    if (template_id == "first_person_exploration" || template_id == "shop_simulator") {
         player = create_first_person_player(scene, editor_camera, "Player", true);
     } else {
         player = create_third_person_player(scene, editor_camera, "Player");
@@ -551,6 +551,58 @@ void build_project_template(
         health->current = 100.0f;
     } else {
         scene.add_component<seed::HealthComponent>(player);
+    }
+
+    if (template_id == "shop_simulator") {
+        const auto floor = create_cube(scene, cube_mesh, shader, "Shop Floor");
+        auto* floor_transform = scene.get_component<seed::TransformComponent>(floor);
+        floor_transform->position = {0.0f, -0.1f, -2.5f};
+        floor_transform->scale = {6.0f, 0.1f, 6.0f};
+
+        const auto shop = scene.create_entity("Corner Shop");
+        scene.add_component<seed::TransformComponent>(shop);
+        seed::ShopInventoryComponent inventory;
+        inventory.stock = {
+            {"coffee", 12, 12},
+            {"snack", 8, 8},
+            {"card_pack", 5, 5}
+        };
+        scene.add_component<seed::ShopInventoryComponent>(shop, inventory);
+        seed::WalletComponent wallet;
+        wallet.balance = 250.0f;
+        scene.add_component<seed::WalletComponent>(shop, wallet);
+        scene.add_component<seed::ShopHoursComponent>(shop);
+        scene.add_component<seed::SimulationClockComponent>(shop);
+
+        const auto add_product = [&](const char* id, const char* name, const char* category,
+                                     float wholesale, float retail, int stock, seed::Vec3 position) {
+            const auto product = create_cube(scene, cube_mesh, shader, name);
+            auto* transform = scene.get_component<seed::TransformComponent>(product);
+            transform->position = position;
+            transform->scale = {0.65f, 0.65f, 0.65f};
+            seed::ProductDefinitionComponent definition;
+            definition.product_id = id;
+            definition.display_name = name;
+            definition.category = category;
+            definition.wholesale_price = wholesale;
+            definition.retail_price = retail;
+            definition.max_stock = 50;
+            scene.add_component<seed::ProductDefinitionComponent>(product, definition);
+            scene.add_component<seed::InteractableComponent>(product, "Sell Product", true);
+            (void)stock;
+            return product;
+        };
+        add_product("coffee", "Coffee", "Food", 2.0f, 5.0f, 12, {-2.2f, 0.65f, -2.0f});
+        add_product("snack", "Snack", "Food", 1.0f, 3.0f, 8, {0.0f, 0.65f, -2.0f});
+        add_product("card_pack", "Card Pack", "TCG", 3.0f, 8.0f, 5, {2.2f, 0.65f, -2.0f});
+
+        const auto order_entity = scene.create_entity("Morning Customer Order");
+        seed::CustomerOrderComponent order;
+        order.order_id = "order_001";
+        order.customer_name = "Morning Customer";
+        order.lines = {{"coffee", 2, 5.0f}, {"snack", 1, 3.0f}};
+        scene.add_component<seed::CustomerOrderComponent>(order_entity, order);
+        return;
     }
 
     if (template_id == "third_person_adventure") {
