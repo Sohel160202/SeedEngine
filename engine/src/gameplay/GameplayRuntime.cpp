@@ -86,6 +86,7 @@ void update_customers(
     ShopHoursComponent* hours = nullptr;
     SimulationClockComponent* clock = nullptr;
     CustomerCapacityComponent* capacity = nullptr;
+    CustomerSpawnerComponent* spawner = nullptr;
 
     scene.for_each<ShopInventoryComponent, WalletComponent>(
         [&](EntityId entity, ShopInventoryComponent& candidate_inventory, WalletComponent& candidate_wallet) {
@@ -96,6 +97,7 @@ void update_customers(
             hours = scene.get_component<ShopHoursComponent>(entity);
             clock = scene.get_component<SimulationClockComponent>(entity);
             capacity = scene.get_component<CustomerCapacityComponent>(entity);
+            spawner = scene.get_component<CustomerSpawnerComponent>(entity);
         }
     );
     if (inventory == nullptr || wallet == nullptr) return;
@@ -127,6 +129,68 @@ void update_customers(
         : std::max(0.1f, capacity->arrival_rate_multiplier) *
             (1.0f + std::max(0, simulation_day - 1) *
                 std::max(0.0f, capacity->daily_growth_rate));
+
+    if (spawner != nullptr && spawner->enabled && shop_open) {
+        spawner->timer_seconds += dt;
+        int customer_count = 0;
+        EntityId template_customer = InvalidEntity;
+        scene.for_each<CustomerBehaviorComponent, CustomerOrderComponent>(
+            [&](EntityId entity, CustomerBehaviorComponent&, CustomerOrderComponent&) {
+                ++customer_count;
+                if (template_customer == InvalidEntity &&
+                    entity != shop_entity &&
+                    (spawner->customer_template_persistent_id.empty() ||
+                        entity == scene.find_entity_by_persistent_id(
+                            spawner->customer_template_persistent_id))) {
+                    template_customer = entity;
+                }
+            }
+        );
+
+        if (customer_count < std::max(1, spawner->max_customers) &&
+            spawner->timer_seconds >= std::max(0.1f, spawner->spawn_interval_seconds)) {
+            if (template_customer != InvalidEntity) {
+                const std::string customer_name =
+                    spawner->customer_name_prefix + " " +
+                    std::to_string(std::max(1, spawner->next_customer_number));
+                const EntityId spawned = scene.copy_entity_from(
+                    scene,
+                    template_customer,
+                    customer_name
+                );
+                if (auto* behavior = scene.get_component<CustomerBehaviorComponent>(spawned)) {
+                    behavior->state = "waiting";
+                    behavior->timer_seconds = 0.0f;
+                    behavior->order_sequence = 1;
+                }
+                if (auto* order = scene.get_component<CustomerOrderComponent>(spawned)) {
+                    order->order_id = customer_name;
+                    order->customer_name = customer_name;
+                    order->lines.clear();
+                    order->fulfilled = false;
+                    order->delivered = false;
+                }
+                if (auto* transform = scene.get_component<TransformComponent>(spawned)) {
+                    const float lane = static_cast<float>(customer_count % 3);
+                    transform->position = {4.0f, 0.9f, -3.5f - lane * 0.9f};
+                }
+                ++spawner->next_customer_number;
+                spawner->timer_seconds = 0.0f;
+                status_message = customer_name + " entered the shop.";
+                if (event_bus != nullptr) {
+                    event_bus->publish({
+                        spawned,
+                        GameplayEventType::Interaction,
+                        "CustomerSpawned",
+                        0.0f,
+                        shop_entity
+                    });
+                }
+            } else {
+                spawner->timer_seconds = 0.0f;
+            }
+        }
+    }
 
     std::vector<EntityId> queued_customers;
     int active_customer_count = 0;
