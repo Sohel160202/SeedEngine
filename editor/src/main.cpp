@@ -1247,6 +1247,31 @@ seed::studio::StudioDocumentInfo document_info(
         }
     }
 
+    if (info.has_project) {
+        try {
+            const auto asset_directory = workspace.project_file.parent_path() / "Assets";
+            if(std::filesystem::exists(asset_directory)) {
+                for(const auto& entry : std::filesystem::recursive_directory_iterator(asset_directory)) {
+                    if(!entry.is_regular_file()) continue;
+                    std::string extension = entry.path().extension().string();
+                    std::transform(extension.begin(), extension.end(), extension.begin(),
+                        [](unsigned char value){ return static_cast<char>(std::tolower(value)); });
+                    if(extension == ".glb" || extension == ".gltf" ||
+                       extension == ".png" || extension == ".jpg" ||
+                       extension == ".jpeg" || extension == ".wav" ||
+                       extension == ".ogg" || extension == ".mp3") {
+                        info.project_asset_files.push_back(
+                            std::filesystem::relative(entry.path(), workspace.project_file.parent_path()).generic_string()
+                        );
+                    }
+                }
+                std::sort(info.project_asset_files.begin(), info.project_asset_files.end());
+            }
+        } catch(const std::exception&) {
+            info.project_asset_files.clear();
+        }
+    }
+
     if (playing && play_scene != nullptr) {
         const auto hud = seed::GameplayHUDSystem::capture(*play_scene, gameplay);
         info.gameplay_prompt = hud.interaction_prompt;
