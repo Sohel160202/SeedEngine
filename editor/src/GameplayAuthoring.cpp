@@ -813,6 +813,53 @@ bool draw_gameplay_components(Scene& scene, EntityId entity) {
                 gameplay_rules->rules.push_back({});
                 changed = true;
             }
+
+            const auto add_preset_rule = [&](const char* when_event,
+                                             const char* condition,
+                                             const char* condition_value,
+                                             const char* action,
+                                             const char* action_value) {
+                for (const auto& existing : gameplay_rules->rules) {
+                    if (existing.when_event == when_event &&
+                        existing.condition == condition &&
+                        existing.condition_value == condition_value &&
+                        existing.action == action &&
+                        existing.action_value == action_value) {
+                        return;
+                    }
+                }
+                GameplayRule preset;
+                preset.when_event = when_event;
+                preset.condition = condition;
+                preset.condition_value = condition_value;
+                preset.action = action;
+                preset.action_value = action_value;
+                gameplay_rules->rules.push_back(preset);
+                changed = true;
+            };
+
+            if (ImGui::Button("Add Shop Starter Rules")) {
+                add_preset_rule(
+                    "ProductSold", "Stock Below", "coffee=3",
+                    "Show Message", "LowStockWarning"
+                );
+                add_preset_rule(
+                    "CustomerPaymentCompleted", "", "",
+                    "Publish Event", "ShopSaleRecorded"
+                );
+                add_preset_rule(
+                    "OrderFulfilled", "", "",
+                    "Show Message", "OrderCompleted"
+                );
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Add Low Stock Rule")) {
+                add_preset_rule(
+                    "ProductSold", "Stock Below", "coffee=3",
+                    "Show Message", "LowStockWarning"
+                );
+            }
+
             if (remove_component_button("Remove Gameplay Rules")) {
                 scene.remove_component<GameplayRulesComponent>(entity);
                 changed = true;

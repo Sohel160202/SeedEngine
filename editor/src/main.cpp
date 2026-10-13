@@ -631,6 +631,25 @@ void build_project_template(
         scene.add_component<seed::ShopHoursComponent>(shop);
         scene.add_component<seed::SimulationClockComponent>(shop);
         scene.add_component<seed::InteractableComponent>(shop, "Restock Shop", true);
+        seed::GameplayRulesComponent shop_rules;
+        seed::GameplayRule low_stock_rule;
+        low_stock_rule.when_event = "ProductSold";
+        low_stock_rule.condition = "Stock Below";
+        low_stock_rule.condition_value = "coffee=3";
+        low_stock_rule.action = "Show Message";
+        low_stock_rule.action_value = "LowStockWarning";
+        shop_rules.rules.push_back(low_stock_rule);
+        seed::GameplayRule payment_rule;
+        payment_rule.when_event = "CustomerPaymentCompleted";
+        payment_rule.action = "Publish Event";
+        payment_rule.action_value = "ShopSaleRecorded";
+        shop_rules.rules.push_back(payment_rule);
+        seed::GameplayRule order_rule;
+        order_rule.when_event = "OrderFulfilled";
+        order_rule.action = "Show Message";
+        order_rule.action_value = "OrderCompleted";
+        shop_rules.rules.push_back(order_rule);
+        scene.add_component<seed::GameplayRulesComponent>(shop, shop_rules);
 
         const auto add_product = [&](const char* id, const char* name, const char* category,
                                      float wholesale, float retail, int stock, seed::Vec3 position) {
