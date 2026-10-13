@@ -790,8 +790,33 @@ void GameplayRuntime::perform_interaction(Scene& scene, GameplayEventBus* event_
             return;
         }
 
+        bool order_completed = false;
+        scene.for_each<CustomerOrderComponent>(
+            [&](EntityId, CustomerOrderComponent& order) {
+                if (order.fulfilled) return;
+                for (auto& line : order.lines) {
+                    if (line.product_id == product->product_id &&
+                        line.fulfilled_quantity < line.quantity) {
+                        ++line.fulfilled_quantity;
+                        break;
+                    }
+                }
+                order.fulfilled = !order.lines.empty();
+                for (const auto& line : order.lines) {
+                    if (line.fulfilled_quantity < line.quantity) {
+                        order.fulfilled = false;
+                        break;
+                    }
+                }
+                order_completed = order_completed || order.fulfilled;
+            }
+        );
+
         m_status_message = "Sold " + product->display_name + " for " +
             std::to_string(transaction.total) + ".";
+        if (order_completed) {
+            m_status_message += " Customer order fulfilled.";
+        }
         if (event_bus != nullptr) {
             GameplayEvent sale;
             sale.source_entity = m_interaction_target;
@@ -800,6 +825,58 @@ void GameplayRuntime::perform_interaction(Scene& scene, GameplayEventBus* event_
             sale.value = transaction.total;
             sale.target_entity = shop_entity;
             event_bus->publish(sale);
+            if (order_completed) {
+                GameplayEvent order_event;
+                order_event.source_entity = shop_entity;
+                order_event.type = GameplayEventType::Interaction;
+                order_event.name = "OrderFulfilled";
+                event_bus->publish(order_event);
+            }
+        }
+        return;
+    }
+
+    if (auto* inventory = scene.get_component<ShopInventoryComponent>(m_interaction_target)) {
+        auto* wallet = scene.get_component<WalletComponent>(m_interaction_target);
+        if (wallet == nullptr) {
+            m_status_message = "This restock station has no wallet.";
+            return;
+        }
+
+        ShopHoursComponent* hours = scene.get_component<ShopHoursComponent>(m_interaction_target);
+        SimulationClockComponent* clock = scene.get_component<SimulationClockComponent>(m_interaction_target);
+        if (hours != nullptr && clock != nullptr &&
+            !SimulationSystem::is_shop_open(*hours, *clock)) {
+            m_status_message = "The shop is closed.";
+            return;
+        }
+
+        int restocked_units = 0;
+        float total_cost = 0.0f;
+        scene.for_each<ProductDefinitionComponent>(
+            [&](EntityId, ProductDefinitionComponent& product) {
+                const SimulationTransaction transaction =
+                    SimulationSystem::restock_product(*inventory, *wallet, product, 5);
+                if (transaction.succeeded) {
+                    restocked_units += transaction.quantity;
+                    total_cost += transaction.total;
+                }
+            }
+        );
+
+        if (restocked_units == 0) {
+            m_status_message = "No products needed restocking.";
+            return;
+        }
+        m_status_message = "Restocked " + std::to_string(restocked_units) +
+            " units for " + std::to_string(total_cost) + ".";
+        if (event_bus != nullptr) {
+            GameplayEvent restock_event;
+            restock_event.source_entity = m_interaction_target;
+            restock_event.type = GameplayEventType::Interaction;
+            restock_event.name = "ProductsRestocked";
+            restock_event.value = total_cost;
+            event_bus->publish(restock_event);
         }
         return;
     }
