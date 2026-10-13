@@ -193,6 +193,7 @@ The simulation foundation currently includes:
 - visual Staff & Stations roster for assignments, shifts, and wage costs
 - visual Products & Stock panel for prices, capacity, and restocking
 - visual Customers & Orders panel for queues, demand, and order progress
+- visual Business Dashboard for money, performance, shop hours, and upgrades
 - customer purchases and order-completion events
 - restocking interactions
 - a working Shop Simulator starter template

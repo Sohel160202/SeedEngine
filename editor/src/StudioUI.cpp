@@ -802,12 +802,19 @@ void StudioUI::draw_staff_panel(Scene& scene, const StudioDocumentInfo& document
     if (ImGui::Button("Customers & Orders", m_management_panel_tab == 2 ? ImVec2{170.0f, 0.0f} : ImVec2{0.0f, 0.0f})) {
         m_management_panel_tab = 2;
     }
+    ImGui::SameLine();
+    if (ImGui::Button("Business Dashboard", m_management_panel_tab == 3 ? ImVec2{155.0f, 0.0f} : ImVec2{0.0f, 0.0f})) {
+        m_management_panel_tab = 3;
+    }
     ImGui::Separator();
 
     EntityId shop_entity = InvalidEntity;
     StaffManagerComponent* manager = nullptr;
     ShopInventoryComponent* inventory = nullptr;
     CustomerCapacityComponent* capacity = nullptr;
+    ShopMetricsComponent* metrics = nullptr;
+    ShopHoursComponent* hours = nullptr;
+    SimulationClockComponent* clock = nullptr;
     WalletComponent* wallet = nullptr;
     scene.for_each<ShopInventoryComponent, WalletComponent>(
         [&](EntityId entity, ShopInventoryComponent& candidate_inventory, WalletComponent& candidate_wallet) {
@@ -816,9 +823,104 @@ void StudioUI::draw_staff_panel(Scene& scene, const StudioDocumentInfo& document
             inventory = &candidate_inventory;
             manager = scene.get_component<StaffManagerComponent>(entity);
             capacity = scene.get_component<CustomerCapacityComponent>(entity);
+            metrics = scene.get_component<ShopMetricsComponent>(entity);
+            hours = scene.get_component<ShopHoursComponent>(entity);
+            clock = scene.get_component<SimulationClockComponent>(entity);
             wallet = &candidate_wallet;
         }
     );
+
+    ShopUpgradeComponent* upgrade = nullptr;
+    scene.for_each<ShopUpgradeComponent>(
+        [&](EntityId, ShopUpgradeComponent& candidate) {
+            if (upgrade == nullptr) upgrade = &candidate;
+        }
+    );
+
+    if (m_management_panel_tab == 3) {
+        ImGui::TextUnformatted("BUSINESS DASHBOARD");
+        ImGui::SameLine();
+        ImGui::TextDisabled("See the health of the shop and manage its operating rhythm.");
+        ImGui::Separator();
+
+        if (wallet != nullptr) {
+            const float net_profit = wallet->lifetime_revenue - wallet->lifetime_expenses;
+            ImGui::Text("Balance %.2f", wallet->balance);
+            ImGui::SameLine();
+            ImGui::Text("Revenue %.2f", wallet->lifetime_revenue);
+            ImGui::SameLine();
+            ImGui::Text("Expenses %.2f", wallet->lifetime_expenses);
+            ImGui::SameLine();
+            ImGui::Text("Net %.2f", net_profit);
+        } else {
+            ImGui::TextDisabled("No wallet connected to the shop.");
+        }
+
+        if (metrics != nullptr) {
+            ImGui::Text("Today — Customers %d  Orders %d  Products sold %d  Revenue %.2f  Satisfaction %.1f%%",
+                metrics->customers_served_today,
+                metrics->orders_completed_today,
+                metrics->products_sold_today,
+                metrics->daily_revenue,
+                metrics->daily_satisfaction
+            );
+        }
+
+        ImGui::BeginChild("##business_settings", {0.0f, 0.0f}, false);
+        ImGui::BeginDisabled(document.playing);
+
+        if (hours != nullptr) {
+            ImGui::TextUnformatted("Shop Hours");
+            bool hours_changed = false;
+            hours_changed |= ImGui::DragFloat("Opening", &hours->opening_hour, 0.25f, 0.0f, 24.0f, "%.2f");
+            hours_changed |= ImGui::DragFloat("Closing", &hours->closing_hour, 0.25f, 0.0f, 24.0f, "%.2f");
+            if (hours_changed) m_scene_edited = true;
+        }
+
+        if (clock != nullptr) {
+            ImGui::TextUnformatted("Simulation Clock");
+            ImGui::Text("Day %d  Time %.2f", clock->day, clock->hour);
+            bool clock_changed = false;
+            clock_changed |= ImGui::DragFloat("Time Scale", &clock->time_scale, 0.1f, 0.0f, 100.0f, "%.2fx");
+            clock_changed |= ImGui::Checkbox("Paused", &clock->paused);
+            if (clock_changed) m_scene_edited = true;
+        }
+
+        if (upgrade == nullptr) {
+            ImGui::TextDisabled("No Shop Upgrade component found.");
+        } else {
+            ImGui::Text("Shop Upgrade — Level %d / %d", upgrade->level, upgrade->max_level);
+            const float upgrade_cost = upgrade->level >= upgrade->max_level
+                ? 0.0f
+                : upgrade->base_upgrade_cost * std::pow(
+                    std::max(1.0f, upgrade->cost_multiplier),
+                    static_cast<float>(std::max(0, upgrade->level - 1))
+                );
+            ImGui::Text("Next upgrade cost %.2f", upgrade_cost);
+            if (upgrade->level < upgrade->max_level && wallet != nullptr) {
+                if (ImGui::Button("Upgrade Shop")) {
+                    if (wallet->balance >= upgrade_cost) {
+                        wallet->balance -= upgrade_cost;
+                        wallet->lifetime_expenses += upgrade_cost;
+                        ++upgrade->level;
+                        if (inventory != nullptr) {
+                            for (auto& stock : inventory->products) {
+                                stock.shelf_capacity += std::max(0, upgrade->shelf_capacity_bonus);
+                            }
+                        }
+                        m_scene_edited = true;
+                    }
+                }
+            } else if (upgrade->level >= upgrade->max_level) {
+                ImGui::TextDisabled("Maximum level reached.");
+            }
+        }
+
+        ImGui::EndDisabled();
+        ImGui::EndChild();
+        ImGui::End();
+        return;
+    }
 
     if (m_management_panel_tab == 2) {
         ImGui::TextUnformatted("CUSTOMERS & ORDERS");
