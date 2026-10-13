@@ -532,6 +532,8 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
                 changed|=ImGui::Checkbox("Enabled",&worker->enabled);
                 changed|=ImGui::DragFloat("Work Speed",&worker->work_speed,0.05f,0.1f,10.0f,"%.2fx");
                 changed|=ImGui::DragFloat("Wage per Hour",&worker->wage_per_hour,0.5f,0.0f,100000.0f,"%.2f");
+                changed|=ImGui::DragFloat("Shift Starts",&worker->shift_start_hour,0.25f,0.0f,24.0f,"%.2f");
+                changed|=ImGui::DragFloat("Shift Ends",&worker->shift_end_hour,0.25f,0.0f,24.0f,"%.2f");
                 ImGui::TextDisabled("Role: %s",worker->role.c_str());
                 ImGui::TextDisabled("Assigned station: %s",
                     worker->assigned_station_persistent_id.empty()
