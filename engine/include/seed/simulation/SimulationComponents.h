@@ -102,13 +102,24 @@ struct StationStaffingComponent {
 
 struct StaffWorkerComponent {
     bool enabled{true};
+    bool employed{true};
     std::string role{"Staff"};
     float work_speed{1.0f};
     float wage_per_hour{10.0f};
     float shift_start_hour{8.0f};
     float shift_end_hour{20.0f};
     int last_paid_day{1};
+    int skill_level{1};
+    int max_skill_level{5};
+    float hiring_cost{100.0f};
+    float skill_upgrade_cost{75.0f};
     std::string assigned_station_persistent_id;
+};
+
+struct StaffManagerComponent {
+    int max_staff{4};
+    float default_hiring_cost{100.0f};
+    float default_skill_upgrade_cost{75.0f};
 };
 
 struct CustomerOrderComponent {

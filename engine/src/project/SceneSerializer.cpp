@@ -404,15 +404,27 @@ bool SceneSerializer::save(
                     {"required_role", staffing->required_role},
                 };
             }
+            if (const auto* staff_manager = scene.get_component<StaffManagerComponent>(entity)) {
+                components["StaffManager"] = {
+                    {"max_staff", staff_manager->max_staff},
+                    {"default_hiring_cost", staff_manager->default_hiring_cost},
+                    {"default_skill_upgrade_cost", staff_manager->default_skill_upgrade_cost},
+                };
+            }
             if (const auto* worker = scene.get_component<StaffWorkerComponent>(entity)) {
                 components["StaffWorker"] = {
                     {"enabled", worker->enabled},
+                    {"employed", worker->employed},
                     {"role", worker->role},
                     {"work_speed", worker->work_speed},
                     {"wage_per_hour", worker->wage_per_hour},
                     {"shift_start_hour", worker->shift_start_hour},
                     {"shift_end_hour", worker->shift_end_hour},
                     {"last_paid_day", worker->last_paid_day},
+                    {"skill_level", worker->skill_level},
+                    {"max_skill_level", worker->max_skill_level},
+                    {"hiring_cost", worker->hiring_cost},
+                    {"skill_upgrade_cost", worker->skill_upgrade_cost},
                     {"assigned_station_persistent_id", worker->assigned_station_persistent_id},
                 };
             }
@@ -1030,10 +1042,23 @@ bool SceneSerializer::load(
                 );
                 loaded_scene.add_component<StationStaffingComponent>(entity, staffing);
             }
+            if (components.contains("StaffManager")) {
+                const auto& value = components.at("StaffManager");
+                StaffManagerComponent staff_manager;
+                staff_manager.max_staff = std::max(1, value.value("max_staff", 4));
+                staff_manager.default_hiring_cost = std::max(
+                    0.0f, value.value("default_hiring_cost", 100.0f)
+                );
+                staff_manager.default_skill_upgrade_cost = std::max(
+                    0.0f, value.value("default_skill_upgrade_cost", 75.0f)
+                );
+                loaded_scene.add_component<StaffManagerComponent>(entity, staff_manager);
+            }
             if (components.contains("StaffWorker")) {
                 const auto& value = components.at("StaffWorker");
                 StaffWorkerComponent worker;
                 worker.enabled = value.value("enabled", true);
+                worker.employed = value.value("employed", true);
                 worker.role = value.value("role", std::string{"Staff"});
                 worker.work_speed = std::max(
                     0.1f, value.value("work_speed", 1.0f)
@@ -1045,6 +1070,18 @@ bool SceneSerializer::load(
                 worker.shift_end_hour = value.value("shift_end_hour", 20.0f);
                 worker.last_paid_day = std::max(
                     1, value.value("last_paid_day", 1)
+                );
+                worker.max_skill_level = std::clamp(
+                    value.value("max_skill_level", 5), 1, 100
+                );
+                worker.skill_level = std::clamp(
+                    value.value("skill_level", 1), 1, worker.max_skill_level
+                );
+                worker.hiring_cost = std::max(
+                    0.0f, value.value("hiring_cost", 100.0f)
+                );
+                worker.skill_upgrade_cost = std::max(
+                    0.0f, value.value("skill_upgrade_cost", 75.0f)
                 );
                 worker.assigned_station_persistent_id = value.value(
                     "assigned_station_persistent_id", std::string{}
