@@ -583,8 +583,15 @@ void build_project_template(
         return;
     }
 
+    const bool is_shop_template =
+        template_id == "shop_simulator" ||
+        template_id == "supermarket_simulator" ||
+        template_id == "card_shop_simulator" ||
+        template_id == "restaurant_simulator" ||
+        template_id == "game_store_simulator";
+
     seed::EntityId player = seed::InvalidEntity;
-    if (template_id == "first_person_exploration" || template_id == "shop_simulator") {
+    if (template_id == "first_person_exploration" || is_shop_template) {
         player = create_first_person_player(scene, editor_camera, "Player", true);
     } else {
         player = create_third_person_player(scene, editor_camera, "Player");
@@ -597,20 +604,69 @@ void build_project_template(
         scene.add_component<seed::HealthComponent>(player);
     }
 
-    if (template_id == "shop_simulator") {
+    if (is_shop_template) {
+        const bool supermarket = template_id == "supermarket_simulator";
+        const bool card_shop = template_id == "card_shop_simulator";
+        const bool restaurant = template_id == "restaurant_simulator";
+        const bool game_store = template_id == "game_store_simulator";
+        const std::string shop_display_name =
+            supermarket ? "Fresh Market" :
+            card_shop ? "Card Collectors Shop" :
+            restaurant ? "Seed Bistro" :
+            game_store ? "Game Store" :
+            "Corner Shop";
+        const std::string primary_product_id =
+            supermarket ? "milk" :
+            card_shop ? "booster_pack" :
+            restaurant ? "burger" :
+            game_store ? "video_game" :
+            "coffee";
+        const float primary_product_price =
+            supermarket ? 4.0f :
+            card_shop ? 8.0f :
+            restaurant ? 12.0f :
+            game_store ? 60.0f :
+            5.0f;
+
         const auto floor = create_cube(scene, cube_mesh, shader, "Shop Floor");
         auto* floor_transform = scene.get_component<seed::TransformComponent>(floor);
         floor_transform->position = {0.0f, -0.1f, -2.5f};
         floor_transform->scale = {6.0f, 0.1f, 6.0f};
 
-        const auto shop = scene.create_entity("Corner Shop");
+        const auto shop = scene.create_entity(shop_display_name);
         scene.add_component<seed::TransformComponent>(shop);
         seed::ShopInventoryComponent inventory;
-        inventory.products = {
-            {"coffee", 12, 12},
-            {"snack", 8, 8},
-            {"card_pack", 5, 5}
-        };
+        if (supermarket) {
+            inventory.products = {
+                {"milk", 18, 18},
+                {"bread", 14, 14},
+                {"cereal", 10, 10}
+            };
+        } else if (card_shop) {
+            inventory.products = {
+                {"booster_pack", 12, 12},
+                {"sleeves", 20, 20},
+                {"deck_box", 6, 6}
+            };
+        } else if (restaurant) {
+            inventory.products = {
+                {"burger", 15, 15},
+                {"fries", 20, 20},
+                {"soda", 24, 24}
+            };
+        } else if (game_store) {
+            inventory.products = {
+                {"video_game", 8, 8},
+                {"controller", 10, 10},
+                {"headset", 6, 6}
+            };
+        } else {
+            inventory.products = {
+                {"coffee", 12, 12},
+                {"snack", 8, 8},
+                {"card_pack", 5, 5}
+            };
+        }
         scene.add_component<seed::ShopInventoryComponent>(shop, inventory);
         seed::CustomerCapacityComponent capacity;
         capacity.max_active_customers = 4;
@@ -635,7 +691,7 @@ void build_project_template(
         seed::GameplayRule low_stock_rule;
         low_stock_rule.when_event = "ProductSold";
         low_stock_rule.condition = "Stock Below";
-        low_stock_rule.condition_value = "coffee=3";
+        low_stock_rule.condition_value = primary_product_id + "=3";
         low_stock_rule.action = "Show Message";
         low_stock_rule.action_value = "LowStockWarning";
         shop_rules.rules.push_back(low_stock_rule);
@@ -669,9 +725,27 @@ void build_project_template(
             (void)stock;
             return product;
         };
-        add_product("coffee", "Coffee", "Food", 2.0f, 5.0f, 12, {-2.2f, 0.65f, -2.0f});
-        add_product("snack", "Snack", "Food", 1.0f, 3.0f, 8, {0.0f, 0.65f, -2.0f});
-        add_product("card_pack", "Card Pack", "TCG", 3.0f, 8.0f, 5, {2.2f, 0.65f, -2.0f});
+        if (supermarket) {
+            add_product("milk", "Milk", "Grocery", 2.0f, 4.0f, 18, {-2.2f, 0.65f, -2.0f});
+            add_product("bread", "Bread", "Grocery", 1.5f, 3.5f, 14, {0.0f, 0.65f, -2.0f});
+            add_product("cereal", "Cereal", "Grocery", 3.0f, 6.0f, 10, {2.2f, 0.65f, -2.0f});
+        } else if (card_shop) {
+            add_product("booster_pack", "Booster Pack", "TCG", 3.0f, 8.0f, 12, {-2.2f, 0.65f, -2.0f});
+            add_product("sleeves", "Card Sleeves", "Accessories", 2.0f, 5.0f, 20, {0.0f, 0.65f, -2.0f});
+            add_product("deck_box", "Deck Box", "Accessories", 5.0f, 12.0f, 6, {2.2f, 0.65f, -2.0f});
+        } else if (restaurant) {
+            add_product("burger", "Burger", "Food", 5.0f, 12.0f, 15, {-2.2f, 0.65f, -2.0f});
+            add_product("fries", "Fries", "Food", 2.0f, 5.0f, 20, {0.0f, 0.65f, -2.0f});
+            add_product("soda", "Soda", "Drinks", 1.0f, 3.0f, 24, {2.2f, 0.65f, -2.0f});
+        } else if (game_store) {
+            add_product("video_game", "Video Game", "Games", 35.0f, 60.0f, 8, {-2.2f, 0.65f, -2.0f});
+            add_product("controller", "Controller", "Accessories", 20.0f, 40.0f, 10, {0.0f, 0.65f, -2.0f});
+            add_product("headset", "Headset", "Accessories", 30.0f, 75.0f, 6, {2.2f, 0.65f, -2.0f});
+        } else {
+            add_product("coffee", "Coffee", "Food", 2.0f, 5.0f, 12, {-2.2f, 0.65f, -2.0f});
+            add_product("snack", "Snack", "Food", 1.0f, 3.0f, 8, {0.0f, 0.65f, -2.0f});
+            add_product("card_pack", "Card Pack", "TCG", 3.0f, 8.0f, 5, {2.2f, 0.65f, -2.0f});
+        }
 
         const auto checkout = create_cube(scene, cube_mesh, shader, "Checkout Counter");
         auto* checkout_transform = scene.get_component<seed::TransformComponent>(checkout);
@@ -761,7 +835,7 @@ void build_project_template(
             seed::CustomerOrderComponent order;
             order.order_id = "customer-1";
             order.customer_name = name;
-            order.lines = {{"coffee", 1, 0, 5.0f}};
+            order.lines = {{primary_product_id, 1, 0, primary_product_price}};
             scene.add_component<seed::CustomerOrderComponent>(customer, order);
             return customer;
         };
