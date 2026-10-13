@@ -394,7 +394,7 @@ seed::EntityId create_beginner_preset(
         return entity;
     }
     if (preset == "simulation_upgrade") {
-        const entity = create_cube(scene, cube_mesh, shader, "Shop Upgrade Board");
+        const auto entity = create_cube(scene, cube_mesh, shader, "Shop Upgrade Board");
         if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
             transform->position = {3.6f, 0.8f, -1.0f};
             transform->scale = {0.7f, 0.9f, 0.25f};
