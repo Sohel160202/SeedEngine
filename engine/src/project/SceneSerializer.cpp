@@ -349,6 +349,12 @@ bool SceneSerializer::save(
                     {"paused", clock->paused},
                 };
             }
+            if (const auto* checkout = scene.get_component<CheckoutStationComponent>(entity)) {
+                components["CheckoutStation"] = {
+                    {"enabled", checkout->enabled},
+                    {"service_time_seconds", checkout->service_time_seconds},
+                };
+            }
             if (const auto* order = scene.get_component<CustomerOrderComponent>(entity)) {
                 nlohmann::json lines = nlohmann::json::array();
                 for (const auto& line : order->lines) {
@@ -848,6 +854,15 @@ bool SceneSerializer::load(
                 clock.time_scale = value.value("time_scale", 1.0f);
                 clock.paused = value.value("paused", false);
                 loaded_scene.add_component<SimulationClockComponent>(entity, clock);
+            }
+            if (components.contains("CheckoutStation")) {
+                const auto& value = components.at("CheckoutStation");
+                CheckoutStationComponent checkout;
+                checkout.enabled = value.value("enabled", true);
+                checkout.service_time_seconds = std::max(
+                    0.1f, value.value("service_time_seconds", 1.0f)
+                );
+                loaded_scene.add_component<CheckoutStationComponent>(entity, checkout);
             }
             if (components.contains("CustomerOrder")) {
                 const auto& value = components.at("CustomerOrder");
