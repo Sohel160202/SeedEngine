@@ -185,6 +185,7 @@ The simulation foundation currently includes:
 - queue-length limits and upgrade-based customer growth
 - day-based demand growth for management progression
 - deterministic checkout queues
+- multi-counter checkout capacity with configurable service speed
 - customer purchases and order-completion events
 - restocking interactions
 - a working Shop Simulator starter template
