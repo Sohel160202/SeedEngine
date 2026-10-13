@@ -199,6 +199,7 @@ The simulation foundation currently includes:
 - reusable genre preset libraries for shelves, products, checkout stations, staff, customers, and rule packs
 - auto-generated genre prefab library with reusable individual parts and complete starter shops
 - categorized visual prefab browser with descriptions, one-click placement, and viewport drag-and-drop
+- original Seed Starter Asset Pack with GLTF shelves, counters, registers, baskets, product displays, and genre props
 - one-click full starter shop kits for supermarkets, card shops, restaurants, and game stores
 - genre starter templates for supermarkets, card shops, restaurants, and game stores
 - customer purchases and order-completion events
