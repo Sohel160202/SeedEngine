@@ -50,6 +50,11 @@ struct OrderLine {
     float unit_price{0.0f};
 };
 
+struct CheckoutStationComponent {
+    bool enabled{true};
+    float service_time_seconds{1.0f};
+};
+
 struct CustomerOrderComponent {
     std::string order_id{"order-1"};
     std::string customer_name{"Customer"};

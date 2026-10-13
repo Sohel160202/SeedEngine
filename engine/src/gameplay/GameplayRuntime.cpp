@@ -107,7 +107,8 @@ void update_customers(
             if (!customer.enabled) return;
             if (customer.state == "arriving" ||
                 customer.state == "queued" ||
-                customer.state == "shopping") {
+                customer.state == "shopping" ||
+                customer.state == "awaiting_payment") {
                 queued_customers.push_back(entity);
             }
         }
@@ -210,45 +211,21 @@ void update_customers(
             if (customer.state == "shopping") {
                 if (customer.timer_seconds < customer.shopping_duration_seconds) return;
                 customer.timer_seconds = 0.0f;
-
-                ProductDefinitionComponent* product = nullptr;
-                if (!order.lines.empty()) {
-                    const std::string product_id = order.lines.front().product_id;
-                    scene.for_each<ProductDefinitionComponent>(
-                        [&](EntityId, ProductDefinitionComponent& candidate) {
-                            if (product == nullptr && candidate.product_id == product_id) {
-                                product = &candidate;
-                            }
-                        }
-                    );
-                }
-                if (product == nullptr || order.lines.empty()) {
-                    customer.state = "waiting";
-                    status_message = order.customer_name + " could not find its product.";
-                    return;
-                }
-
-                const SimulationTransaction transaction =
-                    SimulationSystem::sell_product(*inventory, *wallet, *product, 1);
-                if (!transaction.succeeded) {
-                    status_message = order.customer_name + " is waiting for stock.";
-                    return;
-                }
-
-                order.lines.front().fulfilled_quantity = 1;
-                order.fulfilled = true;
-                order.delivered = true;
-                customer.state = "leaving";
-                status_message = order.customer_name + " bought " + product->display_name + ".";
+                customer.state = "awaiting_payment";
+                status_message = order.customer_name + " is ready for checkout.";
                 if (event_bus != nullptr) {
                     event_bus->publish({
                         customer_entity,
                         GameplayEventType::Interaction,
-                        "CustomerOrderFulfilled",
-                        transaction.total,
+                        "CustomerReadyForCheckout",
+                        SimulationSystem::order_total(order),
                         shop_entity
                     });
                 }
+                return;
+            }
+
+            if (customer.state == "awaiting_payment") {
                 return;
             }
 
@@ -944,6 +921,129 @@ void GameplayRuntime::perform_interaction(Scene& scene, GameplayEventBus* event_
         present_dialogue_line(scene);
         if (event_bus != nullptr) {
             event_bus->publish({m_interaction_target, GameplayEventType::Interaction, "DialogueStarted", 0.0f});
+        }
+        return;
+    }
+
+    if (const auto* checkout = scene.get_component<CheckoutStationComponent>(m_interaction_target)) {
+        if (!checkout->enabled) {
+            m_status_message = "This checkout station is disabled.";
+            return;
+        }
+
+        EntityId shop_entity = InvalidEntity;
+        ShopInventoryComponent* inventory = nullptr;
+        WalletComponent* wallet = nullptr;
+        ShopHoursComponent* hours = nullptr;
+        SimulationClockComponent* clock = nullptr;
+        scene.for_each<ShopInventoryComponent, WalletComponent>(
+            [&](EntityId entity, ShopInventoryComponent& candidate_inventory,
+                WalletComponent& candidate_wallet) {
+                if (shop_entity != InvalidEntity) return;
+                shop_entity = entity;
+                inventory = &candidate_inventory;
+                wallet = &candidate_wallet;
+                hours = scene.get_component<ShopHoursComponent>(entity);
+                clock = scene.get_component<SimulationClockComponent>(entity);
+            }
+        );
+
+        if (inventory == nullptr || wallet == nullptr) {
+            m_status_message = "Checkout is not connected to a shop.";
+            return;
+        }
+        if (hours != nullptr && clock != nullptr &&
+            !SimulationSystem::is_shop_open(*hours, *clock)) {
+            m_status_message = "The shop is closed.";
+            return;
+        }
+
+        EntityId customer_entity = InvalidEntity;
+        CustomerOrderComponent* customer_order = nullptr;
+        CustomerBehaviorComponent* customer_behavior = nullptr;
+        scene.for_each<CustomerBehaviorComponent, CustomerOrderComponent>(
+            [&](EntityId entity, CustomerBehaviorComponent& behavior,
+                CustomerOrderComponent& order) {
+                if (customer_entity != InvalidEntity ||
+                    !behavior.enabled ||
+                    behavior.state != "awaiting_payment" ||
+                    order.fulfilled ||
+                    order.lines.empty()) {
+                    return;
+                }
+                customer_entity = entity;
+                customer_behavior = &behavior;
+                customer_order = &order;
+            }
+        );
+
+        if (customer_order == nullptr || customer_behavior == nullptr) {
+            m_status_message = "No customer is waiting at checkout.";
+            return;
+        }
+
+        std::vector<ProductDefinitionComponent*> products;
+        bool valid_order = true;
+        for (const auto& line : customer_order->lines) {
+            ProductDefinitionComponent* product = nullptr;
+            scene.for_each<ProductDefinitionComponent>(
+                [&](EntityId, ProductDefinitionComponent& candidate) {
+                    if (product == nullptr && candidate.product_id == line.product_id) {
+                        product = &candidate;
+                    }
+                }
+            );
+            const auto stock = std::find_if(
+                inventory->products.begin(),
+                inventory->products.end(),
+                [&](const ProductStock& candidate) {
+                    return candidate.product_id == line.product_id;
+                }
+            );
+            if (product == nullptr || stock == inventory->products.end() ||
+                stock->quantity < line.quantity) {
+                valid_order = false;
+                break;
+            }
+            products.push_back(product);
+        }
+
+        if (!valid_order) {
+            m_status_message = customer_order->customer_name + " is waiting for stock.";
+            return;
+        }
+
+        float total = 0.0f;
+        for (std::size_t index = 0; index < customer_order->lines.size(); ++index) {
+            const auto transaction = SimulationSystem::sell_product(
+                *inventory,
+                *wallet,
+                *products[index],
+                customer_order->lines[index].quantity
+            );
+            if (!transaction.succeeded) {
+                m_status_message = "Checkout could not complete the order.";
+                return;
+            }
+            customer_order->lines[index].fulfilled_quantity =
+                customer_order->lines[index].quantity;
+            total += transaction.total;
+        }
+
+        customer_order->fulfilled = true;
+        customer_order->delivered = true;
+        customer_behavior->state = "leaving";
+        customer_behavior->timer_seconds = 0.0f;
+        m_status_message = "Checkout complete for " + customer_order->customer_name +
+            " — paid " + std::to_string(total) + ".";
+        if (event_bus != nullptr) {
+            event_bus->publish({
+                customer_entity,
+                GameplayEventType::Interaction,
+                "CustomerPaymentCompleted",
+                total,
+                shop_entity
+            });
         }
         return;
     }

@@ -219,6 +219,7 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
             if (ImGui::MenuItem("Simulation Shop")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_shop"});
             if (ImGui::MenuItem("Simulation Product")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_product"});
             if (ImGui::MenuItem("Customer Order")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_order"});
+            if (ImGui::MenuItem("Checkout Station")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_checkout"});
             ImGui::EndMenu();
         }
         ImGui::EndMenu();
@@ -454,6 +455,21 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
                 changed|=ImGui::DragFloat("Hour",&clock->hour,0.1f,0.0f,24.0f,"%.2f");
                 changed|=ImGui::DragFloat("Time Scale",&clock->time_scale,0.1f,0.1f,100.0f,"%.1fx");
                 changed|=ImGui::Checkbox("Paused",&clock->paused);
+                if(changed)m_scene_edited=true;
+            }
+        }
+        if(auto* checkout=scene.get_component<CheckoutStationComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Checkout Station",ImGuiTreeNodeFlags_DefaultOpen)){
+                bool changed=false;
+                changed|=ImGui::Checkbox("Enabled",&checkout->enabled);
+                changed|=ImGui::DragFloat(
+                    "Service Time",
+                    &checkout->service_time_seconds,
+                    0.1f,
+                    0.1f,
+                    30.0f,
+                    "%.1f s"
+                );
                 if(changed)m_scene_edited=true;
             }
         }
