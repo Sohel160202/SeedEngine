@@ -1,14 +1,24 @@
 # Seed Engine
 
-> **Grow your idea into a game.**
+> **Grow your simulation into a game.**
 
-Seed Engine is a beginner-first 3D game engine being built as its **own engine**, not as a plugin or authoring layer for another game engine.
+Seed Engine is an independent, beginner-first 3D game engine specialized for building simulation and management games.
+
+Seed is designed for creators who want to make games such as:
+
+- supermarket and grocery simulators
+- card-shop and game-store simulators
+- restaurant, café and service-business games
+- farming, crafting and collection games
+- small tycoon and management experiences
+
+It is being built as its own engine, not as a plugin or authoring layer for another game engine.
 
 The goal is simple:
 
-**A new creator should think about the game they want to make, not the engine plumbing required to make it.**
+**A new creator should think about the world, customers, products and business they want to simulate—not the engine plumbing required to make it.**
 
-Seed presents game concepts such as **Player**, **Door**, **Pickup**, **Inventory**, **Enemy**, **Quest** and **Dialogue**, while progressively exposing deeper systems to advanced creators.
+Seed presents approachable concepts such as **Shop**, **Product**, **Inventory**, **Customer**, **Order**, **Wallet**, **Door**, **Pickup**, **Quest** and **Dialogue**, while progressively exposing deeper systems to advanced creators.
 
 ## Architecture
 
@@ -143,6 +153,41 @@ Locked Door checks requirement
   ↓
 Door opens
 ```
+
+## Simulation-first direction
+
+Seed’s first product focus is the simulation game genre. The engine is being shaped around the repeating systems that make these games engaging:
+
+    Player
+      ↓
+    Interact with shop
+      ↓
+    Manage products and stock
+      ↓
+    Serve customers and fulfill orders
+      ↓
+    Earn money
+      ↓
+    Restock, expand and improve the business
+
+The simulation foundation currently includes:
+
+- product definitions with prices
+- shop inventory and stock quantities
+- wallet, revenue and expense tracking
+- shop hours and simulation time
+- customer orders and fulfillment progress
+- automatic customer arrivals
+- visible customer movement
+- deterministic checkout queues
+- customer purchases and order-completion events
+- restocking interactions
+- a working Shop Simulator starter template
+- simulation data saved in Seed scenes
+
+The current reference project is a small shop simulation where a beginner can place products, restock the shop, observe customers queue and purchase items, and monitor the business HUD.
+
+Simulation systems are designed to remain reusable across different games. A supermarket, card shop, restaurant or game store should use the same underlying concepts with different products, rules, scenes and presentation.
 
 ## Third-Person Player
 
@@ -355,31 +400,42 @@ See `docs/BEGINNER_WORKFLOW.md` for the complete no-code creator workflow.
 
 ## Current direction
 
-Seed is now well past the empty-engine stage. It has its own desktop applications, editor, renderer, project/scene formats, asset import, gameplay authoring, first/third-person controllers, character collision, camera collision, animation, combat feedback, semantic HUD state, save slots, and a standalone export path.
+Seed is now well past the empty-engine stage. It has its own desktop applications, editor, renderer, project/scene formats, asset import, gameplay authoring, first/third-person controllers, character collision, camera collision, animation, simulation components, customer behavior, checkout queues, HUD state, save slots, and a standalone export path.
 
-The next product milestone is a complete asset-independent vertical slice: a beginner can open a project, play through interaction, combat, dialogue, quest progression, save/load, and export the result without writing engine code.
+The next product milestone is the **Seed Simulation Kit**: a beginner can create a small, complete simulation game without writing engine code.
+
+## Simulation Kit roadmap
+
+The roadmap is intentionally focused:
+
+1. **Beginner simulation core** — variables, conditions, events and actions for stock, money, customers, orders and progression.
+2. **Reusable prefabs** — Player, Customer, Product, Pickup, Door, Checkout, NPC and shop stations.
+3. **Asset workflow** — drag-and-drop GLTF/GLB assets, thumbnails, previews and animation assignment.
+4. **World-building tools** — grid snapping, collections, trigger volumes, navigation, spawn points and lighting presets.
+5. **No-code game systems** — UI, dialogue, inventory, quests, objectives, audio, level transitions, save slots and victory/game-over flows.
+6. **Build and export** — project settings, validation, asset packaging and one-click desktop builds.
+7. **Dogfooding** — build a complete small shop simulator entirely inside Seed Studio.
+
+The previous adventure scene remains useful as a general engine smoke scene, but the primary reference project is now the Shop Simulator template.
 
 ## v0.1 product target
 
-A complete beginner should be able to create a small, presentable third-person 3D game without writing code.
+A complete beginner should be able to create a small, presentable simulation or management game without writing code.
 
-The vertical slice is growing toward:
+The first complete vertical slice is growing toward:
 
-- Third-Person Player preset
-- imported animated character
-- Idle / Walk / Run / Jump / Fall locomotion
-- interaction
-- health/damage
-- pickups/inventory
-- doors/locks/keys
-- dialogue
-- quests
-- basic enemy AI
-- HUD/UI
-- audio
+- Player preset
+- Customer preset with queue behavior
+- Product and stock setup
+- Shop inventory and wallet
+- Checkout interaction
+- order fulfillment
+- restocking
+- simulation HUD
+- dialogue and simple quests
 - save-game support
 - build/export
-- one complete asset-independent game authored through Seed Studio\n\nThe current reference project is `samples/SeedAdventure`, which exercises player movement, interaction, pickup/inventory, locked doors, dialogue, quests, health, combat authoring, save progression, and standalone runtime launch.
+- one complete shop simulator authored through Seed Studio
 
 ## Status
 
