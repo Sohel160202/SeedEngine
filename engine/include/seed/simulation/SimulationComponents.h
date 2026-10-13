@@ -105,6 +105,9 @@ struct StaffWorkerComponent {
     std::string role{"Staff"};
     float work_speed{1.0f};
     float wage_per_hour{10.0f};
+    float shift_start_hour{8.0f};
+    float shift_end_hour{20.0f};
+    int last_paid_day{1};
     std::string assigned_station_persistent_id;
 };
 
