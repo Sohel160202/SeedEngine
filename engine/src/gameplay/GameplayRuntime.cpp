@@ -876,7 +876,27 @@ void GameplayRuntime::refresh_interaction_target(Scene& scene) {
         return;
     }
 
+    if (scene.has_component<CheckoutStationComponent>(m_interaction_target)) {
+        bool customer_waiting = false;
+        scene.for_each<CustomerBehaviorComponent, CustomerOrderComponent>(
+            [&](EntityId, CustomerBehaviorComponent& behavior, CustomerOrderComponent& order) {
+                if (customer_waiting ||
+                    !behavior.enabled ||
+                    behavior.state != "awaiting_payment" ||
+                    order.fulfilled) {
+                    return;
+                }
+                m_interaction_prompt = "[E] Pay " + order.customer_name + " — " +
+                    std::to_string(SimulationSystem::order_total(order));
+                customer_waiting = true;
+            }
+        );
+        if (!customer_waiting) {
+            m_interaction_prompt = "[E] Checkout Customer (No customer waiting)";
+        }
+    } else {
     m_interaction_prompt = "[E] " + interactable->prompt;
+    }
     if (const auto* dialogue = scene.get_component<DialogueComponent>(m_interaction_target);
         dialogue != nullptr && !dialogue->interaction_prompt.empty()) {
         m_interaction_prompt = "[E] " + dialogue->interaction_prompt;
