@@ -516,6 +516,29 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
                 if(changed)m_scene_edited=true;
             }
         }
+        if(auto* staffing=scene.get_component<StationStaffingComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Station Staffing",ImGuiTreeNodeFlags_DefaultOpen)){
+                bool changed=false;
+                changed|=ImGui::Checkbox("Requires Staff",&staffing->requires_staff);
+                changed|=ImGui::DragInt("Required Workers",&staffing->required_workers,1,1,100);
+                ImGui::TextDisabled("Required role: %s",staffing->required_role.c_str());
+                if(changed)m_scene_edited=true;
+            }
+        }
+        if(auto* worker=scene.get_component<StaffWorkerComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Staff Worker",ImGuiTreeNodeFlags_DefaultOpen)){
+                bool changed=false;
+                changed|=ImGui::Checkbox("Enabled",&worker->enabled);
+                changed|=ImGui::DragFloat("Work Speed",&worker->work_speed,0.05f,0.1f,10.0f,"%.2fx");
+                changed|=ImGui::DragFloat("Wage per Hour",&worker->wage_per_hour,0.5f,0.0f,100000.0f,"%.2f");
+                ImGui::TextDisabled("Role: %s",worker->role.c_str());
+                ImGui::TextDisabled("Assigned station: %s",
+                    worker->assigned_station_persistent_id.empty()
+                        ? "None"
+                        : worker->assigned_station_persistent_id.c_str());
+                if(changed)m_scene_edited=true;
+            }
+        }
         if(auto* order=scene.get_component<CustomerOrderComponent>(m_selected_entity)){
             if(ImGui::CollapsingHeader("Customer Order",ImGuiTreeNodeFlags_DefaultOpen)){
                 ImGui::Text("%s  •  %s",order->order_id.c_str(),order->customer_name.c_str());
