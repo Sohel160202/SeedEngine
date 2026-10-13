@@ -313,6 +313,8 @@ bool SceneSerializer::save(
                     {"category", product->category},
                     {"wholesale_price", product->wholesale_price},
                     {"retail_price", product->retail_price},
+                    {"demand_weight", product->demand_weight},
+                    {"price_sensitivity", product->price_sensitivity},
                     {"max_stock", product->max_stock},
                     {"perishable", product->perishable},
                 };
@@ -824,6 +826,12 @@ bool SceneSerializer::load(
                 product.category = value.value("category", std::string{"General"});
                 product.wholesale_price = value.value("wholesale_price", 1.0f);
                 product.retail_price = value.value("retail_price", 2.0f);
+                product.demand_weight = std::max(
+                    0.0f, value.value("demand_weight", 1.0f)
+                );
+                product.price_sensitivity = std::max(
+                    0.0f, value.value("price_sensitivity", 1.0f)
+                );
                 product.max_stock = std::max(0, value.value("max_stock", 100));
                 product.perishable = value.value("perishable", false);
                 loaded_scene.add_component<ProductDefinitionComponent>(entity, std::move(product));
