@@ -454,6 +454,17 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
                 if(changed)m_scene_edited=true;
             }
         }
+        if(auto* capacity=scene.get_component<CustomerCapacityComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Customer Capacity",ImGuiTreeNodeFlags_DefaultOpen)){
+                bool changed=false;
+                changed|=ImGui::DragInt("Max Active Customers",&capacity->max_active_customers,1,1,1000);
+                changed|=ImGui::DragInt("Max Queue Length",&capacity->max_queue_length,1,1,1000);
+                changed|=ImGui::DragInt("Customers per Upgrade",&capacity->customers_per_upgrade,1,0,100);
+                changed|=ImGui::DragFloat("Arrival Rate Multiplier",&capacity->arrival_rate_multiplier,0.05f,0.1f,10.0f,"%.2fx");
+                changed|=ImGui::DragFloat("Daily Growth Rate",&capacity->daily_growth_rate,0.01f,0.0f,10.0f,"%.2f");
+                if(changed)m_scene_edited=true;
+            }
+        }
         if(auto* hours=scene.get_component<ShopHoursComponent>(m_selected_entity)){
             if(ImGui::CollapsingHeader("Shop Hours",ImGuiTreeNodeFlags_DefaultOpen)){
                 bool changed=false;
