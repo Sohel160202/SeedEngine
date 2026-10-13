@@ -597,6 +597,13 @@ void build_project_template(
             {"card_pack", 5, 5}
         };
         scene.add_component<seed::ShopInventoryComponent>(shop, inventory);
+        seed::CustomerCapacityComponent capacity;
+        capacity.max_active_customers = 4;
+        capacity.max_queue_length = 3;
+        capacity.customers_per_upgrade = 1;
+        capacity.arrival_rate_multiplier = 1.0f;
+        capacity.daily_growth_rate = 0.05f;
+        scene.add_component<seed::CustomerCapacityComponent>(shop, capacity);
         seed::WalletComponent wallet;
         wallet.balance = 250.0f;
         scene.add_component<seed::WalletComponent>(shop, wallet);
@@ -1504,6 +1511,22 @@ seed::studio::StudioDocumentInfo document_info(
                     (upgrade.level >= upgrade.max_level
                         ? "MAX"
                         : std::to_string(next_cost))
+                );
+            }
+        );
+
+        play_scene->for_each<seed::CustomerCapacityComponent>(
+            [&](seed::EntityId entity, const seed::CustomerCapacityComponent& capacity) {
+                const auto* clock = play_scene->get_component<seed::SimulationClockComponent>(entity);
+                const int day = clock == nullptr ? 1 : std::max(1, clock->day);
+                const float demand_growth =
+                    std::max(0.1f, capacity.arrival_rate_multiplier) *
+                    (1.0f + std::max(0, day - 1) *
+                        std::max(0.0f, capacity.daily_growth_rate));
+                info.gameplay_objectives.push_back(
+                    "CUSTOMERS  MAX " + std::to_string(capacity.max_active_customers) +
+                    "  QUEUE " + std::to_string(capacity.max_queue_length) +
+                    "  DEMAND X" + std::to_string(demand_growth)
                 );
             }
         );

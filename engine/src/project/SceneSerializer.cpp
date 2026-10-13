@@ -357,6 +357,15 @@ bool SceneSerializer::save(
                     {"shelf_capacity_bonus", upgrade->shelf_capacity_bonus},
                 };
             }
+            if (const auto* capacity = scene.get_component<CustomerCapacityComponent>(entity)) {
+                components["CustomerCapacity"] = {
+                    {"max_active_customers", capacity->max_active_customers},
+                    {"max_queue_length", capacity->max_queue_length},
+                    {"customers_per_upgrade", capacity->customers_per_upgrade},
+                    {"arrival_rate_multiplier", capacity->arrival_rate_multiplier},
+                    {"daily_growth_rate", capacity->daily_growth_rate},
+                };
+            }
             if (const auto* hours = scene.get_component<ShopHoursComponent>(entity)) {
                 components["ShopHours"] = {
                     {"opening_hour", hours->opening_hour},
@@ -908,6 +917,26 @@ bool SceneSerializer::load(
                     0, value.value("shelf_capacity_bonus", 5)
                 );
                 loaded_scene.add_component<ShopUpgradeComponent>(entity, upgrade);
+            }
+            if (components.contains("CustomerCapacity")) {
+                const auto& value = components.at("CustomerCapacity");
+                CustomerCapacityComponent capacity;
+                capacity.max_active_customers = std::max(
+                    1, value.value("max_active_customers", 4)
+                );
+                capacity.max_queue_length = std::max(
+                    1, value.value("max_queue_length", 3)
+                );
+                capacity.customers_per_upgrade = std::max(
+                    0, value.value("customers_per_upgrade", 1)
+                );
+                capacity.arrival_rate_multiplier = std::max(
+                    0.1f, value.value("arrival_rate_multiplier", 1.0f)
+                );
+                capacity.daily_growth_rate = std::max(
+                    0.0f, value.value("daily_growth_rate", 0.05f)
+                );
+                loaded_scene.add_component<CustomerCapacityComponent>(entity, capacity);
             }
             if (components.contains("ShopHours")) {
                 const auto& value = components.at("ShopHours");

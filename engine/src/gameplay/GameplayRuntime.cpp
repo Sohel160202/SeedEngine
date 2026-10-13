@@ -85,6 +85,7 @@ void update_customers(
     WalletComponent* wallet = nullptr;
     ShopHoursComponent* hours = nullptr;
     SimulationClockComponent* clock = nullptr;
+    CustomerCapacityComponent* capacity = nullptr;
 
     scene.for_each<ShopInventoryComponent, WalletComponent>(
         [&](EntityId entity, ShopInventoryComponent& candidate_inventory, WalletComponent& candidate_wallet) {
@@ -94,6 +95,7 @@ void update_customers(
             wallet = &candidate_wallet;
             hours = scene.get_component<ShopHoursComponent>(entity);
             clock = scene.get_component<SimulationClockComponent>(entity);
+            capacity = scene.get_component<CustomerCapacityComponent>(entity);
         }
     );
     if (inventory == nullptr || wallet == nullptr) return;
@@ -101,10 +103,42 @@ void update_customers(
     const bool shop_open = hours == nullptr || clock == nullptr ||
         SimulationSystem::is_shop_open(*hours, *clock);
 
+    ShopUpgradeComponent* upgrade = nullptr;
+    scene.for_each<ShopUpgradeComponent>(
+        [&](EntityId, ShopUpgradeComponent& candidate) {
+            if (upgrade == nullptr) upgrade = &candidate;
+        }
+    );
+    const int upgrade_levels = upgrade == nullptr
+        ? 0
+        : std::max(0, upgrade->level - 1);
+    const int max_active_customers = std::max(
+        1,
+        (capacity == nullptr ? 4 : capacity->max_active_customers) +
+            (capacity == nullptr ? 0 : upgrade_levels * capacity->customers_per_upgrade)
+    );
+    const int max_queue_length = std::max(
+        1,
+        capacity == nullptr ? 3 : capacity->max_queue_length
+    );
+    const int simulation_day = clock == nullptr ? 1 : std::max(1, clock->day);
+    const float growth_multiplier = capacity == nullptr
+        ? 1.0f
+        : std::max(0.1f, capacity->arrival_rate_multiplier) *
+            (1.0f + std::max(0, simulation_day - 1) *
+                std::max(0.0f, capacity->daily_growth_rate));
+
     std::vector<EntityId> queued_customers;
+    int active_customer_count = 0;
     scene.for_each<CustomerBehaviorComponent, CustomerOrderComponent>(
         [&](EntityId entity, CustomerBehaviorComponent& customer, CustomerOrderComponent&) {
             if (!customer.enabled) return;
+            if (customer.state == "arriving" ||
+                customer.state == "queued" ||
+                customer.state == "shopping" ||
+                customer.state == "awaiting_payment") {
+                ++active_customer_count;
+            }
             if (customer.state == "arriving" ||
                 customer.state == "queued" ||
                 customer.state == "shopping" ||
@@ -153,7 +187,10 @@ void update_customers(
 
             customer.timer_seconds += dt;
             if (customer.state == "waiting") {
-                if (customer.timer_seconds < customer.arrival_interval_seconds) return;
+                if (active_customer_count >= max_active_customers) return;
+                const float effective_arrival_interval =
+                    customer.arrival_interval_seconds / growth_multiplier;
+                if (customer.timer_seconds < effective_arrival_interval) return;
 
                 customer.timer_seconds = 0.0f;
                 customer.state = "arriving";
@@ -238,6 +275,11 @@ void update_customers(
             }
 
             if (customer.state == "arriving") {
+                if (queue_position >= static_cast<std::size_t>(max_queue_length)) {
+                    customer.state = "waiting";
+                    customer.timer_seconds = 0.0f;
+                    return;
+                }
                 const float queue_z = -1.0f - static_cast<float>(queue_position) * 0.9f;
                 if (!move_customer_toward({0.0f, 0.9f, queue_z})) return;
                 customer.state = "queued";
