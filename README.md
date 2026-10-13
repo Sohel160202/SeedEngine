@@ -197,6 +197,7 @@ The simulation foundation currently includes:
 - simulation-aware no-code Rules with customer, stock, money, and progression events
 - one-click Shop Starter Rules and Low Stock Rule presets
 - reusable genre preset libraries for shelves, products, checkout stations, staff, customers, and rule packs
+- auto-generated genre prefab library with reusable individual parts and complete starter shops
 - one-click full starter shop kits for supermarkets, card shops, restaurants, and game stores
 - genre starter templates for supermarkets, card shops, restaurants, and game stores
 - customer purchases and order-completion events
