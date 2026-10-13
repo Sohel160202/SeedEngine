@@ -220,6 +220,7 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
             if (ImGui::MenuItem("Simulation Product")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_product"});
             if (ImGui::MenuItem("Customer Order")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_order"});
             if (ImGui::MenuItem("Checkout Station")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_checkout"});
+            if (ImGui::MenuItem("Shop Upgrade Board")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_upgrade"});
             ImGui::EndMenu();
         }
         ImGui::EndMenu();
@@ -439,6 +440,17 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
                 bool changed=false;
                 changed|=ImGui::DragFloat("Starting Balance",&wallet->balance,1.0f,0.0f,100000000.0f,"%.2f");
                 ImGui::TextDisabled("Revenue %.2f  •  Expenses %.2f",wallet->lifetime_revenue,wallet->lifetime_expenses);
+                if(changed)m_scene_edited=true;
+            }
+        }
+        if(auto* upgrade=scene.get_component<ShopUpgradeComponent>(m_selected_entity)){
+            if(ImGui::CollapsingHeader("Shop Upgrade",ImGuiTreeNodeFlags_DefaultOpen)){
+                bool changed=false;
+                changed|=ImGui::DragInt("Level",&upgrade->level,1,1,1000);
+                changed|=ImGui::DragInt("Max Level",&upgrade->max_level,1,upgrade->level,1000);
+                changed|=ImGui::DragFloat("Base Upgrade Cost",&upgrade->base_upgrade_cost,1.0f,0.0f,100000000.0f,"%.2f");
+                changed|=ImGui::DragFloat("Cost Multiplier",&upgrade->cost_multiplier,0.05f,1.0f,10.0f,"%.2f");
+                changed|=ImGui::DragInt("Shelf Capacity Bonus",&upgrade->shelf_capacity_bonus,1,0,1000);
                 if(changed)m_scene_edited=true;
             }
         }
