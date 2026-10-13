@@ -441,6 +441,57 @@ seed::EntityId create_beginner_preset(
     return entity;
 }
 
+void ensure_beginner_prefab_library(
+    const std::filesystem::path& project_root,
+    seed::MeshHandle cube_mesh,
+    seed::ShaderHandle shader
+) {
+    struct StarterPrefab {
+        const char* id;
+        const char* file;
+    };
+    constexpr StarterPrefab starters[] = {
+        {"player_first", "Player_FirstPerson.seedprefab"},
+        {"player_third", "Player_ThirdPerson.seedprefab"},
+        {"enemy_basic", "Enemy_Basic.seedprefab"},
+        {"enemy_fast", "Enemy_Fast.seedprefab"},
+        {"enemy_boss", "Enemy_Boss.seedprefab"},
+        {"pickup", "Pickup.seedprefab"},
+        {"door", "Door.seedprefab"},
+        {"npc", "NPC_Dialogue.seedprefab"},
+        {"quest", "Quest.seedprefab"}
+    };
+
+    try {
+        const auto prefab_directory = project_root / "Prefabs";
+        std::filesystem::create_directories(prefab_directory);
+        for(const auto& starter : starters) {
+            const auto prefab_file = prefab_directory / starter.file;
+            if(std::filesystem::exists(prefab_file)) continue;
+
+            seed::Scene prefab_scene;
+            const auto editor_camera = create_editor_camera(prefab_scene);
+            const auto entity = create_beginner_preset(
+                prefab_scene,
+                starter.id,
+                editor_camera,
+                cube_mesh,
+                shader
+            );
+            if(entity == seed::InvalidEntity) continue;
+
+            std::string error;
+            if(!seed::PrefabSerializer::save(prefab_scene, entity, prefab_file, &error)) {
+                std::cerr << "[SeedStudio] Could not create starter prefab "
+                          << prefab_file << ": " << error << "\n";
+            }
+        }
+    } catch(const std::exception& exception) {
+        std::cerr << "[SeedStudio] Could not create starter prefab library: "
+                  << exception.what() << "\n";
+    }
+}
+
 void build_project_template(
     seed::Scene& scene,
     const std::string& template_id,
@@ -1178,6 +1229,24 @@ seed::studio::StudioDocumentInfo document_info(
     );
     info.project_assets.assign(imported_assets.begin(), imported_assets.end());
 
+    if (info.has_project) {
+        try {
+            const auto prefab_directory = workspace.project_file.parent_path() / "Prefabs";
+            if(std::filesystem::exists(prefab_directory)) {
+                for(const auto& entry : std::filesystem::recursive_directory_iterator(prefab_directory)) {
+                    if(entry.is_regular_file() && entry.path().extension() == ".seedprefab") {
+                        info.project_prefabs.push_back(
+                            std::filesystem::relative(entry.path(), workspace.project_file.parent_path()).generic_string()
+                        );
+                    }
+                }
+                std::sort(info.project_prefabs.begin(), info.project_prefabs.end());
+            }
+        } catch(const std::exception&) {
+            info.project_prefabs.clear();
+        }
+    }
+
     if (playing && play_scene != nullptr) {
         const auto hud = seed::GameplayHUDSystem::capture(*play_scene, gameplay);
         info.gameplay_prompt = hud.interaction_prompt;
@@ -1617,6 +1686,8 @@ int main(int argc, char** argv) {
                 workspace = {};
                 if (save_workspace_as(workspace, scene, action.path, action.project_name)) {
                     asset_runtime.set_project_root(workspace.project_file.parent_path());
+                    ensure_beginner_prefab_library(workspace.project_file.parent_path(), cube_mesh, mesh_shader);
+                    workspace.status_message = "Created project with beginner prefab library.";
                 }
                 break;
             }
@@ -1669,6 +1740,7 @@ int main(int argc, char** argv) {
                         skinned_mesh_shader,
                         asset_runtime,
                         editor_camera)) {
+                    ensure_beginner_prefab_library(workspace.project_file.parent_path(), cube_mesh, mesh_shader);
                     studio_ui.select_entity(first_content_entity(scene));
                     clear_movement_input(camera_input);
                     camera_input.looking = false;
@@ -1820,6 +1892,7 @@ int main(int argc, char** argv) {
                 if (has_pending_play_changes) break;
                 if (save_workspace_as(workspace, scene, action.path, action.project_name)) {
                     asset_runtime.set_project_root(workspace.project_file.parent_path());
+                    ensure_beginner_prefab_library(workspace.project_file.parent_path(), cube_mesh, mesh_shader);
                     bind_builtin_resources(scene, cube_mesh, mesh_shader);
                     std::string error;
                     if (!asset_runtime.bind_scene(
