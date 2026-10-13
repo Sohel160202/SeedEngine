@@ -356,6 +356,36 @@ seed::EntityId create_beginner_preset(
     if (preset == "player_third") {
         return create_third_person_player(scene, editor_camera, "Player");
     }
+    if (preset == "simulation_shop") {
+        const entity = scene.create_entity("Shop");
+        scene.add_component<seed::TransformComponent>(entity);
+        scene.add_component<seed::ShopInventoryComponent>(entity);
+        scene.add_component<seed::WalletComponent>(entity);
+        scene.add_component<seed::ShopHoursComponent>(entity);
+        scene.add_component<seed::SimulationClockComponent>(entity);
+        return entity;
+    }
+    if (preset == "simulation_product") {
+        const entity = create_cube(scene, cube_mesh, shader, "Product");
+        seed::ProductDefinitionComponent product;
+        product.product_id = "coffee";
+        product.display_name = "Coffee";
+        product.category = "Food";
+        product.wholesale_price = 2.0f;
+        product.retail_price = 5.0f;
+        product.max_stock = 50;
+        scene.add_component<seed::ProductDefinitionComponent>(entity, product);
+        return entity;
+    }
+    if (preset == "simulation_order") {
+        const auto entity = scene.create_entity("Customer Order");
+        seed::CustomerOrderComponent order;
+        order.order_id = "order-1";
+        order.customer_name = "Customer";
+        order.lines = {{"coffee", 1, 5.0f}};
+        scene.add_component<seed::CustomerOrderComponent>(entity, order);
+        return entity;
+    }
 
     const bool is_enemy =
         preset == "enemy" ||
