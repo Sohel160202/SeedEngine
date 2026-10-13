@@ -10,6 +10,8 @@
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
 #include "seed/scene/Hierarchy.h"
+#include "seed/simulation/SimulationComponents.h"
+#include "seed/simulation/SimulationSystem.h"
 #include "seed/scene/Scene.h"
 
 #include <algorithm>
@@ -749,6 +751,55 @@ void GameplayRuntime::perform_interaction(Scene& scene, GameplayEventBus* event_
         present_dialogue_line(scene);
         if (event_bus != nullptr) {
             event_bus->publish({m_interaction_target, GameplayEventType::Interaction, "DialogueStarted", 0.0f});
+        }
+        return;
+    }
+
+    if (const auto* product = scene.get_component<ProductDefinitionComponent>(m_interaction_target)) {
+        EntityId shop_entity = InvalidEntity;
+        ShopInventoryComponent* inventory = nullptr;
+        WalletComponent* wallet = nullptr;
+        ShopHoursComponent* hours = nullptr;
+        SimulationClockComponent* clock = nullptr;
+
+        scene.for_each<ShopInventoryComponent, WalletComponent>(
+            [&](EntityId entity, ShopInventoryComponent& candidate_inventory, WalletComponent& candidate_wallet) {
+                if (shop_entity != InvalidEntity) return;
+                shop_entity = entity;
+                inventory = &candidate_inventory;
+                wallet = &candidate_wallet;
+                hours = scene.get_component<ShopHoursComponent>(entity);
+                clock = scene.get_component<SimulationClockComponent>(entity);
+            }
+        );
+
+        if (inventory == nullptr || wallet == nullptr) {
+            m_status_message = "This product is not connected to a shop.";
+            return;
+        }
+        if (hours != nullptr && clock != nullptr &&
+            !SimulationSystem::is_shop_open(*hours, *clock)) {
+            m_status_message = "The shop is closed.";
+            return;
+        }
+
+        const SimulationTransaction transaction =
+            SimulationSystem::sell_product(*inventory, *wallet, *product, 1);
+        if (!transaction.succeeded) {
+            m_status_message = "Could not sell " + product->display_name + ": " + transaction.reason;
+            return;
+        }
+
+        m_status_message = "Sold " + product->display_name + " for " +
+            std::to_string(transaction.total) + ".";
+        if (event_bus != nullptr) {
+            GameplayEvent sale;
+            sale.source_entity = m_interaction_target;
+            sale.type = GameplayEventType::Interaction;
+            sale.name = "ProductSold";
+            sale.value = transaction.total;
+            sale.target_entity = shop_entity;
+            event_bus->publish(sale);
         }
         return;
     }
