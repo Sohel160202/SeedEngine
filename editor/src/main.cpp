@@ -694,6 +694,28 @@ seed::EntityId create_beginner_preset(
     return entity;
 }
 
+void ensure_beginner_asset_library(const std::filesystem::path& project_root) {
+#ifdef SEED_STARTER_ASSET_DIR
+    const std::filesystem::path source_directory{SEED_STARTER_ASSET_DIR};
+    const auto destination_directory = project_root / "Assets" / "SeedStarterPack";
+    std::error_code error;
+    std::filesystem::create_directories(destination_directory, error);
+    if (error) return;
+    if (!std::filesystem::is_directory(source_directory, error)) return;
+    for (const auto& entry : std::filesystem::directory_iterator(source_directory, error)) {
+        if (error || !entry.is_regular_file() || entry.path().extension() != ".gltf") continue;
+        const auto destination = destination_directory / entry.path().filename();
+        std::filesystem::copy_file(
+            entry.path(),
+            destination,
+            std::filesystem::copy_options::skip_existing,
+            error
+        );
+        error.clear();
+    }
+#endif
+}
+
 void ensure_beginner_prefab_library(
     const std::filesystem::path& project_root,
     seed::MeshHandle cube_mesh,
@@ -2388,6 +2410,7 @@ int main(int argc, char** argv) {
                 workspace = {};
                 if (save_workspace_as(workspace, scene, action.path, action.project_name)) {
                     asset_runtime.set_project_root(workspace.project_file.parent_path());
+                    ensure_beginner_asset_library(workspace.project_file.parent_path());
                     ensure_beginner_prefab_library(workspace.project_file.parent_path(), cube_mesh, mesh_shader);
                     workspace.status_message = "Created project with beginner prefab library.";
                 }
@@ -2442,6 +2465,7 @@ int main(int argc, char** argv) {
                         skinned_mesh_shader,
                         asset_runtime,
                         editor_camera)) {
+                    ensure_beginner_asset_library(workspace.project_file.parent_path());
                     ensure_beginner_prefab_library(workspace.project_file.parent_path(), cube_mesh, mesh_shader);
                     studio_ui.select_entity(first_content_entity(scene));
                     clear_movement_input(camera_input);
@@ -2594,6 +2618,7 @@ int main(int argc, char** argv) {
                 if (has_pending_play_changes) break;
                 if (save_workspace_as(workspace, scene, action.path, action.project_name)) {
                     asset_runtime.set_project_root(workspace.project_file.parent_path());
+                    ensure_beginner_asset_library(workspace.project_file.parent_path());
                     ensure_beginner_prefab_library(workspace.project_file.parent_path(), cube_mesh, mesh_shader);
                     bind_builtin_resources(scene, cube_mesh, mesh_shader);
                     std::string error;
