@@ -798,11 +798,16 @@ void StudioUI::draw_staff_panel(Scene& scene, const StudioDocumentInfo& document
     if (ImGui::Button("Products & Stock", m_management_panel_tab == 1 ? ImVec2{150.0f, 0.0f} : ImVec2{0.0f, 0.0f})) {
         m_management_panel_tab = 1;
     }
+    ImGui::SameLine();
+    if (ImGui::Button("Customers & Orders", m_management_panel_tab == 2 ? ImVec2{170.0f, 0.0f} : ImVec2{0.0f, 0.0f})) {
+        m_management_panel_tab = 2;
+    }
     ImGui::Separator();
 
     EntityId shop_entity = InvalidEntity;
     StaffManagerComponent* manager = nullptr;
     ShopInventoryComponent* inventory = nullptr;
+    CustomerCapacityComponent* capacity = nullptr;
     WalletComponent* wallet = nullptr;
     scene.for_each<ShopInventoryComponent, WalletComponent>(
         [&](EntityId entity, ShopInventoryComponent& candidate_inventory, WalletComponent& candidate_wallet) {
@@ -810,9 +815,115 @@ void StudioUI::draw_staff_panel(Scene& scene, const StudioDocumentInfo& document
             shop_entity = entity;
             inventory = &candidate_inventory;
             manager = scene.get_component<StaffManagerComponent>(entity);
+            capacity = scene.get_component<CustomerCapacityComponent>(entity);
             wallet = &candidate_wallet;
         }
     );
+
+    if (m_management_panel_tab == 2) {
+        ImGui::TextUnformatted("CUSTOMERS & ORDERS");
+        ImGui::SameLine();
+        ImGui::TextDisabled("Understand the queue, customer demand, and order progress.");
+        ImGui::Separator();
+
+        int active_customers = 0;
+        int queued_customers = 0;
+        int shopping_customers = 0;
+        int payment_customers = 0;
+        scene.for_each<CustomerBehaviorComponent, CustomerOrderComponent>(
+            [&](EntityId, CustomerBehaviorComponent& customer, CustomerOrderComponent&) {
+                if (!customer.enabled) return;
+                if (customer.state == "arriving" ||
+                    customer.state == "queued" ||
+                    customer.state == "shopping" ||
+                    customer.state == "awaiting_payment") {
+                    ++active_customers;
+                }
+                if (customer.state == "arriving" || customer.state == "queued") {
+                    ++queued_customers;
+                } else if (customer.state == "shopping") {
+                    ++shopping_customers;
+                } else if (customer.state == "awaiting_payment") {
+                    ++payment_customers;
+                }
+            }
+        );
+
+        if (capacity != nullptr) {
+            ImGui::Text("Active %d / %d", active_customers, std::max(1, capacity->max_active_customers));
+            ImGui::SameLine();
+            ImGui::Text("Queue %d / %d", queued_customers, std::max(1, capacity->max_queue_length));
+            ImGui::SameLine();
+            ImGui::Text("Shopping %d", shopping_customers);
+            ImGui::SameLine();
+            ImGui::Text("Awaiting payment %d", payment_customers);
+            ImGui::Separator();
+
+            ImGui::BeginDisabled(document.playing);
+            bool capacity_changed = false;
+            capacity_changed |= ImGui::DragInt("Max Active Customers", &capacity->max_active_customers, 1, 1, 1000);
+            capacity_changed |= ImGui::DragInt("Max Queue Length", &capacity->max_queue_length, 1, 1, 1000);
+            capacity_changed |= ImGui::DragFloat("Arrival Rate", &capacity->arrival_rate_multiplier, 0.05f, 0.1f, 10.0f, "%.2fx");
+            capacity_changed |= ImGui::DragFloat("Daily Growth", &capacity->daily_growth_rate, 0.01f, 0.0f, 10.0f, "%.2f");
+            ImGui::EndDisabled();
+            if (capacity_changed) m_scene_edited = true;
+        } else {
+            ImGui::TextDisabled("No customer capacity settings found on the shop.");
+        }
+
+        ImGui::BeginChild("##customer_orders", {0.0f, 0.0f}, false);
+        ImGui::Columns(5, "##customer_order_columns", true);
+        ImGui::Text("Customer"); ImGui::NextColumn();
+        ImGui::Text("State"); ImGui::NextColumn();
+        ImGui::Text("Items"); ImGui::NextColumn();
+        ImGui::Text("Order total"); ImGui::NextColumn();
+        ImGui::Text("Progress"); ImGui::NextColumn();
+        ImGui::Separator();
+
+        scene.for_each<CustomerBehaviorComponent, CustomerOrderComponent>(
+            [&](EntityId customer_entity, CustomerBehaviorComponent& customer,
+                CustomerOrderComponent& order) {
+                ImGui::PushID(static_cast<int>(customer_entity));
+                const std::string display_name = order.customer_name.empty()
+                    ? scene.entity_name(customer_entity)
+                    : order.customer_name;
+                std::string readable_state = customer.state.empty()
+                    ? "waiting"
+                    : customer.state;
+                for (char& character : readable_state) {
+                    if (character == '_') character = ' ';
+                }
+                int item_count = 0;
+                for (const auto& line : order.lines) {
+                    item_count += std::max(0, line.quantity);
+                }
+
+                ImGui::Text("%s", display_name.c_str());
+                ImGui::NextColumn();
+                ImGui::Text("%s", readable_state.c_str());
+                ImGui::NextColumn();
+                ImGui::Text("%d", item_count);
+                ImGui::NextColumn();
+                ImGui::Text("%.2f", SimulationSystem::order_total(order));
+                ImGui::NextColumn();
+                if (order.delivered) {
+                    ImGui::TextUnformatted("Delivered");
+                } else if (order.fulfilled) {
+                    ImGui::TextUnformatted("Fulfilled");
+                } else if (customer.state == "awaiting_payment") {
+                    ImGui::TextUnformatted("Ready to pay");
+                } else {
+                    ImGui::TextUnformatted("In progress");
+                }
+                ImGui::NextColumn();
+                ImGui::PopID();
+            }
+        );
+        ImGui::Columns(1);
+        ImGui::EndChild();
+        ImGui::End();
+        return;
+    }
 
     if (m_management_panel_tab == 1) {
         ImGui::TextUnformatted("PRODUCTS & STOCK");
