@@ -227,7 +227,6 @@ void GameplayRulesSystem::consume_events(Scene& scene, GameplayEventBus& events)
                                 }
                             );
                             if (restocked_units > 0) {
-                                publish_rule_event(events, owner, trigger, "ProductsRestocked");
                                 events.publish({
                                     .source_entity = owner,
                                     .type = GameplayEventType::Interaction,
