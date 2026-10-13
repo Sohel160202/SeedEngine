@@ -179,6 +179,9 @@ The simulation foundation currently includes:
 - customer orders and fulfillment progress
 - automatic customer arrivals
 - visible customer movement
+- reusable customer capacity limits
+- queue-length limits and upgrade-based customer growth
+- day-based demand growth for management progression
 - deterministic checkout queues
 - customer purchases and order-completion events
 - restocking interactions
