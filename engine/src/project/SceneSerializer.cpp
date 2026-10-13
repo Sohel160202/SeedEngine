@@ -367,6 +367,16 @@ bool SceneSerializer::save(
                     {"delivered", order->delivered},
                 };
             }
+            if (const auto* customer = scene.get_component<CustomerBehaviorComponent>(entity)) {
+                components["CustomerBehavior"] = {
+                    {"enabled", customer->enabled},
+                    {"arrival_interval_seconds", customer->arrival_interval_seconds},
+                    {"shopping_duration_seconds", customer->shopping_duration_seconds},
+                    {"leave_duration_seconds", customer->leave_duration_seconds},
+                    {"state", customer->state},
+                    {"order_sequence", customer->order_sequence},
+                };
+            }
             if (const auto* inventory = scene.get_component<InventoryComponent>(entity)) {
                 components["Inventory"] = {{"items", inventory->items}};
             }
@@ -861,6 +871,24 @@ bool SceneSerializer::load(
                     }
                 }
                 loaded_scene.add_component<CustomerOrderComponent>(entity, std::move(order));
+            }
+            if (components.contains("CustomerBehavior")) {
+                const auto& value = components.at("CustomerBehavior");
+                CustomerBehaviorComponent customer;
+                customer.enabled = value.value("enabled", true);
+                customer.arrival_interval_seconds = std::max(
+                    0.1f, value.value("arrival_interval_seconds", 12.0f)
+                );
+                customer.shopping_duration_seconds = std::max(
+                    0.1f, value.value("shopping_duration_seconds", 4.0f)
+                );
+                customer.leave_duration_seconds = std::max(
+                    0.1f, value.value("leave_duration_seconds", 5.0f)
+                );
+                customer.timer_seconds = 0.0f;
+                customer.state = value.value("state", std::string{"waiting"});
+                customer.order_sequence = std::max(1, value.value("order_sequence", 1));
+                loaded_scene.add_component<CustomerBehaviorComponent>(entity, customer);
             }
             if (components.contains("Inventory")) {
                 const auto& value = components.at("Inventory");
