@@ -1388,6 +1388,51 @@ seed::studio::StudioDocumentInfo document_info(
             info.gameplay_inventory.emplace_back(item_id, quantity);
         }
         std::sort(info.gameplay_inventory.begin(), info.gameplay_inventory.end());
+
+        play_scene->for_each<seed::ShopInventoryComponent, seed::WalletComponent>(
+            [&](seed::EntityId entity, const seed::ShopInventoryComponent& inventory,
+                const seed::WalletComponent& wallet) {
+                info.gameplay_objectives.push_back(
+                    "SHOP  Wallet " + std::to_string(wallet.balance) +
+                    "  Revenue " + std::to_string(wallet.lifetime_revenue) +
+                    "  Expenses " + std::to_string(wallet.lifetime_expenses)
+                );
+                if (const auto* clock = play_scene->get_component<seed::SimulationClockComponent>(entity)) {
+                    const auto* hours = play_scene->get_component<seed::ShopHoursComponent>(entity);
+                    const bool open = hours == nullptr ||
+                        seed::SimulationSystem::is_shop_open(*hours, *clock);
+                    info.gameplay_objectives.push_back(
+                        "DAY " + std::to_string(clock->day) +
+                        "  " + std::to_string(clock->hour) +
+                        "h  " + (open ? "OPEN" : "CLOSED")
+                    );
+                }
+                for (const auto& stock : inventory.products) {
+                    info.gameplay_objectives.push_back(
+                        "STOCK  " + stock.product_id + "  x" +
+                        std::to_string(stock.quantity) + "/" +
+                        std::to_string(stock.shelf_capacity)
+                    );
+                }
+            }
+        );
+
+        play_scene->for_each<seed::CustomerOrderComponent>(
+            [&](seed::EntityId, const seed::CustomerOrderComponent& order) {
+                int fulfilled = 0;
+                int requested = 0;
+                for (const auto& line : order.lines) {
+                    fulfilled += std::min(line.fulfilled_quantity, line.quantity);
+                    requested += line.quantity;
+                }
+                info.gameplay_objectives.push_back(
+                    "ORDER  " + order.customer_name + "  " +
+                    std::to_string(fulfilled) + "/" +
+                    std::to_string(requested) + " units  " +
+                    (order.fulfilled ? "FULFILLED" : "IN PROGRESS")
+                );
+            }
+        );
     }
     return info;
 }
