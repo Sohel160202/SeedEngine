@@ -500,6 +500,12 @@ seed::EntityId create_beginner_preset(
             const auto checkout_entity = create_beginner_preset(scene, genre + "_checkout", editor_camera, cube_mesh, shader);
             const auto cashier_entity = create_beginner_preset(scene, genre + "_cashier", editor_camera, cube_mesh, shader);
             const auto customer_entity = create_beginner_preset(scene, genre + "_customer", editor_camera, cube_mesh, shader);
+            const std::string shop_parent_id = scene.entity_persistent_id(shop);
+            scene.add_component<seed::ParentComponent>(shelf_entity, seed::ParentComponent{shop_parent_id});
+            scene.add_component<seed::ParentComponent>(product_entity, seed::ParentComponent{shop_parent_id});
+            scene.add_component<seed::ParentComponent>(checkout_entity, seed::ParentComponent{shop_parent_id});
+            scene.add_component<seed::ParentComponent>(cashier_entity, seed::ParentComponent{shop_parent_id});
+            scene.add_component<seed::ParentComponent>(customer_entity, seed::ParentComponent{shop_parent_id});
             if (auto* spawner = scene.get_component<seed::CustomerSpawnerComponent>(shop)) {
                 spawner->customer_template_persistent_id = scene.entity_persistent_id(customer_entity);
             } else {
@@ -706,7 +712,31 @@ void ensure_beginner_prefab_library(
         {"pickup", "Pickup.seedprefab"},
         {"door", "Door.seedprefab"},
         {"npc", "NPC_Dialogue.seedprefab"},
-        {"quest", "Quest.seedprefab"}
+        {"quest", "Quest.seedprefab"},
+        {"supermarket_shop_kit", "Supermarket_StarterShop.seedprefab"},
+        {"card_shop_shop_kit", "CardShop_StarterShop.seedprefab"},
+        {"restaurant_shop_kit", "Restaurant_StarterShop.seedprefab"},
+        {"game_store_shop_kit", "GameStore_StarterShop.seedprefab"},
+        {"supermarket_shelf", "Supermarket_Shelf.seedprefab"},
+        {"supermarket_product", "Supermarket_Product.seedprefab"},
+        {"supermarket_checkout", "Supermarket_Checkout.seedprefab"},
+        {"supermarket_cashier", "Supermarket_Cashier.seedprefab"},
+        {"supermarket_customer", "Supermarket_Customer.seedprefab"},
+        {"card_shop_shelf", "CardShop_Shelf.seedprefab"},
+        {"card_shop_product", "CardShop_Product.seedprefab"},
+        {"card_shop_checkout", "CardShop_Checkout.seedprefab"},
+        {"card_shop_cashier", "CardShop_Cashier.seedprefab"},
+        {"card_shop_customer", "CardShop_Customer.seedprefab"},
+        {"restaurant_shelf", "Restaurant_Shelf.seedprefab"},
+        {"restaurant_product", "Restaurant_Product.seedprefab"},
+        {"restaurant_checkout", "Restaurant_Checkout.seedprefab"},
+        {"restaurant_cashier", "Restaurant_Cashier.seedprefab"},
+        {"restaurant_customer", "Restaurant_Customer.seedprefab"},
+        {"game_store_shelf", "GameStore_Shelf.seedprefab"},
+        {"game_store_product", "GameStore_Product.seedprefab"},
+        {"game_store_checkout", "GameStore_Checkout.seedprefab"},
+        {"game_store_cashier", "GameStore_Cashier.seedprefab"},
+        {"game_store_customer", "GameStore_Customer.seedprefab"}
     };
 
     try {
