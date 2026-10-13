@@ -41,6 +41,7 @@ struct StudioDocumentInfo {
     std::vector<std::pair<std::string, int>> gameplay_inventory;
     std::vector<std::string> project_assets;
     std::vector<std::string> project_prefabs;
+    std::vector<std::string> project_asset_files;
     std::vector<SceneRevision> revisions;
     bool dirty{true};
     bool has_project{false};
