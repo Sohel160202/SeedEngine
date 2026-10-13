@@ -128,7 +128,7 @@ void StudioUI::draw(Scene& scene, const StudioDocumentInfo& document, EntityId v
 
     draw_main_menu(document);
     if (!document.playing) draw_project_dialogs(document);
-    draw_world_panel(scene); draw_inspector(scene, document); draw_assets_panel(scene, document); draw_viewport_frame(scene, document, viewport_camera);
+    draw_world_panel(scene); draw_inspector(scene, document); draw_assets_panel(scene, document); draw_staff_panel(scene, document); draw_viewport_frame(scene, document, viewport_camera);
 
     const ImGuiIO& io = ImGui::GetIO();
     if (!io.WantTextInput) {
@@ -778,6 +778,143 @@ void StudioUI::draw_assets_panel(Scene& scene, const StudioDocumentInfo& documen
 void StudioUI::draw_viewport_toolbar(const StudioDocumentInfo& document) {
     if(document.playing)return;const float menu=ImGui::GetFrameHeight();ImGui::SetNextWindowPos({LeftPanelWidth+12,menu+12},ImGuiCond_Always);ImGui::SetNextWindowBgAlpha(0.92f);const ImGuiWindowFlags flags=ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoMove;
     if(ImGui::Begin("##SeedViewportToolbar",nullptr,flags)){auto button=[&](const char*text,GizmoTool tool){if(m_gizmo_tool==tool)ImGui::PushStyleColor(ImGuiCol_Button,ImVec4{0.12f,0.39f,0.21f,1});if(ImGui::Button(text))m_gizmo_tool=tool;if(m_gizmo_tool==tool)ImGui::PopStyleColor();ImGui::SameLine();};button("Q Select",GizmoTool::Select);button("W Move",GizmoTool::Move);button("E Rotate",GizmoTool::Rotate);button("R Scale",GizmoTool::Scale);if(ImGui::Button(m_local_space?"Local":"World"))m_local_space=!m_local_space;ImGui::SameLine();ImGui::Checkbox("Snap",&m_snap_enabled);if(m_snap_enabled){ImGui::SameLine();float*v=m_gizmo_tool==GizmoTool::Rotate?&m_rotate_snap:(m_gizmo_tool==GizmoTool::Scale?&m_scale_snap:&m_move_snap);ImGui::SetNextItemWidth(75);ImGui::DragFloat("##SnapValue",v,m_gizmo_tool==GizmoTool::Rotate?1.0f:0.05f,0.001f,100,m_gizmo_tool==GizmoTool::Rotate?"%.0f°":"%.2f");}}ImGui::End();
+}
+
+void StudioUI::draw_staff_panel(Scene& scene, const StudioDocumentInfo& document) {
+    const ImGuiIO& io = ImGui::GetIO();
+    const float menu = ImGui::GetFrameHeight();
+    ImGui::SetNextWindowPos({0.0f, std::max(menu, io.DisplaySize.y - BottomPanelHeight)}, ImGuiCond_Always);
+    ImGui::SetNextWindowSize({io.DisplaySize.x, BottomPanelHeight}, ImGuiCond_Always);
+
+    if (!ImGui::Begin("Staff & Stations", nullptr, fixed_panel_flags())) {
+        ImGui::End();
+        return;
+    }
+
+    EntityId shop_entity = InvalidEntity;
+    StaffManagerComponent* manager = nullptr;
+    WalletComponent* wallet = nullptr;
+    scene.for_each<ShopInventoryComponent, WalletComponent>(
+        [&](EntityId entity, ShopInventoryComponent&, WalletComponent& candidate_wallet) {
+            if (shop_entity != InvalidEntity) return;
+            shop_entity = entity;
+            manager = scene.get_component<StaffManagerComponent>(entity);
+            wallet = &candidate_wallet;
+        }
+    );
+
+    int employed_count = 0;
+    int worker_count = 0;
+    float daily_wages = 0.0f;
+    const auto shift_hours = [](const StaffWorkerComponent& worker) {
+        const float start = std::clamp(worker.shift_start_hour, 0.0f, 24.0f);
+        const float end = std::clamp(worker.shift_end_hour, 0.0f, 24.0f);
+        if (std::fabs(start - end) < 0.001f) return 24.0f;
+        return start < end ? end - start : (24.0f - start) + end;
+    };
+    scene.for_each<StaffWorkerComponent>(
+        [&](EntityId, StaffWorkerComponent& worker) {
+            ++worker_count;
+            if (worker.enabled && worker.employed) {
+                ++employed_count;
+                daily_wages += std::max(0.0f, worker.wage_per_hour) * shift_hours(worker);
+            }
+        }
+    );
+
+    ImGui::TextUnformatted("STAFF ROSTER");
+    ImGui::SameLine();
+    ImGui::TextDisabled("Manage workers, assignments, and operating cost without opening component details.");
+    ImGui::Separator();
+
+    if (manager != nullptr) {
+        ImGui::Text("Employed %d / %d", employed_count, std::max(1, manager->max_staff));
+    } else {
+        ImGui::Text("Employed %d", employed_count);
+    }
+    ImGui::SameLine();
+    ImGui::Text("Daily wages %.2f", daily_wages);
+    if (wallet != nullptr) {
+        ImGui::SameLine();
+        ImGui::Text("Balance %.2f", wallet->balance);
+    }
+    if (worker_count == 0) {
+        ImGui::TextDisabled("No workers yet. Add a Staff Worker preset from + Add Gameplay.");
+        ImGui::End();
+        return;
+    }
+
+    std::vector<std::pair<std::string, std::string>> stations;
+    scene.for_each<CheckoutStationComponent>(
+        [&](EntityId entity, CheckoutStationComponent&) {
+            stations.emplace_back(
+                scene.entity_persistent_id(entity),
+                scene.entity_name(entity)
+            );
+        }
+    );
+
+    ImGui::BeginChild("##staff_roster", {0.0f, 0.0f}, false);
+    ImGui::Columns(5, "##staff_columns", true);
+    ImGui::Text("Worker"); ImGui::NextColumn();
+    ImGui::Text("Status"); ImGui::NextColumn();
+    ImGui::Text("Station"); ImGui::NextColumn();
+    ImGui::Text("Wage / hour"); ImGui::NextColumn();
+    ImGui::Text("Shift"); ImGui::NextColumn();
+    ImGui::Separator();
+
+    ImGui::BeginDisabled(document.playing);
+    scene.for_each<StaffWorkerComponent>(
+        [&](EntityId worker_entity, StaffWorkerComponent& worker) {
+            ImGui::PushID(static_cast<int>(worker_entity));
+            ImGui::Text("%s", scene.entity_name(worker_entity).c_str());
+            ImGui::NextColumn();
+
+            bool changed = false;
+            changed |= ImGui::Checkbox("Employed", &worker.employed);
+            ImGui::SameLine();
+            ImGui::Text("Skill %d/%d", worker.skill_level, worker.max_skill_level);
+            ImGui::NextColumn();
+
+            std::string current_station = "Unassigned";
+            for (const auto& station : stations) {
+                if (station.first == worker.assigned_station_persistent_id) {
+                    current_station = station.second;
+                    break;
+                }
+            }
+            if (ImGui::BeginCombo("##assigned_station", current_station.c_str())) {
+                if (ImGui::Selectable("Unassigned", worker.assigned_station_persistent_id.empty())) {
+                    worker.assigned_station_persistent_id.clear();
+                    changed = true;
+                }
+                for (const auto& station : stations) {
+                    const bool selected = station.first == worker.assigned_station_persistent_id;
+                    if (ImGui::Selectable(station.second.c_str(), selected)) {
+                        worker.assigned_station_persistent_id = station.first;
+                        changed = true;
+                    }
+                    if (selected) ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::NextColumn();
+
+            changed |= ImGui::DragFloat("##wage", &worker.wage_per_hour, 0.5f, 0.0f, 100000.0f, "%.2f");
+            ImGui::NextColumn();
+
+            changed |= ImGui::DragFloat("##shift_start", &worker.shift_start_hour, 0.25f, 0.0f, 24.0f, "%.2f");
+            ImGui::SameLine();
+            changed |= ImGui::DragFloat("##shift_end", &worker.shift_end_hour, 0.25f, 0.0f, 24.0f, "%.2f");
+            if (changed) m_scene_edited = true;
+            ImGui::PopID();
+            ImGui::NextColumn();
+        }
+    );
+    ImGui::EndDisabled();
+    ImGui::Columns(1);
+    ImGui::EndChild();
+    ImGui::End();
 }
 
 void StudioUI::draw_viewport_frame(Scene& scene,const StudioDocumentInfo& document,EntityId viewport_camera) {
