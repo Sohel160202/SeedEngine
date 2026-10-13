@@ -213,6 +213,10 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
             if (ImGui::MenuItem("Door")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="door"});
             if (ImGui::MenuItem("NPC with Dialogue")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="npc"});
             if (ImGui::MenuItem("Quest")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="quest"});
+            ImGui::Separator();
+            if (ImGui::MenuItem("Simulation Shop")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_shop"});
+            if (ImGui::MenuItem("Simulation Product")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_product"});
+            if (ImGui::MenuItem("Customer Order")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="simulation_order"});
             ImGui::EndMenu();
         }
         ImGui::EndMenu();
