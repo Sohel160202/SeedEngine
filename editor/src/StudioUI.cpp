@@ -797,26 +797,61 @@ void StudioUI::draw_assets_panel(Scene& scene, const StudioDocumentInfo& documen
             }
             if(!document.project_prefabs.empty()){
                 ImGui::SeparatorText("Beginner Prefabs");
-                ImGui::TextDisabled("Click to place. Drag onto the viewport to place at the scene origin.");
+                ImGui::TextDisabled("Click Place or drag a card into the viewport.");
+                const char* categories[] = {
+                    "All", "Simulation Kits", "Supermarket", "Card Shop",
+                    "Restaurant", "Game Store", "Core Gameplay"
+                };
+                ImGui::Combo("Category", &m_prefab_category_filter, categories, 7);
+                const auto prefab_category = [](const std::string& key) {
+                    if(key.find("Supermarket") != std::string::npos) return 2;
+                    if(key.find("CardShop") != std::string::npos) return 3;
+                    if(key.find("Restaurant") != std::string::npos) return 4;
+                    if(key.find("GameStore") != std::string::npos) return 5;
+                    if(key.find("StarterShop") != std::string::npos) return 1;
+                    return 6;
+                };
+                const auto prefab_description = [](const std::string& key) {
+                    if(key.find("StarterShop") != std::string::npos) return "Complete shop kit with stock, customers, checkout, staff, and starter rules.";
+                    if(key.find("Shelf") != std::string::npos) return "Reusable display station with a restocking interaction.";
+                    if(key.find("Product") != std::string::npos) return "Sellable product definition with genre pricing and category data.";
+                    if(key.find("Checkout") != std::string::npos) return "Checkout or service station with staffing requirements.";
+                    if(key.find("Cashier") != std::string::npos) return "Hireable staff candidate ready for a checkout station.";
+                    if(key.find("Customer") != std::string::npos) return "Customer template with behavior and a starter order.";
+                    if(key.find("Player") != std::string::npos) return "Ready-to-use player with camera and controls.";
+                    if(key.find("Enemy") != std::string::npos) return "Enemy preset with health, attack, and AI.";
+                    if(key == "Pickup") return "Collectible item with inventory interaction.";
+                    if(key == "Door") return "Interactable door with collision.";
+                    if(key == "NPC_Dialogue") return "NPC with a starter two-line dialogue.";
+                    if(key == "Quest") return "Starter quest objective.";
+                    return "Reusable Seed gameplay object.";
+                };
+                const auto prefab_icon = [](int category) {
+                    return category == 2 ? "[G]" : category == 3 ? "[C]" : category == 4 ? "[R]" :
+                           category == 5 ? "[G]" : category == 1 ? "[KIT]" : "[OBJ]";
+                };
                 for(const auto& prefab_path : document.project_prefabs){
                     const std::filesystem::path path(prefab_path);
                     const std::string key = path.stem().string();
-                    const char* description = "Reusable Seed object.";
-                    if(key.find("Player") != std::string::npos) description = "Ready-to-use player with camera and controls.";
-                    else if(key.find("Enemy") != std::string::npos) description = "Enemy preset with health, attack, and AI.";
-                    else if(key == "Pickup") description = "Collectible item with inventory interaction.";
-                    else if(key == "Door") description = "Interactable door with collision.";
-                    else if(key == "NPC_Dialogue") description = "NPC with a starter two-line dialogue.";
-                    else if(key == "Quest") description = "Starter quest objective.";
+                    const int category = prefab_category(key);
+                    if(m_prefab_category_filter != 0 && m_prefab_category_filter != category) continue;
                     ImGui::PushID(prefab_path.c_str());
+                    ImGui::BeginGroup();
+                    ImGui::Button(prefab_icon(category), {52.0f, 34.0f});
+                    ImGui::SameLine();
+                    ImGui::BeginGroup();
                     if(ImGui::Button(("Place " + key).c_str(), {-1, 0}))
                         queue_action({.type=StudioActionType::InstantiatePrefab, .path=prefab_path});
-                    ImGui::TextDisabled("%s", description);
+                    ImGui::TextDisabled("%s", prefab_description(key));
+                    ImGui::TextDisabled("%s", path.parent_path().generic_string().c_str());
+                    ImGui::EndGroup();
+                    ImGui::EndGroup();
                     if(ImGui::BeginDragDropSource()){
                         ImGui::SetDragDropPayload("SEED_PREFAB", prefab_path.c_str(), prefab_path.size()+1);
                         ImGui::Text("Place %s", key.c_str());
                         ImGui::EndDragDropSource();
                     }
+                    ImGui::Separator();
                     ImGui::PopID();
                 }
             }
