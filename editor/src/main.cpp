@@ -24,6 +24,7 @@
 #include "seed/render/SkinnedShaders.h"
 #include "seed/scene/SceneDiff.h"
 #include "seed/simulation/SimulationComponents.h"
+#include "seed/simulation/SimulationSystem.h"
 
 #include <algorithm>
 #include <array>
@@ -1610,6 +1611,14 @@ int main(int argc, char** argv) {
         if (stop_requested) stop_play_mode();
 
         if (playing) {
+            play_scene.for_each<seed::SimulationClockComponent>(
+                [&](seed::EntityId, seed::SimulationClockComponent& clock) {
+                    seed::SimulationSystem::advance_clock(
+                        clock,
+                        static_cast<float>(engine.delta_seconds())
+                    );
+                }
+            );
             auto& gameplay_events = engine.gameplay_events();
             gameplay.update(play_scene, engine.delta_seconds(), &gameplay_events);
             seed::AnimationSystem::update_scene(
