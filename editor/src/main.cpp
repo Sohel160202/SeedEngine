@@ -383,7 +383,7 @@ seed::EntityId create_beginner_preset(
         seed::CustomerOrderComponent order;
         order.order_id = "order-1";
         order.customer_name = "Customer";
-        order.lines = {{"coffee", 1, 5.0f}};
+        order.lines = {{"coffee", 1, 0, 5.0f}};
         scene.add_component<seed::CustomerOrderComponent>(entity, order);
         return entity;
     }
