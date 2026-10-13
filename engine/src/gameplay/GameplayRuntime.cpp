@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 namespace seed {
 namespace {
@@ -100,10 +101,32 @@ void update_customers(
     const bool shop_open = hours == nullptr || clock == nullptr ||
         SimulationSystem::is_shop_open(*hours, *clock);
 
+    std::vector<EntityId> queued_customers;
+    scene.for_each<CustomerBehaviorComponent, CustomerOrderComponent>(
+        [&](EntityId entity, CustomerBehaviorComponent& customer, CustomerOrderComponent&) {
+            if (!customer.enabled) return;
+            if (customer.state == "arriving" ||
+                customer.state == "queued" ||
+                customer.state == "shopping") {
+                queued_customers.push_back(entity);
+            }
+        }
+    );
+    std::sort(queued_customers.begin(), queued_customers.end());
+
     scene.for_each<CustomerBehaviorComponent, CustomerOrderComponent>(
         [&](EntityId customer_entity, CustomerBehaviorComponent& customer,
             CustomerOrderComponent& order) {
             if (!customer.enabled) return;
+
+            const auto queue_it = std::find(
+                queued_customers.begin(),
+                queued_customers.end(),
+                customer_entity
+            );
+            const std::size_t queue_position = queue_it == queued_customers.end()
+                ? queued_customers.size()
+                : static_cast<std::size_t>(queue_it - queued_customers.begin());
 
             auto move_customer_toward = [&](const Vec3& target) {
                 auto* transform = scene.get_component<TransformComponent>(customer_entity);
@@ -167,15 +190,24 @@ void update_customers(
             }
 
             if (customer.state == "arriving") {
-                if (!move_customer_toward({0.0f, 0.9f, -1.0f})) return;
+                const float queue_z = -1.0f - static_cast<float>(queue_position) * 0.9f;
+                if (!move_customer_toward({0.0f, 0.9f, queue_z})) return;
+                customer.state = "queued";
+                customer.timer_seconds = 0.0f;
+                status_message = order.customer_name + " joined the queue.";
+                return;
+            }
+
+            if (customer.state == "queued") {
+                if (queue_position != 0) return;
+                if (!move_customer_toward({0.0f, 0.9f, -0.2f})) return;
                 customer.state = "shopping";
                 customer.timer_seconds = 0.0f;
-                status_message = order.customer_name + " is browsing.";
+                status_message = order.customer_name + " reached checkout.";
                 return;
             }
 
             if (customer.state == "shopping") {
-                if (!move_customer_toward({0.0f, 0.9f, -0.2f})) return;
                 if (customer.timer_seconds < customer.shopping_duration_seconds) return;
                 customer.timer_seconds = 0.0f;
 
