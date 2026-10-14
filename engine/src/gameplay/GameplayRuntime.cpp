@@ -123,6 +123,18 @@ void update_customers(
         1,
         capacity == nullptr ? 3 : capacity->max_queue_length
     );
+
+    Vec3 queue_anchor{0.0f, 0.9f, -1.0f};
+    float queue_spacing = 0.9f;
+    bool authored_queue = false;
+    scene.for_each<TransformComponent, TriggerVolumeComponent, InteractableComponent>(
+        [&](EntityId, TransformComponent& transform, TriggerVolumeComponent&, InteractableComponent& interactable) {
+            if (authored_queue || interactable.prompt != "Join Customer Queue") return;
+            queue_anchor = transform.position;
+            queue_anchor.y += 0.55f;
+            authored_queue = true;
+        }
+    );
     const int simulation_day = clock == nullptr ? 1 : std::max(1, clock->day);
     const float growth_multiplier = capacity == nullptr
         ? 1.0f
@@ -434,8 +446,13 @@ void update_customers(
                     customer.timer_seconds = 0.0f;
                     return;
                 }
-                const float queue_z = -1.0f - static_cast<float>(queue_position) * 0.9f;
-                if (!move_customer_toward({0.0f, 0.9f, queue_z})) return;
+                const float queue_offset = static_cast<float>(queue_position) * queue_spacing;
+                const Vec3 queue_target{
+                    queue_anchor.x,
+                    queue_anchor.y,
+                    queue_anchor.z - queue_offset
+                };
+                if (!move_customer_toward(queue_target)) return;
                 customer.state = "queued";
                 customer.timer_seconds = 0.0f;
                 status_message = order.customer_name + " joined the queue.";
