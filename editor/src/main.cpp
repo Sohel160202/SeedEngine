@@ -576,6 +576,64 @@ seed::EntityId create_beginner_preset(
         return entity;
     }
 
+    if (preset == "shop_setup") {
+        const auto shop = create_beginner_preset(
+            scene,
+            "supermarket_shop_kit",
+            editor_camera,
+            cube_mesh,
+            shader
+        );
+        const std::string shop_parent_id = scene.entity_persistent_id(shop);
+        const auto parent_to_shop = [&](seed::EntityId child) {
+            if (child != seed::InvalidEntity) {
+                scene.add_component<seed::ParentComponent>(
+                    child,
+                    seed::ParentComponent{shop_parent_id}
+                );
+            }
+        };
+
+        parent_to_shop(create_beginner_preset(scene, "shop_floor", editor_camera, cube_mesh, shader));
+        parent_to_shop(create_beginner_preset(scene, "shop_wall", editor_camera, cube_mesh, shader));
+        parent_to_shop(create_beginner_preset(scene, "shop_entrance", editor_camera, cube_mesh, shader));
+        parent_to_shop(create_beginner_preset(scene, "shop_customer_queue", editor_camera, cube_mesh, shader));
+        parent_to_shop(create_beginner_preset(scene, "shop_customer_spawn", editor_camera, cube_mesh, shader));
+        parent_to_shop(create_beginner_preset(scene, "shop_lighting", editor_camera, cube_mesh, shader));
+
+        seed::EntityId checkout = seed::InvalidEntity;
+        scene.for_each<seed::CheckoutStationComponent>(
+            [&](seed::EntityId entity, seed::CheckoutStationComponent&) {
+                if (checkout == seed::InvalidEntity) checkout = entity;
+            }
+        );
+        if (checkout != seed::InvalidEntity) {
+            if (!scene.has_component<seed::TriggerVolumeComponent>(checkout)) {
+                seed::TriggerVolumeComponent trigger;
+                trigger.radius = 2.0f;
+                scene.add_component<seed::TriggerVolumeComponent>(checkout, trigger);
+            }
+            if (!scene.has_component<seed::GameplayRulesComponent>(checkout)) {
+                seed::GameplayRulesComponent checkout_rules;
+                seed::GameplayRule checkout_enter;
+                checkout_enter.when_event = "EnterTrigger";
+                checkout_enter.action = "Publish Event";
+                checkout_enter.action_value = "CheckoutEntered";
+                checkout_rules.rules.push_back(std::move(checkout_enter));
+                seed::GameplayRule checkout_exit;
+                checkout_exit.when_event = "ExitTrigger";
+                checkout_exit.action = "Publish Event";
+                checkout_exit.action_value = "CheckoutExited";
+                checkout_rules.rules.push_back(std::move(checkout_exit));
+                scene.add_component<seed::GameplayRulesComponent>(
+                    checkout,
+                    std::move(checkout_rules)
+                );
+            }
+        }
+        return shop;
+    }
+
     const bool is_genre_preset =
         preset == "supermarket_shelf" || preset == "supermarket_product" ||
         preset == "supermarket_checkout" || preset == "supermarket_cashier" ||
@@ -894,6 +952,7 @@ void ensure_beginner_prefab_library(
         {"shop_customer_queue", "Shop_CustomerQueue.seedprefab"},
         {"shop_checkout_area", "Shop_CheckoutArea.seedprefab"},
         {"shop_trigger_area", "Shop_TriggerArea.seedprefab"},
+        {"shop_setup", "Shop_Setup.seedprefab"},
         {"supermarket_shop_kit", "Supermarket_StarterShop.seedprefab"},
         {"card_shop_shop_kit", "CardShop_StarterShop.seedprefab"},
         {"restaurant_shop_kit", "Restaurant_StarterShop.seedprefab"},
