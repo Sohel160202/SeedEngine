@@ -215,6 +215,8 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
             if (ImGui::MenuItem("Customer Queue Area")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="shop_customer_queue"});
             if (ImGui::MenuItem("Checkout Area")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="shop_checkout_area"});
             if (ImGui::MenuItem("Trigger Area")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="shop_trigger_area"});
+            ImGui::Separator();
+            if (ImGui::MenuItem("Complete Shop Setup")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="shop_setup"});
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Beginner Presets")) {
