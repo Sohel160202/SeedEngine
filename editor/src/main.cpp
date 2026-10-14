@@ -509,6 +509,18 @@ seed::EntityId create_beginner_preset(
         scene.add_component<seed::TriggerVolumeComponent>(entity, queue_trigger);
         scene.add_component<seed::BoxColliderComponent>(entity);
         scene.add_component<seed::InteractableComponent>(entity, "Join Customer Queue", true);
+        seed::GameplayRulesComponent queue_rules;
+        seed::GameplayRule queue_enter;
+        queue_enter.when_event = "EnterTrigger";
+        queue_enter.action = "Publish Event";
+        queue_enter.action_value = "CustomerQueueEntered";
+        queue_rules.rules.push_back(std::move(queue_enter));
+        seed::GameplayRule queue_exit;
+        queue_exit.when_event = "ExitTrigger";
+        queue_exit.action = "Publish Event";
+        queue_exit.action_value = "CustomerQueueExited";
+        queue_rules.rules.push_back(std::move(queue_exit));
+        scene.add_component<seed::GameplayRulesComponent>(entity, std::move(queue_rules));
         return entity;
     }
     if (preset == "shop_checkout_area") {
@@ -522,6 +534,18 @@ seed::EntityId create_beginner_preset(
         scene.add_component<seed::TriggerVolumeComponent>(entity, checkout_trigger);
         scene.add_component<seed::BoxColliderComponent>(entity);
         scene.add_component<seed::InteractableComponent>(entity, "Open Checkout", true);
+        seed::GameplayRulesComponent checkout_rules;
+        seed::GameplayRule checkout_enter;
+        checkout_enter.when_event = "EnterTrigger";
+        checkout_enter.action = "Publish Event";
+        checkout_enter.action_value = "CheckoutEntered";
+        checkout_rules.rules.push_back(std::move(checkout_enter));
+        seed::GameplayRule checkout_exit;
+        checkout_exit.when_event = "ExitTrigger";
+        checkout_exit.action = "Publish Event";
+        checkout_exit.action_value = "CheckoutExited";
+        checkout_rules.rules.push_back(std::move(checkout_exit));
+        scene.add_component<seed::GameplayRulesComponent>(entity, std::move(checkout_rules));
         return entity;
     }
 
@@ -536,6 +560,18 @@ seed::EntityId create_beginner_preset(
         trigger.fire_once = false;
         scene.add_component<seed::TriggerVolumeComponent>(entity, trigger);
         scene.add_component<seed::BoxColliderComponent>(entity);
+        seed::GameplayRulesComponent area_rules;
+        seed::GameplayRule area_enter;
+        area_enter.when_event = "EnterTrigger";
+        area_enter.action = "Publish Event";
+        area_enter.action_value = "AreaEntered";
+        area_rules.rules.push_back(std::move(area_enter));
+        seed::GameplayRule area_exit;
+        area_exit.when_event = "ExitTrigger";
+        area_exit.action = "Publish Event";
+        area_exit.action_value = "AreaExited";
+        area_rules.rules.push_back(std::move(area_exit));
+        scene.add_component<seed::GameplayRulesComponent>(entity, std::move(area_rules));
         return entity;
     }
 
