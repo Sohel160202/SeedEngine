@@ -196,6 +196,7 @@ The simulation foundation currently includes:
 - reusable Trigger Area preset with EnterTrigger and ExitTrigger rule events
 - shop presets include starter rules publishing CustomerQueueEntered, CheckoutEntered, and area enter/exit events
 - Checkout Area can automatically process the first waiting customer when the player enters it
+- Customer Queue Area placement controls the actual in-world queue anchor; customer spawning remains gated by Shop Hours
 - viewport transform snapping with configurable move, rotate, and scale increments
 - automatic copying of starter assets into project `Assets/SeedStarterPack`
 - static and animated GLTF/GLB asset import with runtime resource binding
