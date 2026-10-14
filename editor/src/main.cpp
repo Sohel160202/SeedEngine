@@ -532,6 +532,7 @@ seed::EntityId create_beginner_preset(
         seed::TriggerVolumeComponent checkout_trigger;
         checkout_trigger.radius = 2.0f;
         scene.add_component<seed::TriggerVolumeComponent>(entity, checkout_trigger);
+        scene.add_component<seed::CheckoutStationComponent>(entity);
         scene.add_component<seed::BoxColliderComponent>(entity);
         scene.add_component<seed::InteractableComponent>(entity, "Open Checkout", true);
         seed::GameplayRulesComponent checkout_rules;

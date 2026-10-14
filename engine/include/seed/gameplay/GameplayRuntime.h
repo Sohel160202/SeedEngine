@@ -52,6 +52,7 @@ private:
     void update_quests(Scene& scene);
     void perform_attack(Scene& scene, GameplayEventBus* event_bus);
     void update_enemies(Scene& scene, double delta_seconds, GameplayEventBus* event_bus);
+    void consume_shop_events(Scene& scene, GameplayEventBus* event_bus);
     void update_triggers(Scene& scene, GameplayEventBus* event_bus);
     void advance_dialogue(Scene& scene, int choice_index = -1);
     void present_dialogue_line(Scene& scene);
