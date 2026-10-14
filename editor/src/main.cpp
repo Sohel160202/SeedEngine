@@ -504,6 +504,9 @@ seed::EntityId create_beginner_preset(
             transform->position = {0.0f, 0.35f, 3.0f};
             transform->scale = {2.5f, 0.35f, 0.8f};
         }
+        seed::TriggerVolumeComponent queue_trigger;
+        queue_trigger.radius = 2.5f;
+        scene.add_component<seed::TriggerVolumeComponent>(entity, queue_trigger);
         scene.add_component<seed::BoxColliderComponent>(entity);
         scene.add_component<seed::InteractableComponent>(entity, "Join Customer Queue", true);
         return entity;
@@ -514,8 +517,25 @@ seed::EntityId create_beginner_preset(
             transform->position = {2.5f, 0.45f, 0.8f};
             transform->scale = {1.8f, 0.45f, 0.9f};
         }
+        seed::TriggerVolumeComponent checkout_trigger;
+        checkout_trigger.radius = 2.0f;
+        scene.add_component<seed::TriggerVolumeComponent>(entity, checkout_trigger);
         scene.add_component<seed::BoxColliderComponent>(entity);
         scene.add_component<seed::InteractableComponent>(entity, "Open Checkout", true);
+        return entity;
+    }
+
+    if (preset == "shop_trigger_area") {
+        const auto entity = create_cube(scene, cube_mesh, shader, "Shop Trigger Area");
+        if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+            transform->position = {0.0f, 0.5f, 2.0f};
+            transform->scale = {2.5f, 0.5f, 1.5f};
+        }
+        seed::TriggerVolumeComponent trigger;
+        trigger.radius = 2.5f;
+        trigger.fire_once = false;
+        scene.add_component<seed::TriggerVolumeComponent>(entity, trigger);
+        scene.add_component<seed::BoxColliderComponent>(entity);
         return entity;
     }
 
@@ -836,6 +856,7 @@ void ensure_beginner_prefab_library(
         {"shop_lighting", "Shop_Lighting.seedprefab"},
         {"shop_customer_queue", "Shop_CustomerQueue.seedprefab"},
         {"shop_checkout_area", "Shop_CheckoutArea.seedprefab"},
+        {"shop_trigger_area", "Shop_TriggerArea.seedprefab"},
         {"supermarket_shop_kit", "Supermarket_StarterShop.seedprefab"},
         {"card_shop_shop_kit", "CardShop_StarterShop.seedprefab"},
         {"restaurant_shop_kit", "Restaurant_StarterShop.seedprefab"},
