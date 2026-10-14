@@ -115,7 +115,8 @@ Current capabilities include:
 - transform gizmos
 - entity create / duplicate / delete
 - imported asset workflow
-- Assets panel
+- categorized prefab browser with descriptions and drag-and-drop placement
+- Assets panel with project assets, starter GLTF models, and prefab categories
 - project/scene open-save flow
 - dirty-state tracking
 - Play / Stop using a cloned runtime Scene
@@ -172,24 +173,14 @@ Seed’s first product focus is the simulation game genre. The engine is being s
 
 The simulation foundation currently includes:
 
-- product definitions with prices
-- shop inventory and stock quantities
-- wallet, revenue and expense tracking
-- shop hours and simulation time
-- customer orders and fulfillment progress
-- automatic customer arrivals
-- visible customer movement
-- reusable customer capacity limits
-- dynamic customer spawning from reusable templates
-- population caps and configurable spawn intervals
-- queue-length limits and upgrade-based customer growth
-- day-based demand growth for management progression
-- deterministic checkout queues
-- multi-counter checkout capacity with configurable service speed
-- reusable staff workers with roles and work-speed modifiers
+- product definitions with genre-specific prices and categories
+- shop inventory, stock quantities, capacity, and restocking
+- wallet, revenue, expense, and business metrics
+- shop hours, simulation clock, day progression, and demand growth
+- customer orders, fulfillment progress, arrivals, movement, and queue behavior
+- deterministic checkout queues with multi-counter capacity
+- reusable staff workers, roles, shifts, payroll, hiring, and upgrades
 - station staffing requirements and worker assignments
-- worker shifts, daily payroll, and staffing-based availability
-- hiring limits, candidate workers, and skill upgrades
 - visual Staff & Stations roster for assignments, shifts, and wage costs
 - visual Products & Stock panel for prices, capacity, and restocking
 - visual Customers & Orders panel for queues, demand, and order progress
@@ -197,14 +188,13 @@ The simulation foundation currently includes:
 - simulation-aware no-code Rules with customer, stock, money, and progression events
 - one-click Shop Starter Rules and Low Stock Rule presets
 - reusable genre preset libraries for shelves, products, checkout stations, staff, customers, and rule packs
-- auto-generated genre prefab library with reusable individual parts and complete starter shops
+- complete reusable starter-shop prefabs for supermarkets, card shops, restaurants, and game stores
 - categorized visual prefab browser with descriptions, one-click placement, and viewport drag-and-drop
-- original Seed Starter Asset Pack with GLTF shelves, counters, registers, baskets, product displays, and genre props
-- one-click full starter shop kits for supermarkets, card shops, restaurants, and game stores
-- genre starter templates for supermarkets, card shops, restaurants, and game stores
-- customer purchases and order-completion events
-- restocking interactions
-- a working Shop Simulator starter template
+- original Seed Starter Asset Pack with self-contained GLTF shelves, counters, registers, baskets, and product props
+- automatic copying of starter assets into project `Assets/SeedStarterPack`
+- static and animated GLTF/GLB asset import with runtime resource binding
+- customer purchases, payment events, order completion, and restocking interactions
+- one-click Shop Simulator, Supermarket, Card Shop, Restaurant, and Game Store templates
 - simulation data saved in Seed scenes
 
 The current reference project is a small shop simulation where a beginner can place products, restock the shop, observe customers queue and purchase items, and monitor the business HUD.
@@ -422,43 +412,35 @@ See `docs/BEGINNER_WORKFLOW.md` for the complete no-code creator workflow.
 
 ## Current direction
 
-Seed is now well past the empty-engine stage. It has its own desktop applications, editor, renderer, project/scene formats, asset import, gameplay authoring, first/third-person controllers, character collision, camera collision, animation, simulation components, customer behavior, checkout queues, HUD state, save slots, and a standalone export path.
+Seed is now a working simulation-focused engine foundation rather than an empty renderer prototype. It includes a visual editor, project and scene formats, gameplay authoring, first- and third-person controllers, physics, static and animated GLTF/GLB import, reusable prefabs, shop simulation systems, no-code rules, starter templates, and original starter assets.
 
-The next product milestone is the **Seed Simulation Kit**: a beginner can create a small, complete simulation game without writing engine code.
+The current product milestone is the **Seed Simulation Kit**: a beginner should be able to assemble a small shop or management game by choosing a template, placing prefabs, assigning assets, authoring readable rules, pressing Play, and exporting the result without writing engine code.
 
 ## Simulation Kit roadmap
 
-The roadmap is intentionally focused:
+1. **Beginner simulation core — active foundation**
+   Variables, simulation events, conditions, actions, stock, money, customers, orders, staff, checkout, upgrades, and progression rules are implemented. More beginner-friendly rule authoring remains.
 
-1. **Beginner simulation core** — variables, conditions, events and actions for stock, money, customers, orders and progression.
-2. **Reusable prefabs** — Player, Customer, Product, Pickup, Door, Checkout, NPC and shop stations.
-3. **Asset workflow** — drag-and-drop GLTF/GLB assets, thumbnails, previews and animation assignment.
-4. **World-building tools** — grid snapping, collections, trigger volumes, navigation, spawn points and lighting presets.
-5. **No-code game systems** — UI, dialogue, inventory, quests, objectives, audio, level transitions, save slots and victory/game-over flows.
-6. **Build and export** — project settings, validation, asset packaging and one-click desktop builds.
-7. **Dogfooding** — build a complete small shop simulator entirely inside Seed Studio.
+2. **Reusable prefabs — foundation implemented**
+   Seed can generate, save, instantiate, refresh, categorize, and drag-and-drop reusable gameplay prefabs. The next improvement is richer prefab previews and editing.
+
+3. **Asset workflow — foundation implemented**
+   Static and animated GLTF/GLB import, runtime binding, project asset discovery, original Seed starter assets, and asset assignment are working. Next: thumbnails, material previews, animation assignment, and a stronger character workflow.
+
+4. **World-building tools — next major phase**
+   Grid snapping, scene collections, trigger volumes, spawn points, navigation, lighting presets, and modular environment authoring.
+
+5. **No-code game systems**
+   UI, dialogue, inventory, quests, objectives, audio, level transitions, save slots, and victory/game-over flows.
+
+6. **Build and export**
+   Project settings, validation, asset packaging, platform profiles, and one-click desktop builds.
+
+7. **Dogfooding**
+   Build a complete presentable shop simulator entirely inside Seed Studio using only the beginner-facing systems.
 
 The previous adventure scene remains useful as a general engine smoke scene, but the primary reference project is now the Shop Simulator template.
 
-## v0.1 product target
-
-A complete beginner should be able to create a small, presentable simulation or management game without writing code.
-
-The first complete vertical slice is growing toward:
-
-- Player preset
-- Customer preset with queue behavior
-- Product and stock setup
-- Shop inventory and wallet
-- Checkout interaction
-- order fulfillment
-- restocking
-- simulation HUD
-- dialogue and simple quests
-- save-game support
-- build/export
-- one complete shop simulator authored through Seed Studio
-
 ## Status
 
-**Pre-alpha — independent 3D engine + visual editor + gameplay runtime + physics + Third-Person Player + static/animated glTF CPU asset pipeline.**
+**Pre-alpha — independent simulation-focused 3D engine with visual authoring, reusable prefabs, GLTF/GLB assets, shop gameplay systems, no-code rules, starter templates, and cross-platform CI builds.**
