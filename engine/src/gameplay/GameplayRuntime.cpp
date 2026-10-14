@@ -712,6 +712,7 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBu
         m_begin_play_published = true;
     }
 
+    consume_shop_events(scene, event_bus);
     update_player(scene, delta_seconds, event_bus);
     if (m_attack_requested) {
         m_attack_requested = false;
@@ -737,6 +738,28 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBu
     }
 }
 
+
+void GameplayRuntime::consume_shop_events(Scene& scene, GameplayEventBus* event_bus) {
+    if (event_bus == nullptr) return;
+
+    const std::vector<GameplayEvent> pending = event_bus->pending();
+    for (const GameplayEvent& event : pending) {
+        if (event.target_entity != m_player_entity) continue;
+
+        if (event.name == "CheckoutEntered" &&
+            scene.is_alive(event.source_entity) &&
+            scene.has_component<CheckoutStationComponent>(event.source_entity)) {
+            const EntityId previous_target = m_interaction_target;
+            m_interaction_target = event.source_entity;
+            perform_interaction(scene, event_bus);
+            m_interaction_target = previous_target;
+        } else if (event.name == "CustomerQueueEntered") {
+            m_status_message = "Customer queue is ready.";
+        } else if (event.name == "CustomerQueueExited") {
+            m_status_message = "You left the customer queue area.";
+        }
+    }
+}
 
 void GameplayRuntime::update_triggers(Scene& scene, GameplayEventBus* event_bus) {
     const auto* player_transform = scene.get_component<TransformComponent>(m_player_entity);
