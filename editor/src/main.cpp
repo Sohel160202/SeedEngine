@@ -498,6 +498,27 @@ seed::EntityId create_beginner_preset(
         return entity;
     }
 
+    if (preset == "shop_customer_queue") {
+        const auto entity = create_cube(scene, cube_mesh, shader, "Customer Queue Area");
+        if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+            transform->position = {0.0f, 0.35f, 3.0f};
+            transform->scale = {2.5f, 0.35f, 0.8f};
+        }
+        scene.add_component<seed::BoxColliderComponent>(entity);
+        scene.add_component<seed::InteractableComponent>(entity, "Join Customer Queue", true);
+        return entity;
+    }
+    if (preset == "shop_checkout_area") {
+        const auto entity = create_cube(scene, cube_mesh, shader, "Checkout Area");
+        if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+            transform->position = {2.5f, 0.45f, 0.8f};
+            transform->scale = {1.8f, 0.45f, 0.9f};
+        }
+        scene.add_component<seed::BoxColliderComponent>(entity);
+        scene.add_component<seed::InteractableComponent>(entity, "Open Checkout", true);
+        return entity;
+    }
+
     const bool is_genre_preset =
         preset == "supermarket_shelf" || preset == "supermarket_product" ||
         preset == "supermarket_checkout" || preset == "supermarket_cashier" ||
@@ -813,6 +834,8 @@ void ensure_beginner_prefab_library(
         {"shop_entrance", "Shop_Entrance.seedprefab"},
         {"shop_customer_spawn", "Shop_CustomerSpawn.seedprefab"},
         {"shop_lighting", "Shop_Lighting.seedprefab"},
+        {"shop_customer_queue", "Shop_CustomerQueue.seedprefab"},
+        {"shop_checkout_area", "Shop_CheckoutArea.seedprefab"},
         {"supermarket_shop_kit", "Supermarket_StarterShop.seedprefab"},
         {"card_shop_shop_kit", "CardShop_StarterShop.seedprefab"},
         {"restaurant_shop_kit", "Restaurant_StarterShop.seedprefab"},
