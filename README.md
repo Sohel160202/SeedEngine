@@ -191,7 +191,11 @@ The simulation foundation currently includes:
 - complete reusable starter-shop prefabs for supermarkets, card shops, restaurants, and game stores
 - categorized visual prefab browser with descriptions, one-click placement, and viewport drag-and-drop
 - original Seed Starter Asset Pack with self-contained GLTF shelves, counters, registers, baskets, and product props
-- modular Shop Building presets for floors, walls, aisles, entrances, customer spawn points, and lighting\n- shop interaction presets for customer queue and checkout areas with beginner-friendly prompts\n- reusable Trigger Area preset with EnterTrigger and ExitTrigger rule events\n- shop presets include starter rules publishing CustomerQueueEntered, CheckoutEntered, and area enter/exit events\n- Checkout Area can automatically process the first waiting customer when the player enters it
+- modular Shop Building presets for floors, walls, aisles, entrances, customer spawn points, and lighting
+- shop interaction presets for customer queue and checkout areas with beginner-friendly prompts
+- reusable Trigger Area preset with EnterTrigger and ExitTrigger rule events
+- shop presets include starter rules publishing CustomerQueueEntered, CheckoutEntered, and area enter/exit events
+- Checkout Area can automatically process the first waiting customer when the player enters it
 - viewport transform snapping with configurable move, rotate, and scale increments
 - automatic copying of starter assets into project `Assets/SeedStarterPack`
 - static and animated GLTF/GLB asset import with runtime resource binding
