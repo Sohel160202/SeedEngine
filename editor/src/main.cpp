@@ -441,6 +441,63 @@ seed::EntityId create_beginner_preset(
         return entity;
     }
 
+    if (preset == "shop_floor") {
+        const auto entity = create_cube(scene, cube_mesh, shader, "Shop Floor");
+        if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+            transform->position = {0.0f, -0.05f, 0.0f};
+            transform->scale = {8.0f, 0.1f, 8.0f};
+        }
+        scene.add_component<seed::BoxColliderComponent>(entity);
+        return entity;
+    }
+    if (preset == "shop_wall") {
+        const auto entity = create_cube(scene, cube_mesh, shader, "Shop Wall");
+        if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+            transform->position = {0.0f, 1.5f, -4.0f};
+            transform->scale = {8.0f, 1.5f, 0.15f};
+        }
+        scene.add_component<seed::BoxColliderComponent>(entity);
+        return entity;
+    }
+    if (preset == "shop_aisle") {
+        const auto entity = create_cube(scene, cube_mesh, shader, "Shop Aisle");
+        if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+            transform->position = {0.0f, 0.9f, 0.0f};
+            transform->scale = {1.8f, 1.8f, 0.35f};
+        }
+        use_starter_asset(scene, entity, "shop_shelf.gltf");
+        scene.add_component<seed::BoxColliderComponent>(entity);
+        return entity;
+    }
+    if (preset == "shop_entrance") {
+        const auto entity = create_cube(scene, cube_mesh, shader, "Shop Entrance");
+        if (auto* transform = scene.get_component<seed::TransformComponent>(entity)) {
+            transform->position = {0.0f, 1.25f, 4.0f};
+            transform->scale = {2.4f, 2.5f, 0.2f};
+        }
+        scene.add_component<seed::InteractableComponent>(entity, "Enter Shop", true);
+        scene.add_component<seed::BoxColliderComponent>(entity);
+        return entity;
+    }
+    if (preset == "shop_customer_spawn") {
+        const auto entity = scene.create_entity("Customer Spawn Point");
+        seed::TransformComponent transform;
+        transform.position = {0.0f, 0.0f, 5.5f};
+        scene.add_component<seed::TransformComponent>(entity, transform);
+        seed::SpawnPointComponent spawn;
+        spawn.spawn_tag = "Customer";
+        scene.add_component<seed::SpawnPointComponent>(entity, spawn);
+        return entity;
+    }
+    if (preset == "shop_lighting") {
+        const auto entity = scene.create_entity("Shop Lighting");
+        seed::TransformComponent transform;
+        transform.rotation_degrees = {-48.0f, 32.0f, 0.0f};
+        scene.add_component<seed::TransformComponent>(entity, transform);
+        scene.add_component<seed::DirectionalLightComponent>(entity);
+        return entity;
+    }
+
     const bool is_genre_preset =
         preset == "supermarket_shelf" || preset == "supermarket_product" ||
         preset == "supermarket_checkout" || preset == "supermarket_cashier" ||
@@ -750,6 +807,12 @@ void ensure_beginner_prefab_library(
         {"door", "Door.seedprefab"},
         {"npc", "NPC_Dialogue.seedprefab"},
         {"quest", "Quest.seedprefab"},
+        {"shop_floor", "Shop_Floor.seedprefab"},
+        {"shop_wall", "Shop_Wall.seedprefab"},
+        {"shop_aisle", "Shop_Aisle.seedprefab"},
+        {"shop_entrance", "Shop_Entrance.seedprefab"},
+        {"shop_customer_spawn", "Shop_CustomerSpawn.seedprefab"},
+        {"shop_lighting", "Shop_Lighting.seedprefab"},
         {"supermarket_shop_kit", "Supermarket_StarterShop.seedprefab"},
         {"card_shop_shop_kit", "CardShop_StarterShop.seedprefab"},
         {"restaurant_shop_kit", "Restaurant_StarterShop.seedprefab"},

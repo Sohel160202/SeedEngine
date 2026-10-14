@@ -205,6 +205,15 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         if (ImGui::BeginMenu("Light")) { if (ImGui::MenuItem("Directional Light")) queue_action({.type=StudioActionType::CreateDirectionalLight}); if (ImGui::MenuItem("Ambient Light")) queue_action({.type=StudioActionType::CreateAmbientLight}); ImGui::EndMenu(); }
         if (ImGui::BeginMenu("Player")) { if (ImGui::MenuItem("First Person")) queue_action({.type=StudioActionType::CreateFirstPersonPlayer}); if (ImGui::MenuItem("Third Person")) queue_action({.type=StudioActionType::CreateThirdPersonPlayer}); ImGui::EndMenu(); }
         ImGui::Separator();
+        if (ImGui::BeginMenu("Shop Building")) {
+            if (ImGui::MenuItem("Shop Floor")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="shop_floor"});
+            if (ImGui::MenuItem("Shop Wall")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="shop_wall"});
+            if (ImGui::MenuItem("Shop Aisle")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="shop_aisle"});
+            if (ImGui::MenuItem("Shop Entrance")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="shop_entrance"});
+            if (ImGui::MenuItem("Customer Spawn Point")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="shop_customer_spawn"});
+            if (ImGui::MenuItem("Shop Lighting")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="shop_lighting"});
+            ImGui::EndMenu();
+        }
         if (ImGui::BeginMenu("Beginner Presets")) {
             if (ImGui::MenuItem("Player — First Person")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="player_first"});
             if (ImGui::MenuItem("Player — Third Person")) queue_action({.type=StudioActionType::CreateBeginnerPreset,.path="player_third"});

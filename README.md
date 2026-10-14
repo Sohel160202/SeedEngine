@@ -191,6 +191,8 @@ The simulation foundation currently includes:
 - complete reusable starter-shop prefabs for supermarkets, card shops, restaurants, and game stores
 - categorized visual prefab browser with descriptions, one-click placement, and viewport drag-and-drop
 - original Seed Starter Asset Pack with self-contained GLTF shelves, counters, registers, baskets, and product props
+- modular Shop Building presets for floors, walls, aisles, entrances, customer spawn points, and lighting
+- viewport transform snapping with configurable move, rotate, and scale increments
 - automatic copying of starter assets into project `Assets/SeedStarterPack`
 - static and animated GLTF/GLB asset import with runtime resource binding
 - customer purchases, payment events, order completion, and restocking interactions
@@ -427,8 +429,8 @@ The current product milestone is the **Seed Simulation Kit**: a beginner should 
 3. **Asset workflow — foundation implemented**
    Static and animated GLTF/GLB import, runtime binding, project asset discovery, original Seed starter assets, and asset assignment are working. Next: thumbnails, material previews, animation assignment, and a stronger character workflow.
 
-4. **World-building tools — next major phase**
-   Grid snapping, scene collections, trigger volumes, spawn points, navigation, lighting presets, and modular environment authoring.
+4. **World-building tools — active phase**
+   Transform snapping and modular Shop Building presets are implemented. Next: scene collections, trigger volumes, navigation, spawn-point authoring, and richer lighting presets.
 
 5. **No-code game systems**
    UI, dialogue, inventory, quests, objectives, audio, level transitions, save slots, and victory/game-over flows.
