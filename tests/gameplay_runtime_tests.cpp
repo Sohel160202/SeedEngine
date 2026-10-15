@@ -95,6 +95,15 @@ int main() {
         clock.day = 1;
         clock.hour = 23.5f;
         scene.add_component<seed::SimulationClockComponent>(shop, clock);
+        seed::ShopMetricsComponent metrics;
+        metrics.tracked_day = 1;
+        metrics.customers_served_today = 4;
+        metrics.orders_completed_today = 3;
+        metrics.products_sold_today = 7;
+        metrics.daily_revenue = 80.0f;
+        metrics.daily_satisfaction = 60.0f;
+        metrics.satisfaction_samples = 2;
+        scene.add_component<seed::ShopMetricsComponent>(shop, metrics);
 
         seed::GameplayRuntime runtime;
         assert(runtime.start(scene, player));
@@ -104,6 +113,15 @@ int main() {
         assert(advanced != nullptr);
         assert(advanced->day == 2);
         assert(nearly_equal(advanced->hour, 0.5f));
+        const auto* reset_metrics = scene.get_component<seed::ShopMetricsComponent>(shop);
+        assert(reset_metrics != nullptr);
+        assert(reset_metrics->tracked_day == 2);
+        assert(reset_metrics->customers_served_today == 0);
+        assert(reset_metrics->orders_completed_today == 0);
+        assert(reset_metrics->products_sold_today == 0);
+        assert(nearly_equal(reset_metrics->daily_revenue, 0.0f));
+        assert(nearly_equal(reset_metrics->daily_satisfaction, 100.0f));
+        assert(reset_metrics->satisfaction_samples == 0);
     }
 
     {

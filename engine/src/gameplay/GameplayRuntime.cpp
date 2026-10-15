@@ -778,8 +778,21 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBu
 
     const float dt = static_cast<float>(std::max(0.0, delta_seconds));
     scene.for_each<SimulationClockComponent>(
-        [&](EntityId, SimulationClockComponent& clock) {
+        [&](EntityId shop_entity, SimulationClockComponent& clock) {
+            const int previous_day = clock.day;
             SimulationSystem::advance_clock(clock, dt);
+            if (clock.day == previous_day) return;
+
+            if (auto* metrics = scene.get_component<ShopMetricsComponent>(shop_entity)) {
+                metrics->tracked_day = clock.day;
+                metrics->customers_served_today = 0;
+                metrics->orders_completed_today = 0;
+                metrics->products_sold_today = 0;
+                metrics->daily_revenue = 0.0f;
+                metrics->daily_satisfaction = 100.0f;
+                metrics->satisfaction_samples = 0;
+            }
+            m_status_message = "Day " + std::to_string(clock.day) + " started.";
         }
     );
 
