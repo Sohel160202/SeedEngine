@@ -2630,6 +2630,7 @@ int main(int argc, char** argv) {
                     asset_runtime.set_project_root(workspace.project_file.parent_path());
                     ensure_beginner_asset_library(workspace.project_file.parent_path());
                     ensure_beginner_prefab_library(workspace.project_file.parent_path(), cube_mesh, mesh_shader);
+                    studio_ui.remember_recent_project(workspace.project_file.string(), workspace.project_file.stem().string());
                     workspace.status_message = "Created project with beginner prefab library.";
                 }
                 break;
@@ -2686,6 +2687,7 @@ int main(int argc, char** argv) {
                     ensure_beginner_asset_library(workspace.project_file.parent_path());
                     ensure_beginner_prefab_library(workspace.project_file.parent_path(), cube_mesh, mesh_shader);
                     studio_ui.select_entity(first_content_entity(scene));
+                    studio_ui.remember_recent_project(workspace.project_file.string(), workspace.project_file.stem().string());
                     clear_movement_input(camera_input);
                     camera_input.looking = false;
                 }
