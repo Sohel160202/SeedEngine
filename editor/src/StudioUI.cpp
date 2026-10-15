@@ -220,11 +220,11 @@ void StudioUI::draw_project_hub(const StudioDocumentInfo& document) {
     ImGui::TextWrapped("Create a shop, store, restaurant, or another small management game from a guided foundation.");
     ImGui::Spacing();
 
-    if (ImGui::Button("New Shop Simulator", {220.0f, 44.0f})) {
-        m_project_template_index = 4;
-        copy_text(m_project_name_buffer, "My Shop Simulator");
+    if (ImGui::Button("New Grocery Store", {220.0f, 44.0f})) {
+        m_project_template_index = 5;
+        copy_text(m_project_name_buffer, "Seed Grocery Store");
         copy_text(m_project_folder_buffer, "SeedProjects");
-        copy_text(m_project_file_buffer, "SeedProjects/My_Shop_Simulator.seedproject");
+        copy_text(m_project_file_buffer, "SeedProjects/Seed_Grocery_Store.seedproject");
         m_show_new_project_dialog = true;
     }
     ImGui::SameLine();
@@ -257,7 +257,7 @@ void StudioUI::draw_project_hub(const StudioDocumentInfo& document) {
 
     ImGui::Spacing();
     ImGui::Separator();
-    ImGui::TextWrapped("Tip: choose New Shop Simulator to get the Complete Shop Setup foundation, then open Help > First Game Tutorial.");
+    ImGui::TextWrapped("Tip: choose New Grocery Store to start with the complete shop foundation, then open Help > First Game Tutorial.");
     ImGui::End();
 }
 
@@ -408,30 +408,33 @@ void StudioUI::draw_project_dialogs(const StudioDocumentInfo& document) {
                 "First-Person Exploration",
                 "Collect and Open",
                 "Shop Simulator",
+                "Seed Grocery Store",
                 "Supermarket Simulator",
                 "Card Shop Simulator",
                 "Restaurant Simulator",
                 "Game Store Simulator"
             };
-            ImGui::Combo("Starting Point",&m_project_template_index,templates,9);
+            ImGui::Combo("Starting Point",&m_project_template_index,templates,10);
             const char* descriptions[] = {
                 "A clean scene with a camera, light, sky, and starter cube.",
                 "A ready player, ground, lighting, health, and interaction scene.",
                 "A first-person player and exploration-ready world.",
                 "A player, collectible key, locked door, inventory, and quest.",
                 "A first-person shop with products, stock, wallet, opening hours, clock, and a customer order.",
+                "Seed's complete grocery-store dogfood project with queue and checkout flow.",
                 "A grocery shop with everyday products, customer demand, stock, and checkout.",
                 "A collectible card shop with booster packs, accessories, pricing, and customers.",
                 "A small food business with menu products, service capacity, and customer orders.",
                 "A game retailer with games, hardware accessories, staff, and checkout."
             };
-            ImGui::TextDisabled("%s",descriptions[std::clamp(m_project_template_index,0,8)]);
+            ImGui::TextDisabled("%s",descriptions[std::clamp(m_project_template_index,0,9)]);
 
             if(ImGui::Button("Create",{110,0})){
                 const char* ids[] = {
                     "empty", "third_person_adventure", "first_person_exploration",
-                    "collect_and_open", "shop_simulator", "supermarket_simulator",
-                    "card_shop_simulator", "restaurant_simulator", "game_store_simulator"
+                    "collect_and_open", "shop_simulator", "seed_grocery_store",
+                    "supermarket_simulator", "card_shop_simulator", "restaurant_simulator",
+                    "game_store_simulator"
                 };
                 queue_action({
                     .type=StudioActionType::NewProject,
