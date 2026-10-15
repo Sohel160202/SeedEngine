@@ -1586,7 +1586,14 @@ void GameplayRuntime::perform_interaction(Scene& scene, GameplayEventBus* event_
                 0.0f,
                 100.0f - static_cast<float>(std::max(0, waiting_customers - 1)) * 10.0f
             );
-            record_satisfaction(satisfaction);
+            metrics->daily_satisfaction =
+                metrics->satisfaction_samples == 0
+                    ? satisfaction
+                    : (metrics->daily_satisfaction *
+                       static_cast<float>(metrics->satisfaction_samples) +
+                       satisfaction) /
+                        static_cast<float>(metrics->satisfaction_samples + 1);
+            ++metrics->satisfaction_samples;
         }
 
         customer_order->fulfilled = true;
