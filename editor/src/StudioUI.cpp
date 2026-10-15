@@ -23,6 +23,7 @@
 #include <cctype>
 #include <cstdio>
 #include <functional>
+#include <fstream>
 #include <filesystem>
 #include <sstream>
 #include <string>
@@ -109,6 +110,18 @@ bool StudioUI::initialize(void* window_handle) {
     copy_text(m_project_file_buffer,"SeedProjects/My_Seed_Game.seedproject"); copy_text(m_import_model_file_buffer,"");
     copy_text(m_merge_base_file_buffer,"Base.seedscene"); copy_text(m_merge_ours_file_buffer,"Ours.seedscene"); copy_text(m_merge_theirs_file_buffer,"Theirs.seedscene"); copy_text(m_revision_label_buffer,"Before major change");
     copy_text(m_prefab_file_buffer,"Prefabs/ReusableEntity.seedprefab");
+    try {
+        const auto recent_file = std::filesystem::current_path() / "SeedRecentProjects.txt";
+        std::ifstream input(recent_file);
+        std::string line;
+        while (std::getline(input, line)) {
+            const auto separator = line.find('|');
+            if (separator == std::string::npos || separator + 1 >= line.size()) continue;
+            m_recent_projects.emplace_back(line.substr(0, separator), line.substr(separator + 1));
+        }
+    } catch (...) {
+        m_recent_projects.clear();
+    }
     m_initialized = true; return true;
 }
 
@@ -128,7 +141,11 @@ void StudioUI::draw(Scene& scene, const StudioDocumentInfo& document, EntityId v
 
     draw_main_menu(document);
     if (!document.playing) draw_project_dialogs(document);
-    draw_world_panel(scene); draw_inspector(scene, document); draw_assets_panel(scene, document); draw_staff_panel(scene, document); draw_viewport_frame(scene, document, viewport_camera);
+    if (!document.has_project && !document.playing) {
+        draw_project_hub(document);
+    } else {
+        draw_world_panel(scene); draw_inspector(scene, document); draw_assets_panel(scene, document); draw_staff_panel(scene, document); draw_viewport_frame(scene, document, viewport_camera);
+    }
 
     const ImGuiIO& io = ImGui::GetIO();
     if (!io.WantTextInput) {
@@ -172,6 +189,77 @@ bool StudioUI::wants_keyboard() const noexcept {
 }
 StudioUI::~StudioUI() { shutdown(); }
 void StudioUI::queue_action(StudioAction action) { if (m_pending_action.type==StudioActionType::None) m_pending_action=std::move(action); }
+
+void StudioUI::remember_recent_project(const std::string& project_file, const std::string& project_name) {
+    if (project_file.empty()) return;
+    m_recent_projects.erase(
+        std::remove_if(m_recent_projects.begin(), m_recent_projects.end(),
+            [&](const auto& entry) { return entry.second == project_file; }),
+        m_recent_projects.end());
+    m_recent_projects.insert(m_recent_projects.begin(), {project_name.empty() ? "Seed Project" : project_name, project_file});
+    if (m_recent_projects.size() > 8) m_recent_projects.resize(8);
+    try {
+        std::ofstream output(std::filesystem::current_path() / "SeedRecentProjects.txt", std::ios::trunc);
+        for (const auto& entry : m_recent_projects) output << entry.first << '|' << entry.second << '\\n';
+    } catch (...) {
+        // Recent projects are a convenience; an unwritable working directory must not block the editor.
+    }
+}
+
+void StudioUI::draw_project_hub(const StudioDocumentInfo& document) {
+    const ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.53f}, ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({760.0f, 520.0f}, ImGuiCond_Always);
+    if (!ImGui::Begin("Seed Project Hub", nullptr, fixed_panel_flags())) { ImGui::End(); return; }
+
+    ImGui::TextColored({0.35f, 0.95f, 0.52f, 1.0f}, "SEED ENGINE");
+    ImGui::SameLine();
+    ImGui::TextDisabled("Beginner-friendly simulation game creation");
+    ImGui::Spacing();
+    ImGui::Text("Start a new project");
+    ImGui::TextWrapped("Create a shop, store, restaurant, or another small management game from a guided foundation.");
+    ImGui::Spacing();
+
+    if (ImGui::Button("New Shop Simulator", {220.0f, 44.0f})) {
+        m_project_template_index = 4;
+        copy_text(m_project_name_buffer, "My Shop Simulator");
+        copy_text(m_project_folder_buffer, "SeedProjects");
+        copy_text(m_project_file_buffer, "SeedProjects/My_Shop_Simulator.seedproject");
+        m_show_new_project_dialog = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("New Empty Project", {220.0f, 44.0f})) {
+        m_project_template_index = 0;
+        copy_text(m_project_name_buffer, "My Seed Game");
+        m_show_new_project_dialog = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Open Existing Project", {220.0f, 44.0f})) {
+        m_show_open_project_dialog = true;
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    ImGui::Text("Recent projects");
+    if (m_recent_projects.empty()) {
+        ImGui::TextDisabled("Your opened projects will appear here.");
+    } else {
+        for (const auto& entry : m_recent_projects) {
+            ImGui::PushID(entry.second.c_str());
+            if (ImGui::Selectable(entry.first.c_str(), false, 0, {0.0f, 30.0f})) {
+                queue_action({.type=StudioActionType::OpenProject, .path=entry.second});
+            }
+            ImGui::TextDisabled("  %s", entry.second.c_str());
+            ImGui::PopID();
+        }
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::TextWrapped("Tip: choose New Shop Simulator to get the Complete Shop Setup foundation, then open Help > First Game Tutorial.");
+    ImGui::End();
+}
 
 void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
     if (!ImGui::BeginMainMenuBar()) return;
