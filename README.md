@@ -185,6 +185,7 @@ The simulation foundation currently includes:
 - visual Products & Stock panel for prices, capacity, and restocking
 - visual Customers & Orders panel for queues, demand, and order progress
 - visual Business Dashboard for money, performance, shop hours, and upgrades
+- in-game simulation HUD showing shop wallet, daily sales, open/closed state, stock, and runtime status
 - simulation-aware no-code Rules with customer, stock, money, and progression events
 - one-click Shop Starter Rules and Low Stock Rule presets
 - reusable genre preset libraries for shelves, products, checkout stations, staff, customers, and rule packs
