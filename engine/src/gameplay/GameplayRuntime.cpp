@@ -135,6 +135,32 @@ void update_customers(
             authored_queue = true;
         }
     );
+
+    std::vector<Vec3> checkout_anchors;
+    scene.for_each<TransformComponent, CheckoutStationComponent>(
+        [&](EntityId entity, TransformComponent& transform, CheckoutStationComponent& station) {
+            if (!station.enabled) return;
+            if (scene.has_component<TriggerVolumeComponent>(entity)) {
+                checkout_anchors.push_back(transform.position + Vec3{0.0f, 0.45f, 0.0f});
+            }
+        }
+    );
+    if (checkout_anchors.empty()) {
+        scene.for_each<TransformComponent, CheckoutStationComponent>(
+            [&](EntityId, TransformComponent& transform, CheckoutStationComponent& station) {
+                if (station.enabled) checkout_anchors.push_back(transform.position + Vec3{0.0f, 0.45f, 0.0f});
+            }
+        );
+    }
+
+    Vec3 exit_anchor{-4.0f, 0.9f, 4.0f};
+    scene.for_each<TransformComponent, InteractableComponent>(
+        [&](EntityId, TransformComponent& transform, InteractableComponent& interactable) {
+            if (interactable.prompt == "Enter Shop") {
+                exit_anchor = transform.position + Vec3{0.0f, -0.35f, 1.5f};
+            }
+        }
+    );
     const int simulation_day = clock == nullptr ? 1 : std::max(1, clock->day);
     const float growth_multiplier = capacity == nullptr
         ? 1.0f
@@ -345,13 +371,26 @@ void update_customers(
                 return false;
             };
 
+            customer.timer_seconds += dt;
             if (!shop_open) {
-                customer.state = "waiting";
-                customer.timer_seconds = 0.0f;
+                if (customer.state == "arriving" ||
+                    customer.state == "queued" ||
+                    customer.state == "shopping" ||
+                    customer.state == "awaiting_payment") {
+                    customer.state = "leaving";
+                    customer.timer_seconds = 0.0f;
+                    status_message = order.customer_name + " is leaving because the shop is closed.";
+                }
+                if (customer.state == "leaving") {
+                    if (!move_customer_toward(exit_anchor)) return;
+                    if (customer.timer_seconds >= customer.leave_duration_seconds) {
+                        customer.timer_seconds = 0.0f;
+                        customer.state = "waiting";
+                        ++customer.order_sequence;
+                    }
+                }
                 return;
             }
-
-            customer.timer_seconds += dt;
             if (customer.state == "waiting") {
                 if (active_customer_count >= max_active_customers) return;
                 const float effective_arrival_interval =
@@ -367,7 +406,16 @@ void update_customers(
                 std::vector<ProductDefinitionComponent*> available_products;
                 scene.for_each<ProductDefinitionComponent>(
                     [&](EntityId, ProductDefinitionComponent& product) {
-                        available_products.push_back(&product);
+                        const auto stock = std::find_if(
+                            inventory->products.begin(),
+                            inventory->products.end(),
+                            [&](const ProductStock& candidate) {
+                                return candidate.product_id == product.product_id;
+                            }
+                        );
+                        if (stock != inventory->products.end() && stock->quantity > 0) {
+                            available_products.push_back(&product);
+                        }
                     }
                 );
                 const bool created_order = !available_products.empty();
@@ -464,11 +512,19 @@ void update_customers(
                 const int service_slot = static_cast<int>(queue_position);
                 const float lane = static_cast<float>(service_slot % 3) - 1.0f;
                 const float row = static_cast<float>(service_slot / 3);
-                if (!move_customer_toward({
-                        lane * 1.4f,
-                        0.9f,
-                        -0.2f - row * 0.9f
-                    })) return;
+                Vec3 checkout_target{
+                    lane * 1.4f,
+                    0.9f,
+                    -0.2f - row * 0.9f
+                };
+                if (!checkout_anchors.empty()) {
+                    checkout_target = checkout_anchors[
+                        static_cast<std::size_t>(service_slot) % checkout_anchors.size()
+                    ];
+                    checkout_target.x += lane * 0.35f;
+                    checkout_target.z += row * 0.35f;
+                }
+                if (!move_customer_toward(checkout_target)) return;
                 customer.state = "shopping";
                 customer.shopping_duration_seconds = checkout_service_times[
                     std::min(
@@ -503,7 +559,7 @@ void update_customers(
             }
 
             if (customer.state == "leaving") {
-                if (!move_customer_toward({-4.0f, 0.9f, 4.0f})) return;
+                if (!move_customer_toward(exit_anchor)) return;
                 if (customer.timer_seconds >= customer.leave_duration_seconds) {
                     customer.timer_seconds = 0.0f;
                     customer.state = "waiting";
