@@ -203,10 +203,21 @@ The simulation foundation currently includes:
 - automatic copying of starter assets into project `Assets/SeedStarterPack`
 - static and animated GLTF/GLB asset import with runtime resource binding
 - customer purchases, payment events, order completion, and restocking interactions
-- one-click Shop Simulator, Supermarket, Card Shop, Restaurant, and Game Store templates
+- one-click Shop Simulator, Seed Grocery Store, Supermarket, Card Shop, Restaurant, and Game Store templates
 - simulation data saved in Seed scenes
 
-The current reference project is a small shop simulation where a beginner can place products, restock the shop, observe customers queue and purchase items, and monitor the business HUD.
+The current reference project is **Seed Grocery Store**, a small but complete dogfood game for the engine:
+
+1. Create **New Grocery Store** from the Project Hub.
+2. Review products and stock in **Shop Management**.
+3. Press **F5** to open the shop.
+4. Customers arrive during Shop Hours.
+5. Customers enter the authored queue area.
+6. The checkout trigger processes payment.
+7. Review revenue and performance in the Business Dashboard.
+8. Save the project and prepare a standalone build.
+
+This project is intentionally small. Its purpose is to prove that Seed's beginner workflow can produce an actual simulation game, then expose the next missing pieces through dogfooding.
 
 Simulation systems are designed to remain reusable across different games. A supermarket, card shop, restaurant or game store should use the same underlying concepts with different products, rules, scenes and presentation.
 
