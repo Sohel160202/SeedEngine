@@ -814,6 +814,28 @@ void StudioUI::draw_assets_panel(Scene& scene, const StudioDocumentInfo& documen
             if(!document.project_asset_files.empty()){
                 ImGui::SeparatorText("Asset Browser");
                 ImGui::TextDisabled("Select an asset to preview it. Drag GLTF/GLB models onto an entity.");
+                const auto starter_asset_name = [](const std::string& filename) {
+                    if(filename == "shop_shelf.gltf") return "Shop Shelf";
+                    if(filename == "checkout_counter.gltf") return "Checkout Counter";
+                    if(filename == "cash_register.gltf") return "Cash Register";
+                    if(filename == "shopping_basket.gltf") return "Shopping Basket";
+                    if(filename == "grocery_box.gltf") return "Grocery Box";
+                    if(filename == "card_booster_pack.gltf") return "Card Booster Pack";
+                    if(filename == "game_case.gltf") return "Game Case";
+                    if(filename == "restaurant_plate.gltf") return "Restaurant Plate";
+                    return filename;
+                };
+                const auto starter_asset_description = [](const std::string& filename) {
+                    if(filename == "shop_shelf.gltf") return "Display products and restock a shelf.";
+                    if(filename == "checkout_counter.gltf") return "Create a customer checkout station.";
+                    if(filename == "cash_register.gltf") return "Add a recognizable point-of-sale prop.";
+                    if(filename == "shopping_basket.gltf") return "Place a basket prop for customer shopping.";
+                    if(filename == "grocery_box.gltf") return "Use as a starter grocery product prop.";
+                    if(filename == "card_booster_pack.gltf") return "Use for card-shop product displays.";
+                    if(filename == "game_case.gltf") return "Use for game-store shelves and products.";
+                    if(filename == "restaurant_plate.gltf") return "Use for restaurant and café presentation.";
+                    return "Imported project asset.";
+                };
                 std::unordered_map<std::string, std::vector<std::string>> grouped_assets;
                 for(const auto& asset_file : document.project_asset_files){
                     grouped_assets[std::filesystem::path(asset_file).parent_path().generic_string()].push_back(asset_file);
@@ -823,12 +845,17 @@ void StudioUI::draw_assets_panel(Scene& scene, const StudioDocumentInfo& documen
                 for(const auto&[folder, _] : grouped_assets) folders.push_back(folder);
                 std::sort(folders.begin(), folders.end());
                 for(const auto& folder : folders){
-                    const std::string folder_label = folder.empty() ? "Assets" : folder;
+                    const bool starter_folder = folder.find("SeedStarterPack") != std::string::npos;
+                    const std::string folder_label = starter_folder ? "Seed Starter Shop Assets" : (folder.empty() ? "Assets" : folder);
                     if(!ImGui::TreeNode(folder_label.c_str())) continue;
+                    if(starter_folder){
+                        ImGui::TextDisabled("Drag a prop into the viewport, or click a card to inspect it.");
+                    }
                     auto& files = grouped_assets[folder];
                     std::sort(files.begin(), files.end());
                     for(const auto& asset_file : files){
                         const std::filesystem::path path(asset_file);
+                        const std::string filename = path.filename().string();
                         std::string extension = path.extension().string();
                         std::transform(extension.begin(), extension.end(), extension.begin(),
                             [](unsigned char value){ return static_cast<char>(std::tolower(value)); });
@@ -838,18 +865,20 @@ void StudioUI::draw_assets_panel(Scene& scene, const StudioDocumentInfo& documen
                         else if(extension == ".png" || extension == ".jpg" || extension == ".jpeg") icon = "[IMAGE]";
                         else if(extension == ".wav" || extension == ".ogg" || extension == ".mp3") icon = "[AUDIO]";
                         ImGui::PushID(asset_file.c_str());
-                        ImGui::Text("%s", icon);
+                        ImGui::BeginGroup();
+                        ImGui::TextColored(starter_folder ? ImVec4{0.35f, 0.95f, 0.52f, 1.0f} : ImVec4{0.70f, 0.75f, 0.72f, 1.0f}, "%s", icon);
                         ImGui::SameLine();
-                        if(ImGui::Selectable(path.filename().string().c_str())){
+                        const std::string display_name = starter_folder ? starter_asset_name(filename) : filename;
+                        if(ImGui::Selectable(display_name.c_str())){
                             m_asset_preview_path = asset_file;
                             ImGui::OpenPopup("AssetPreview");
                         }
-                        ImGui::SameLine();
-                        ImGui::TextDisabled("%s", asset_file.c_str());
+                        ImGui::TextDisabled("%s", starter_folder ? starter_asset_description(filename) : asset_file.c_str());
+                        ImGui::EndGroup();
                         if(model && ImGui::BeginDragDropSource()){
                             const std::string asset_id = AssetRuntime::make_model_asset_id(asset_file);
                             ImGui::SetDragDropPayload("SEED_ASSET", asset_id.c_str(), asset_id.size()+1);
-                            ImGui::Text("Assign %s", path.filename().string().c_str());
+                            ImGui::Text("Assign %s", display_name.c_str());
                             ImGui::EndDragDropSource();
                         }
                         ImGui::PopID();
