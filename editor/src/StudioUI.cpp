@@ -1451,6 +1451,45 @@ void StudioUI::draw_viewport_frame(Scene& scene,const StudioDocumentInfo& docume
     if(!document.playing&&camera&&inside&&!io.WantCaptureMouse&&ImGui::IsMouseClicked(ImGuiMouseButton_Left)&&!ImGuizmo::IsOver()&&!ImGuizmo::IsUsing()){EntityId best=InvalidEntity;float score=1e9f;scene.for_each<TransformComponent,MeshComponent>([&](EntityId e,TransformComponent&,MeshComponent&m){if(!m.visible)return;ImVec2 s{};float d=0;if(!project_to_screen(vp,matrix_position(world_transform_matrix(scene,e)),s,d))return;const float dx=s.x-io.MousePos.x,dy=s.y-io.MousePos.y,dist=std::sqrt(dx*dx+dy*dy);if(dist>42)return;const float candidate=dist+(d+1)*3;if(candidate<score){score=candidate;best=e;}});m_selected_entity=best;}
     const char*controls=document.playing?"RMB Look   WASD Walk   Space Jump   Shift Sprint   E Interact   F5 Stop":"Click Select   Q Select   W Move   E Rotate   R Scale   F Focus   RMB+WASD Navigate";const ImVec2 ts=ImGui::CalcTextSize(controls);dl->AddText({min.x+(max.x-min.x-ts.x)*0.5f,max.y-ts.y-10},IM_COL32(160,188,170,220),controls);
     if(document.playing&&!document.gameplay_prompt.empty()){const ImVec2 ps=ImGui::CalcTextSize(document.gameplay_prompt.c_str());const ImVec2 pmin{min.x+(max.x-min.x-ps.x)*0.5f-14,max.y-88};const ImVec2 pmax{pmin.x+ps.x+28,pmin.y+ps.y+16};dl->AddRectFilled(pmin,pmax,IM_COL32(4,9,6,220),5);dl->AddText({pmin.x+14,pmin.y+8},IM_COL32(230,245,234,255),document.gameplay_prompt.c_str());}
+    if(document.playing){
+        // In-game simulation HUD: keep the shop's most important state visible
+        // inside the game view instead of forcing beginners to watch the editor panel.
+        std::vector<const std::string*> summary;
+        std::vector<const std::string*> stock;
+        for(const auto& line : document.gameplay_objectives){
+            if(line.starts_with("SHOP ") || line.starts_with("TODAY ") || line.starts_with("DAY "))
+                summary.push_back(&line);
+            else if(line.starts_with("STOCK "))
+                stock.push_back(&line);
+        }
+        const float panel_width=310.0f;
+        const float panel_height=112.0f+std::min<std::size_t>(stock.size(),4)*20.0f;
+        const ImVec2 panel_min{min.x+16.0f,min.y+16.0f};
+        const ImVec2 panel_max{panel_min.x+panel_width,panel_min.y+panel_height};
+        dl->AddRectFilled(panel_min,panel_max,IM_COL32(4,10,7,220),7.0f);
+        dl->AddRect(panel_min,panel_max,IM_COL32(70,190,105,220),7.0f,0,1.5f);
+        dl->AddText({panel_min.x+14.0f,panel_min.y+12.0f},IM_COL32(110,235,145,255),"SEED GROCERY STORE");
+        float y=panel_min.y+38.0f;
+        for(const auto* line : summary){
+            dl->AddText({panel_min.x+14.0f,y},IM_COL32(230,245,234,245),line->c_str());
+            y+=20.0f;
+        }
+        if(!stock.empty()){
+            dl->AddText({panel_min.x+14.0f,y+2.0f},IM_COL32(160,195,173,255),"STOCK");
+            y+=22.0f;
+            for(std::size_t index=0;index<std::min<std::size_t>(stock.size(),4);++index){
+                dl->AddText({panel_min.x+14.0f,y},IM_COL32(210,230,216,235),stock[index]->c_str());
+                y+=20.0f;
+            }
+        }
+        if(!document.gameplay_status.empty()){
+            const ImVec2 status_size=ImGui::CalcTextSize(document.gameplay_status.c_str(),nullptr,false,260.0f);
+            const ImVec2 status_min{max.x-310.0f,max.y-150.0f};
+            const ImVec2 status_max{max.x-16.0f,status_min.y+status_size.y+28.0f};
+            dl->AddRectFilled(status_min,status_max,IM_COL32(4,10,7,210),6.0f);
+            dl->AddText({status_min.x+12.0f,status_min.y+8.0f},IM_COL32(235,245,237,245),document.gameplay_status.c_str(),nullptr,false,260.0f);
+        }
+    }
 }
 
 StudioUI::HistoryEntry StudioUI::capture_history(const Scene& scene) const {
