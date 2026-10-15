@@ -814,7 +814,7 @@ void StudioUI::draw_assets_panel(Scene& scene, const StudioDocumentInfo& documen
             if(!document.project_asset_files.empty()){
                 ImGui::SeparatorText("Asset Browser");
                 ImGui::TextDisabled("Select an asset to preview it. Drag GLTF/GLB models onto an entity.");
-                const auto starter_asset_name = [](const std::string& filename) {
+                const auto starter_asset_name = [](const std::string& filename) -> std::string {
                     if(filename == "shop_shelf.gltf") return "Shop Shelf";
                     if(filename == "checkout_counter.gltf") return "Checkout Counter";
                     if(filename == "cash_register.gltf") return "Cash Register";
