@@ -4,12 +4,18 @@
 
 namespace seed::runtime {
 
+struct RuntimeUIAction {
+    bool toggle_pause{false};
+    bool save_requested{false};
+    bool load_requested{false};
+};
+
 class RuntimeUI {
 public:
     bool initialize(void* window_handle);
     void shutdown();
     void begin_frame();
-    void draw(const GameplayHUDState& state, bool save_enabled);
+    RuntimeUIAction draw(const GameplayHUDState& state, bool save_enabled, bool paused);
     void render();
 
 private:
