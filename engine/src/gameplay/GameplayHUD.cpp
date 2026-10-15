@@ -39,6 +39,21 @@ GameplayHUDState GameplayHUDSystem::capture(
             state.daily_revenue = metrics->daily_revenue;
             state.completed_orders = metrics->orders_completed_today;
         }
+        if (const auto* goal = scene.get_component<ShopGoalComponent>(shop_entity)) {
+            state.goal_title = goal->title;
+            state.goal_revenue = state.daily_revenue;
+            state.goal_target_revenue = std::max(0.0f, goal->target_revenue);
+            state.goal_customers = 0;
+            if (const auto* metrics = scene.get_component<ShopMetricsComponent>(shop_entity)) {
+                state.goal_customers = metrics->customers_served_today;
+            }
+            state.goal_target_customers = std::max(0, goal->target_customers);
+            const bool revenue_met = state.goal_target_revenue <= 0.0f ||
+                state.goal_revenue >= state.goal_target_revenue;
+            const bool customers_met = state.goal_target_customers <= 0 ||
+                state.goal_customers >= state.goal_target_customers;
+            state.goal_completed = revenue_met && customers_met;
+        }
         if (const auto* clock = scene.get_component<SimulationClockComponent>(shop_entity)) {
             state.simulation_day = clock->day;
             state.simulation_hour = clock->hour;
