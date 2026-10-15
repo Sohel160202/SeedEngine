@@ -81,6 +81,34 @@ RuntimeUIAction RuntimeUI::draw(const GameplayHUDState& state, bool save_enabled
     }
     ImGui::End();
 
+    if (state.simulation_visible && state.goal_completed) {
+        const ImVec2 center{
+            viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+            viewport->WorkPos.y + viewport->WorkSize.y * 0.34f
+        };
+        ImGui::SetNextWindowPos(center, ImGuiCond_Always, {0.5f, 0.5f});
+        ImGui::SetNextWindowSize({420.0f, 0.0f}, ImGuiCond_Always);
+        constexpr ImGuiWindowFlags completion_flags =
+            ImGuiWindowFlags_NoDecoration |
+            ImGuiWindowFlags_NoSavedSettings |
+            ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoInputs;
+        if (ImGui::Begin("Shop Day Complete", nullptr, completion_flags)) {
+            ImGui::TextColored(
+                ImVec4{0.35f, 0.95f, 0.55f, 1.0f},
+                "DAILY GOAL COMPLETE"
+            );
+            ImGui::Separator();
+            ImGui::TextWrapped(
+                "Great work. The shop reached today's target. "
+                "Keep trading, restock, and grow the business."
+            );
+            ImGui::Text("Revenue: %.0f", state.goal_revenue);
+            ImGui::Text("Customers served: %d", state.goal_customers);
+        }
+        ImGui::End();
+    }
+
     ImGui::SetNextWindowPos({18.0f, 18.0f}, ImGuiCond_Always);
     ImGui::SetNextWindowSize({320.0f, 0.0f}, ImGuiCond_Always);
     constexpr ImGuiWindowFlags flags =
