@@ -3,6 +3,7 @@
 
 #include "seed/animation/AnimationComponents.h"
 #include "seed/assets/AssetRuntime.h"
+#include "seed/diagnostics/SeedDoctor.h"
 #include "seed/gameplay/Components.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/render/RenderComponents.h"
@@ -144,7 +145,7 @@ void StudioUI::draw(Scene& scene, const StudioDocumentInfo& document, EntityId v
     if (!document.has_project && !document.playing) {
         draw_project_hub(document);
     } else {
-        draw_world_panel(scene); draw_inspector(scene, document); draw_assets_panel(scene, document); draw_staff_panel(scene, document); draw_viewport_frame(scene, document, viewport_camera);
+        draw_world_panel(scene); draw_inspector(scene, document); draw_assets_panel(scene, document); draw_staff_panel(scene, document); draw_seed_doctor(scene, document); draw_viewport_frame(scene, document, viewport_camera);
     }
 
     const ImGuiIO& io = ImGui::GetIO();
@@ -369,7 +370,7 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         }
         ImGui::EndMenu();
     }
-    if (ImGui::BeginMenu("Tools", !document.playing)) { if (ImGui::MenuItem("Save Scene Revision...", nullptr, false, document.has_project)) { copy_text(m_revision_label_buffer, "Before major change"); m_show_revision_dialog=true; } if (ImGui::MenuItem("Scene History...", nullptr, false, document.has_project)) m_show_revision_dialog=true; ImGui::Separator(); if (ImGui::MenuItem("Refresh Linked Prefab...", nullptr, false, document.has_project)) { m_prefab_dialog_is_save = false; m_prefab_dialog_is_refresh = true; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; } ImGui::Separator(); if (ImGui::MenuItem("Semantic Merge Review...", nullptr, false, document.has_project)) { m_merge_base_revision_index = document.revisions.size() > 2 ? 2 : -1; m_merge_ours_revision_index = document.revisions.size() > 1 ? 1 : -1; m_merge_theirs_revision_index = document.revisions.empty() ? -1 : 0; m_show_semantic_merge_dialog=true; } ImGui::EndMenu(); }
+    if (ImGui::BeginMenu("Tools", !document.playing)) { if (ImGui::MenuItem("Seed Doctor...", nullptr, false, document.has_project)) m_show_seed_doctor = true; ImGui::Separator(); if (ImGui::MenuItem("Save Scene Revision...", nullptr, false, document.has_project)) { copy_text(m_revision_label_buffer, "Before major change"); m_show_revision_dialog=true; } if (ImGui::MenuItem("Scene History...", nullptr, false, document.has_project)) m_show_revision_dialog=true; ImGui::Separator(); if (ImGui::MenuItem("Refresh Linked Prefab...", nullptr, false, document.has_project)) { m_prefab_dialog_is_save = false; m_prefab_dialog_is_refresh = true; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; } ImGui::Separator(); if (ImGui::MenuItem("Semantic Merge Review...", nullptr, false, document.has_project)) { m_merge_base_revision_index = document.revisions.size() > 2 ? 2 : -1; m_merge_ours_revision_index = document.revisions.size() > 1 ? 1 : -1; m_merge_theirs_revision_index = document.revisions.empty() ? -1 : 0; m_show_semantic_merge_dialog=true; } ImGui::EndMenu(); }
     if (ImGui::BeginMenu("Build")) {
         if (document.playing) {
             if (ImGui::MenuItem("Stop", "F5")) queue_action({.type=StudioActionType::Stop});
@@ -735,6 +736,85 @@ void StudioUI::draw_inspector(Scene& scene,const StudioDocumentInfo& document) {
         }
         if(!editor_only){m_scene_edited|=draw_gameplay_components(scene,m_selected_entity);ImGui::Spacing();if(ImGui::Button("+ Add Gameplay",{-1,0}))ImGui::OpenPopup("AddGameplayPopup");if(ImGui::BeginPopup("AddGameplayPopup")){if(draw_add_gameplay_popup(scene,m_selected_entity)){m_scene_edited=true;ImGui::CloseCurrentPopup();}ImGui::EndPopup();}}else ImGui::TextDisabled("Editor-only entities cannot receive gameplay components.");
         ImGui::EndDisabled();}
+    ImGui::End();
+}
+
+void StudioUI::draw_seed_doctor(Scene& scene, const StudioDocumentInfo& document) {
+    if (!m_show_seed_doctor || document.playing) return;
+
+    ImGui::SetNextWindowSize({560.0f, 420.0f}, ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Seed Doctor", &m_show_seed_doctor, ImGuiWindowFlags_NoCollapse)) {
+        ImGui::End();
+        return;
+    }
+
+    const std::vector<DoctorFinding> findings = SeedDoctor::inspect(scene);
+    int errors = 0;
+    int warnings = 0;
+    for (const auto& finding : findings) {
+        if (finding.severity == DoctorSeverity::Error) ++errors;
+        else if (finding.severity == DoctorSeverity::Warning) ++warnings;
+    }
+
+    ImGui::TextUnformatted("Scene validation");
+    ImGui::SameLine();
+    if (findings.empty()) {
+        ImGui::TextColored({0.35f, 0.95f, 0.52f, 1.0f}, "Ready");
+    } else {
+        ImGui::TextColored(
+            errors > 0 ? ImVec4{1.0f, 0.40f, 0.35f, 1.0f} : ImVec4{1.0f, 0.78f, 0.30f, 1.0f},
+            "%d error%s, %d warning%s",
+            errors, errors == 1 ? "" : "s",
+            warnings, warnings == 1 ? "" : "s"
+        );
+    }
+    ImGui::TextDisabled("Seed checks the scene and explains what to fix in beginner-friendly language.");
+    ImGui::Separator();
+
+    if (findings.empty()) {
+        ImGui::TextColored({0.35f, 0.95f, 0.52f, 1.0f}, "No blocking problems found.");
+        ImGui::TextWrapped("This scene has the required gameplay dependencies Seed can verify automatically.");
+        ImGui::End();
+        return;
+    }
+
+    ImGui::BeginChild("##seed_doctor_findings", {0.0f, 0.0f}, true);
+    for (const auto& finding : findings) {
+        const ImVec4 color =
+            finding.severity == DoctorSeverity::Error
+                ? ImVec4{1.0f, 0.40f, 0.35f, 1.0f}
+                : finding.severity == DoctorSeverity::Warning
+                    ? ImVec4{1.0f, 0.78f, 0.30f, 1.0f}
+                    : ImVec4{0.45f, 0.80f, 1.0f, 1.0f};
+        const char* severity =
+            finding.severity == DoctorSeverity::Error ? "ERROR" :
+            finding.severity == DoctorSeverity::Warning ? "WARNING" : "INFO";
+
+        ImGui::PushID(finding.code.c_str());
+        ImGui::TextColored(color, "%s", severity);
+        ImGui::SameLine();
+        ImGui::TextWrapped("%s", finding.message.c_str());
+        if (!finding.entity_name.empty()) {
+            ImGui::TextDisabled("Object: %s", finding.entity_name.c_str());
+        }
+        if (!finding.technical_detail.empty()) {
+            ImGui::TextDisabled("%s", finding.technical_detail.c_str());
+        }
+        if (finding.safe_fix != DoctorFixKind::None) {
+            const std::string label = finding.fix_label.empty() ? "Apply safe fix" : finding.fix_label;
+            if (ImGui::Button(label.c_str())) {
+                const DoctorFixResult result = SeedDoctor::apply_safe_fix(scene, finding);
+                if (result.applied) m_scene_edited = true;
+                if (!result.message.empty()) {
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("%s", result.message.c_str());
+                }
+            }
+        }
+        ImGui::Separator();
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
     ImGui::End();
 }
 
