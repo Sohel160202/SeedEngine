@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -53,17 +54,12 @@ std::filesystem::path parse_project_file(int argc, char** argv) {
 bool load_project_scene(
     seed::Scene& scene,
     const std::filesystem::path& project_file,
+    const seed::ProjectDescriptor& project,
     seed::EntityId& player_entity
 ) {
     std::string error;
-    const auto project = seed::ProjectSerializer::load(project_file, &error);
-    if (!project.has_value()) {
-        std::cerr << "[SeedRuntime] " << error << '\n';
-        return false;
-    }
-
     const std::filesystem::path scene_file =
-        project_file.parent_path() / project->startup_scene;
+        project_file.parent_path() / project.startup_scene;
     if (!seed::SceneSerializer::load(scene, scene_file, &error)) {
         std::cerr << "[SeedRuntime] " << error << '\n';
         return false;
@@ -75,7 +71,7 @@ bool load_project_scene(
         return false;
     }
 
-    std::cout << "[SeedRuntime] Loaded project '" << project->name
+    std::cout << "[SeedRuntime] Loaded project '" << project.name
               << "' from " << project_file << ".\n";
     std::cout << "[SeedRuntime] Startup scene: " << scene_file << ".\n";
     return true;
@@ -103,15 +99,24 @@ void ensure_player_dependencies(seed::Scene& scene, seed::EntityId player) {
 int main(int argc, char** argv) {
     const std::uint64_t frame_limit = parse_frame_limit(argc, argv);
     const std::filesystem::path project_file = parse_project_file(argc, argv);
+    std::optional<seed::ProjectDescriptor> project;
+    if (!project_file.empty()) {
+        std::string project_error;
+        project = seed::ProjectSerializer::load(project_file, &project_error);
+        if (!project.has_value()) {
+            std::cerr << "[SeedRuntime] " << project_error << '\\n';
+            return 1;
+        }
+    }
 
     seed::Engine engine({
-        .application_name = "Seed Runtime",
-        .window_width = 1280,
-        .window_height = 720,
-        .window_resizable = true,
+        .application_name = project ? project->name : "Seed Runtime",
+        .window_width = project ? project->window_width : 1280,
+        .window_height = project ? project->window_height : 720,
+        .window_resizable = project ? project->window_resizable : true,
         .create_window = true,
         .renderer_backend = seed::RendererBackend::OpenGL,
-        .vsync = true,
+        .vsync = project ? project->vsync : true,
         .clear_color = {.r = 0.035f, .g = 0.055f, .b = 0.040f, .a = 1.0f},
     });
 
@@ -120,7 +125,7 @@ int main(int argc, char** argv) {
     auto& scene = engine.scene();
     seed::EntityId player = seed::InvalidEntity;
     if (!project_file.empty()) {
-        if (!load_project_scene(scene, project_file, player)) {
+        if (!load_project_scene(scene, project_file, *project, player)) {
             engine.shutdown();
             return 1;
         }
