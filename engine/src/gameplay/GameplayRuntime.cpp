@@ -102,6 +102,20 @@ void update_customers(
     );
     if (inventory == nullptr || wallet == nullptr) return;
 
+    const auto record_satisfaction = [&](float satisfaction) {
+        auto* metrics = scene.get_component<ShopMetricsComponent>(shop_entity);
+        if (metrics == nullptr) return;
+        const float clamped = std::clamp(satisfaction, 0.0f, 100.0f);
+        metrics->daily_satisfaction =
+            metrics->satisfaction_samples == 0
+                ? clamped
+                : (metrics->daily_satisfaction *
+                   static_cast<float>(metrics->satisfaction_samples) +
+                   clamped) /
+                    static_cast<float>(metrics->satisfaction_samples + 1);
+        ++metrics->satisfaction_samples;
+    };
+
     const bool shop_open = hours == nullptr || clock == nullptr ||
         SimulationSystem::is_shop_open(*hours, *clock);
 
@@ -377,6 +391,9 @@ void update_customers(
                 customer.timer_seconds >= customer.queue_patience_seconds) {
                 customer.state = "leaving";
                 customer.timer_seconds = 0.0f;
+                record_satisfaction(
+                    100.0f - std::max(0.0f, customer.queue_abandon_satisfaction_penalty)
+                );
                 status_message = order.customer_name +
                     " left because the queue was too long.";
                 if (event_bus != nullptr) {
@@ -1569,14 +1586,7 @@ void GameplayRuntime::perform_interaction(Scene& scene, GameplayEventBus* event_
                 0.0f,
                 100.0f - static_cast<float>(std::max(0, waiting_customers - 1)) * 10.0f
             );
-            metrics->daily_satisfaction =
-                metrics->satisfaction_samples == 0
-                    ? satisfaction
-                    : (metrics->daily_satisfaction *
-                       static_cast<float>(metrics->satisfaction_samples) +
-                       satisfaction) /
-                        static_cast<float>(metrics->satisfaction_samples + 1);
-            ++metrics->satisfaction_samples;
+            record_satisfaction(satisfaction);
         }
 
         customer_order->fulfilled = true;
