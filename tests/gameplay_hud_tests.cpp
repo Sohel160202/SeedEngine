@@ -33,9 +33,12 @@ int main() {
     scene.add_component<seed::ShopInventoryComponent>(shop, shop_inventory);
     seed::WalletComponent wallet;
     wallet.balance = 250.0f;
+    wallet.lifetime_revenue = 800.0f;
+    wallet.lifetime_expenses = 300.0f;
     scene.add_component<seed::WalletComponent>(shop, wallet);
     seed::ShopMetricsComponent metrics;
     metrics.daily_revenue = 45.0f;
+    metrics.daily_satisfaction = 72.0f;
     metrics.orders_completed_today = 3;
     scene.add_component<seed::ShopMetricsComponent>(shop, metrics);
     seed::ShopGoalComponent goal;
@@ -45,6 +48,9 @@ int main() {
     goal.revenue_growth_per_day = 25.0f;
     goal.customer_growth_per_day = 1;
     scene.add_component<seed::ShopGoalComponent>(shop, goal);
+    seed::ShopUpgradeComponent upgrade;
+    upgrade.level = 3;
+    scene.add_component<seed::ShopUpgradeComponent>(shop, upgrade);
     seed::SimulationClockComponent clock;
     clock.day = 2;
     clock.hour = 10.5f;
@@ -75,6 +81,10 @@ int main() {
     assert(hud.simulation_visible);
     assert(hud.shop_name == "Fresh Market");
     assert(hud.wallet_balance == 250.0f);
+    assert(hud.lifetime_revenue == 800.0f);
+    assert(hud.lifetime_expenses == 300.0f);
+    assert(hud.shop_upgrade_level == 3);
+    assert(hud.daily_satisfaction == 72.0f);
     assert(hud.daily_revenue == 45.0f);
     assert(hud.simulation_day == 2);
     assert(hud.stock_quantity == 12);
