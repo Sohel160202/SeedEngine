@@ -167,6 +167,27 @@ void update_customers(
         );
     }
 
+    struct BrowseTarget {
+        Vec3 position{};
+        float dwell_seconds{2.0f};
+        int priority{0};
+    };
+    std::vector<BrowseTarget> browse_targets;
+    scene.for_each<TransformComponent, CustomerBrowsePointComponent>(
+        [&](EntityId, TransformComponent& transform, CustomerBrowsePointComponent& browse_point) {
+            if (!browse_point.enabled) return;
+            browse_targets.push_back({
+                transform.position + Vec3{0.0f, 0.45f, 0.0f},
+                std::max(0.1f, browse_point.dwell_seconds),
+                browse_point.priority
+            });
+        }
+    );
+    std::sort(browse_targets.begin(), browse_targets.end(),
+        [](const BrowseTarget& left, const BrowseTarget& right) {
+            return left.priority > right.priority;
+        });
+
     Vec3 exit_anchor{-4.0f, 0.9f, 4.0f};
     scene.for_each<TransformComponent, InteractableComponent>(
         [&](EntityId, TransformComponent& transform, InteractableComponent& interactable) {
@@ -340,6 +361,7 @@ void update_customers(
         [&](EntityId entity, CustomerBehaviorComponent& customer, CustomerOrderComponent&) {
             if (!customer.enabled) return;
             if (customer.state == "arriving" ||
+                customer.state == "browsing" ||
                 customer.state == "queued" ||
                 customer.state == "shopping" ||
                 customer.state == "awaiting_payment") {
@@ -408,6 +430,7 @@ void update_customers(
             }
             if (!shop_open) {
                 if (customer.state == "arriving" ||
+                    customer.state == "browsing" ||
                     customer.state == "queued" ||
                     customer.state == "shopping" ||
                     customer.state == "awaiting_payment") {
@@ -509,7 +532,13 @@ void update_customers(
                     return;
                 }
 
-                status_message = order.customer_name + " is shopping.";
+                if (!browse_targets.empty()) {
+                    customer.state = "browsing";
+                    status_message = order.customer_name + " is browsing.";
+                } else {
+                    customer.state = "arriving";
+                    status_message = order.customer_name + " is shopping.";
+                }
                 if (event_bus != nullptr) {
                     event_bus->publish({
                         customer_entity,
@@ -519,6 +548,25 @@ void update_customers(
                         shop_entity
                     });
                 }
+                return;
+            }
+
+            if (customer.state == "browsing") {
+                if (browse_targets.empty()) {
+                    customer.state = "arriving";
+                    customer.timer_seconds = 0.0f;
+                    return;
+                }
+                const std::size_t browse_index =
+                    (static_cast<std::size_t>(customer_entity) +
+                     static_cast<std::size_t>(std::max(0, customer.order_sequence - 1))) %
+                    browse_targets.size();
+                const BrowseTarget& browse_target = browse_targets[browse_index];
+                if (!move_customer_toward(browse_target.position)) return;
+                if (customer.timer_seconds < browse_target.dwell_seconds) return;
+                customer.state = "arriving";
+                customer.timer_seconds = 0.0f;
+                status_message = order.customer_name + " is heading to checkout.";
                 return;
             }
 

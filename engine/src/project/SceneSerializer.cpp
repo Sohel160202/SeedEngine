@@ -385,6 +385,13 @@ bool SceneSerializer::save(
                     {"customer_name_prefix", spawner->customer_name_prefix},
                 };
             }
+            if (const auto* browse_point = scene.get_component<CustomerBrowsePointComponent>(entity)) {
+                components["CustomerBrowsePoint"] = {
+                    {"enabled", browse_point->enabled},
+                    {"dwell_seconds", browse_point->dwell_seconds},
+                    {"priority", browse_point->priority},
+                };
+            }
             if (const auto* hours = scene.get_component<ShopHoursComponent>(entity)) {
                 components["ShopHours"] = {
                     {"opening_hour", hours->opening_hour},
@@ -461,6 +468,8 @@ bool SceneSerializer::save(
                     {"arrival_interval_seconds", customer->arrival_interval_seconds},
                     {"shopping_duration_seconds", customer->shopping_duration_seconds},
                     {"leave_duration_seconds", customer->leave_duration_seconds},
+                    {"queue_patience_seconds", customer->queue_patience_seconds},
+                    {"queue_abandon_satisfaction_penalty", customer->queue_abandon_satisfaction_penalty},
                     {"state", customer->state},
                     {"order_sequence", customer->order_sequence},
                 };
@@ -1025,6 +1034,16 @@ bool SceneSerializer::load(
                 );
                 loaded_scene.add_component<CustomerSpawnerComponent>(entity, spawner);
             }
+            if (components.contains("CustomerBrowsePoint")) {
+                const auto& value = components.at("CustomerBrowsePoint");
+                CustomerBrowsePointComponent browse_point;
+                browse_point.enabled = value.value("enabled", true);
+                browse_point.dwell_seconds = std::max(
+                    0.1f, value.value("dwell_seconds", 2.0f)
+                );
+                browse_point.priority = value.value("priority", 0);
+                loaded_scene.add_component<CustomerBrowsePointComponent>(entity, browse_point);
+            }
             if (components.contains("ShopHours")) {
                 const auto& value = components.at("ShopHours");
                 ShopHoursComponent hours;
@@ -1146,6 +1165,12 @@ bool SceneSerializer::load(
                 );
                 customer.leave_duration_seconds = std::max(
                     0.1f, value.value("leave_duration_seconds", 5.0f)
+                );
+                customer.queue_patience_seconds = std::max(
+                    0.0f, value.value("queue_patience_seconds", 30.0f)
+                );
+                customer.queue_abandon_satisfaction_penalty = std::max(
+                    0.0f, value.value("queue_abandon_satisfaction_penalty", 15.0f)
                 );
                 customer.timer_seconds = 0.0f;
                 customer.state = value.value("state", std::string{"waiting"});
