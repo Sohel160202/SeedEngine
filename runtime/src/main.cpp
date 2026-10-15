@@ -156,6 +156,7 @@ int main(int argc, char** argv) {
             : project_file.parent_path() / "Saves"
     );
     const bool save_enabled = scene.find_entity_by_persistent_id("player") != seed::InvalidEntity;
+    bool runtime_paused = false;
 
     seed::runtime::RuntimeUI runtime_ui;
     const bool runtime_ui_available =
@@ -267,7 +268,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        engine.update();
+        if (!runtime_paused) engine.update();
         if (runtime_ui_available) runtime_ui.begin_frame();
 
         engine.begin_frame();
@@ -280,7 +281,24 @@ int main(int argc, char** argv) {
         }
         if (runtime_ui_available) {
             const auto hud = seed::GameplayHUDSystem::capture(scene, gameplay_runtime);
-            runtime_ui.draw(hud, save_enabled);
+            const auto ui_action = runtime_ui.draw(hud, save_enabled, runtime_paused);
+            if (ui_action.toggle_pause) {
+                runtime_paused = !runtime_paused;
+                std::cout << "[SeedRuntime] "
+                          << (runtime_paused ? "Paused." : "Resumed.") << "\\n";
+            }
+            if (ui_action.save_requested && save_enabled) {
+                const auto result = save_service.save_slot(scene, "autosave");
+                std::cout << "[SeedRuntime] "
+                          << (result.saved ? "Saved autosave progress." : "Autosave failed: " + result.error)
+                          << "\\n";
+            }
+            if (ui_action.load_requested && save_enabled) {
+                const auto result = save_service.load_slot(scene, "autosave");
+                std::cout << "[SeedRuntime] "
+                          << (result.loaded ? "Loaded autosave progress." : "Load failed: " + result.error)
+                          << "\\n";
+            }
             runtime_ui.render();
         }
         engine.end_frame();

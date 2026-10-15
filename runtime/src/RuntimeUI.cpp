@@ -62,8 +62,24 @@ void RuntimeUI::begin_frame() {
     ImGui::NewFrame();
 }
 
-void RuntimeUI::draw(const GameplayHUDState& state, bool save_enabled) {
-    if (!m_initialized) return;
+RuntimeUIAction RuntimeUI::draw(const GameplayHUDState& state, bool save_enabled, bool paused) {
+    RuntimeUIAction action;
+    if (!m_initialized) return action;
+
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(
+        {viewport->WorkPos.x + viewport->WorkSize.x - 250.0f, viewport->WorkPos.y + 18.0f},
+        ImGuiCond_Always
+    );
+    ImGui::SetNextWindowSize({232.0f, 0.0f}, ImGuiCond_Always);
+    if (ImGui::Begin("Seed Controls", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::TextUnformatted(paused ? "GAME PAUSED" : "GAME RUNNING");
+        if (ImGui::Button(paused ? "Resume" : "Pause")) action.toggle_pause = true;
+        ImGui::SameLine();
+        if (save_enabled && ImGui::Button("Save")) action.save_requested = true;
+        if (save_enabled && ImGui::Button("Load")) action.load_requested = true;
+    }
+    ImGui::End();
 
     ImGui::SetNextWindowPos({18.0f, 18.0f}, ImGuiCond_Always);
     ImGui::SetNextWindowSize({320.0f, 0.0f}, ImGuiCond_Always);
@@ -160,6 +176,7 @@ void RuntimeUI::draw(const GameplayHUDState& state, bool save_enabled) {
         if (save_enabled) ImGui::TextDisabled("F5 Save   F9 Load");
     }
     ImGui::End();
+    return action;
 }
 
 void RuntimeUI::render() {
