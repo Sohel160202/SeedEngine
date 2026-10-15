@@ -206,6 +206,7 @@ The simulation foundation currently includes:
 - customer purchases, payment events, order completion, and restocking interactions
 - one-click Shop Simulator, Seed Grocery Store, Supermarket, Card Shop, Restaurant, and Game Store templates
 - simulation data saved in Seed scenes
+- runtime save slots for wallet, stock, business metrics, shop hours, upgrades, staff, customers, orders, and player state
 
 The current reference project is **Seed Grocery Store**, a small but complete dogfood game for the engine:
 
