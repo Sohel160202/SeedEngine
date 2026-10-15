@@ -2,6 +2,7 @@
 #include "seed/gameplay/GameplayHUD.h"
 #include "seed/gameplay/GameplayRuntime.h"
 #include "seed/scene/Scene.h"
+#include "seed/simulation/SimulationComponents.h"
 
 #include <cassert>
 #include <iostream>
@@ -26,6 +27,32 @@ int main() {
     quest.status = seed::QuestStatus::Active;
     scene.add_component<seed::QuestComponent>(player, quest);
 
+    const auto shop = scene.create_entity("Fresh Market");
+    seed::ShopInventoryComponent shop_inventory;
+    shop_inventory.products = {{"milk", 12, 20}};
+    scene.add_component<seed::ShopInventoryComponent>(shop, shop_inventory);
+    seed::WalletComponent wallet;
+    wallet.balance = 250.0f;
+    scene.add_component<seed::WalletComponent>(shop, wallet);
+    seed::ShopMetricsComponent metrics;
+    metrics.daily_revenue = 45.0f;
+    metrics.orders_completed_today = 3;
+    scene.add_component<seed::ShopMetricsComponent>(shop, metrics);
+    seed::SimulationClockComponent clock;
+    clock.day = 2;
+    clock.hour = 10.5f;
+    scene.add_component<seed::SimulationClockComponent>(shop, clock);
+    scene.add_component<seed::ShopHoursComponent>(shop);
+
+    const auto customer = scene.create_entity("Customer");
+    seed::CustomerBehaviorComponent behavior;
+    behavior.state = "shopping";
+    scene.add_component<seed::CustomerBehaviorComponent>(customer, behavior);
+    const auto order_entity = scene.create_entity("Order");
+    seed::CustomerOrderComponent order;
+    order.fulfilled = false;
+    scene.add_component<seed::CustomerOrderComponent>(order_entity, order);
+
     seed::GameplayRuntime runtime;
     assert(runtime.start(scene, player));
 
@@ -38,6 +65,16 @@ int main() {
     assert(hud.active_objectives.size() == 1);
     assert(hud.active_objectives.front() == "Open the Cabin (CabinKey 1)");
     assert(!hud.dialogue_visible);
+    assert(hud.simulation_visible);
+    assert(hud.shop_name == "Fresh Market");
+    assert(hud.wallet_balance == 250.0f);
+    assert(hud.daily_revenue == 45.0f);
+    assert(hud.simulation_day == 2);
+    assert(hud.stock_quantity == 12);
+    assert(hud.stock_capacity == 20);
+    assert(hud.active_customers == 1);
+    assert(hud.queued_orders == 1);
+    assert(hud.completed_orders == 3);
 
     runtime.stop();
     assert(!seed::GameplayHUDSystem::capture(scene, runtime).active);
