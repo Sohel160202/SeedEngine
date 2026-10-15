@@ -11,6 +11,13 @@ namespace seed {
 class GameplayRuntime;
 class Scene;
 
+enum class GameplayStatusTone {
+    Neutral,
+    Success,
+    Warning,
+    Error
+};
+
 // Renderer-agnostic HUD snapshot. Editor, runtime overlays, and future UI
 // backends can present the same beginner-facing gameplay state.
 struct GameplayHUDState {
@@ -25,6 +32,7 @@ struct GameplayHUDState {
 
     bool dialogue_visible{false};
     std::string status_message;
+    GameplayStatusTone status_tone{GameplayStatusTone::Neutral};
     std::vector<std::string> active_objectives;
     std::unordered_map<std::string, int> inventory;
 
