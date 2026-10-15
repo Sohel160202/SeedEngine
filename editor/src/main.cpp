@@ -1026,6 +1026,7 @@ void build_project_template(
 
     const bool is_shop_template =
         template_id == "shop_simulator" ||
+        template_id == "seed_grocery_store" ||
         template_id == "supermarket_simulator" ||
         template_id == "card_shop_simulator" ||
         template_id == "restaurant_simulator" ||
@@ -1046,7 +1047,7 @@ void build_project_template(
     }
 
     if (is_shop_template) {
-        const bool supermarket = template_id == "supermarket_simulator";
+        const bool supermarket = template_id == "supermarket_simulator" || template_id == "seed_grocery_store";
         const bool card_shop = template_id == "card_shop_simulator";
         const bool restaurant = template_id == "restaurant_simulator";
         const bool game_store = template_id == "game_store_simulator";
@@ -1293,6 +1294,13 @@ void build_project_template(
         spawner.customer_template_persistent_id = scene.entity_persistent_id(customer_a);
         spawner.customer_name_prefix = "Customer";
         scene.add_component<seed::CustomerSpawnerComponent>(shop, spawner);
+
+        // The dogfood project starts with authored queue and checkout volumes,
+        // proving the event-driven shop loop without extra editor setup.
+        if (template_id == "seed_grocery_store") {
+            create_beginner_preset(scene, "shop_customer_queue", editor_camera, cube_mesh, shader);
+            create_beginner_preset(scene, "shop_checkout_area", editor_camera, cube_mesh, shader);
+        }
         return;
     }
 
