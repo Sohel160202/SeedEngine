@@ -776,6 +776,13 @@ void GameplayRuntime::update(Scene& scene, double delta_seconds, GameplayEventBu
     }
     m_respawn_elapsed = 0.0f;
 
+    const float dt = static_cast<float>(std::max(0.0, delta_seconds));
+    scene.for_each<SimulationClockComponent>(
+        [&](EntityId, SimulationClockComponent& clock) {
+            SimulationSystem::advance_clock(clock, dt);
+        }
+    );
+
     if (!m_begin_play_published && event_bus != nullptr) {
         event_bus->publish({
             .source_entity = m_player_entity,
