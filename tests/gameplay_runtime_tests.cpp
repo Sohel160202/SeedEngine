@@ -3,6 +3,7 @@
 #include "seed/gameplay/GameplayRuntime.h"
 #include "seed/physics/PhysicsComponents.h"
 #include "seed/scene/Scene.h"
+#include "seed/simulation/SimulationComponents.h"
 
 #include <cassert>
 #include <cmath>
@@ -86,6 +87,25 @@ seed::PlatformEvent interact_event() {
 } // namespace
 
 int main() {
+    {
+        seed::Scene scene;
+        const auto player = add_player(scene);
+        const auto shop = scene.create_entity("Fresh Market");
+        seed::SimulationClockComponent clock;
+        clock.day = 1;
+        clock.hour = 23.5f;
+        scene.add_component<seed::SimulationClockComponent>(shop, clock);
+
+        seed::GameplayRuntime runtime;
+        assert(runtime.start(scene, player));
+        runtime.update(scene, 60.0);
+
+        const auto* advanced = scene.get_component<seed::SimulationClockComponent>(shop);
+        assert(advanced != nullptr);
+        assert(advanced->day == 2);
+        assert(nearly_equal(advanced->hour, 0.5f));
+    }
+
     {
         seed::Scene edit_scene;
         const auto edit_door = add_door(edit_scene);
