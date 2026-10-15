@@ -42,7 +42,11 @@ GameplayHUDState GameplayHUDSystem::capture(
         if (const auto* goal = scene.get_component<ShopGoalComponent>(shop_entity)) {
             state.goal_title = goal->title;
             state.goal_revenue = state.daily_revenue;
-            const int elapsed_days = std::max(0, state.simulation_day - 1);
+            const auto* clock = scene.get_component<SimulationClockComponent>(shop_entity);
+            const int simulation_day = clock == nullptr
+                ? state.simulation_day
+                : std::max(1, clock->day);
+            const int elapsed_days = std::max(0, simulation_day - 1);
             state.goal_target_revenue = std::max(
                 0.0f,
                 goal->target_revenue +
