@@ -42,6 +42,8 @@ int main() {
     goal.title = "Reach today's target";
     goal.target_revenue = 40.0f;
     goal.target_customers = 2;
+    goal.revenue_growth_per_day = 25.0f;
+    goal.customer_growth_per_day = 1;
     scene.add_component<seed::ShopGoalComponent>(shop, goal);
     seed::SimulationClockComponent clock;
     clock.day = 2;
@@ -82,9 +84,9 @@ int main() {
     assert(hud.completed_orders == 3);
     assert(hud.goal_title == "Reach today's target");
     assert(hud.goal_revenue == 45.0f);
-    assert(hud.goal_target_revenue == 40.0f);
+    assert(hud.goal_target_revenue == 65.0f);
     assert(hud.goal_customers == 0);
-    assert(hud.goal_target_customers == 2);
+    assert(hud.goal_target_customers == 3);
     assert(!hud.goal_completed);
 
     runtime.stop();
