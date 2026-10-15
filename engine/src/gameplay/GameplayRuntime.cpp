@@ -372,6 +372,23 @@ void update_customers(
             };
 
             customer.timer_seconds += dt;
+            if (customer.state == "queued" &&
+                customer.queue_patience_seconds > 0.0f &&
+                customer.timer_seconds >= customer.queue_patience_seconds) {
+                customer.state = "leaving";
+                customer.timer_seconds = 0.0f;
+                status_message = order.customer_name +
+                    " left because the queue was too long.";
+                if (event_bus != nullptr) {
+                    event_bus->publish({
+                        customer_entity,
+                        GameplayEventType::Interaction,
+                        "CustomerLeftQueue",
+                        0.0f,
+                        shop_entity
+                    });
+                }
+            }
             if (!shop_open) {
                 if (customer.state == "arriving" ||
                     customer.state == "queued" ||
