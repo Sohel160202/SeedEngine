@@ -390,15 +390,15 @@ void StudioUI::draw_project_dialogs(const StudioDocumentInfo& document) {
         center_next_dialog();
         if(ImGui::Begin("Seed First Game Tutorial",&m_show_beginner_guide_dialog,flags)){
             static const char* titles[] = {
-                "Choose a starting point", "Create your game pieces",
-                "Teach the game a rule", "Play and finish", "Package your game"
+                "Create your shop foundation", "Prepare products and stock",
+                "Open the shop", "Serve customers", "Review and build"
             };
             static const char* text[] = {
-                "Use File > New Project and choose Third-Person Adventure. It already contains a player, a training enemy, lighting, and a playable space.",
-                "Use Beginner Presets or + Add Gameplay to create Player, Enemy, Pickup, Door, and Quest objects. You do not need to understand components yet.",
-                "Select an object, open Gameplay Rules, and choose When and Then from the dropdowns. Example: When Pickup Collected, Then Give Item.",
-                "Press F5. Use WASD to move, RMB to look, E to interact, and F to attack. Defeat the enemy to see the victory state.",
-                "Save the project, then choose Build > Prepare Standalone Build. Seed creates a Build folder with launch instructions and scripts."
+                "Choose Create > Shop Building > Complete Shop Setup. Seed creates the shop economy, product, customer spawner, floor, queue, checkout, lighting, and starter rules for you.",
+                "Open Shop Management and choose Products & Stock. Adjust prices or use Restock 5 to prepare inventory. You can move the floor, queue, and checkout with the normal transform tools.",
+                "Press F5 to enter Play Mode. The shop follows its Shop Hours and customers begin spawning automatically while it is open.",
+                "Walk through the Customer Queue Area and then the Checkout Area. The queue and checkout triggers drive the simulation, process payment, update stock, and record revenue.",
+                "Stop Play Mode and open Shop Management > Business Dashboard to review the result. Save your scene, then choose Build > Prepare Standalone Build when you are ready to package it."
             };
             const int step = std::clamp(m_beginner_tutorial_step, 0, 4);
             ImGui::Text("Step %d of 5 — %s", step + 1, titles[step]);
