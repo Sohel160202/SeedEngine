@@ -40,6 +40,10 @@ struct GameplayHUDState {
     int active_customers{0};
     int queued_orders{0};
     int completed_orders{0};
+    float daily_satisfaction{100.0f};
+    float lifetime_revenue{0.0f};
+    float lifetime_expenses{0.0f};
+    int shop_upgrade_level{1};
     std::string goal_title;
     float goal_revenue{0.0f};
     float goal_target_revenue{0.0f};
