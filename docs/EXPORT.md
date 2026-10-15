@@ -32,10 +32,22 @@ dist/MyGame/
 │  ├─ SeedRuntime
 │  └─ SeedStudio
 ├─ project/
-│  └─ MyGame.seedproject
+│  ├─ MyGame.seedproject
+│  ├─ Scenes/
+│  └─ Assets/
+├─ SeedGame.sh
+├─ SeedGame.bat
 ├─ SeedExportValidation.txt
 └─ share/seed/docs/
 ```
+
+Launch the exported game directly with:
+
+```sh
+./SeedGame.sh
+```
+
+On Windows, double-click `SeedGame.bat`. Both launchers point `SeedRuntime` at the exported project descriptor and forward extra command-line arguments.
 
 On a single-platform build, CPack can also create an archive:
 
@@ -53,4 +65,4 @@ The exported runtime is intentionally asset-agnostic: imported models, textures,
 - the startup scene file exists
 - missing `Scenes` or `Assets` directories as warnings
 
-The next packaging step is platform-specific dependency bundling and a project-aware runtime launcher that opens the project's startup scene.
+The remaining packaging work is platform-specific dependency bundling, project settings, icons, and richer build profiles.
