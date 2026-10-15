@@ -337,6 +337,13 @@ bool SceneSerializer::save(
                     {"lifetime_expenses", wallet->lifetime_expenses},
                 };
             }
+            if (const auto* goal = scene.get_component<ShopGoalComponent>(entity)) {
+                components["ShopGoal"] = {
+                    {"title", goal->title},
+                    {"target_revenue", goal->target_revenue},
+                    {"target_customers", goal->target_customers},
+                };
+            }
             if (const auto* metrics = scene.get_component<ShopMetricsComponent>(entity)) {
                 components["ShopMetrics"] = {
                     {"tracked_day", metrics->tracked_day},
@@ -917,6 +924,14 @@ bool SceneSerializer::load(
                 wallet.lifetime_revenue = value.value("lifetime_revenue", 0.0f);
                 wallet.lifetime_expenses = value.value("lifetime_expenses", 0.0f);
                 loaded_scene.add_component<WalletComponent>(entity, wallet);
+            }
+            if (components.contains("ShopGoal")) {
+                const auto& value = components.at("ShopGoal");
+                ShopGoalComponent goal;
+                goal.title = value.value("title", std::string{"Daily Sales Goal"});
+                goal.target_revenue = std::max(0.0f, value.value("target_revenue", 100.0f));
+                goal.target_customers = std::max(0, value.value("target_customers", 5));
+                loaded_scene.add_component<ShopGoalComponent>(entity, std::move(goal));
             }
             if (components.contains("ShopMetrics")) {
                 const auto& value = components.at("ShopMetrics");

@@ -33,6 +33,12 @@ struct WalletComponent {
     float lifetime_expenses{0.0f};
 };
 
+struct ShopGoalComponent {
+    std::string title{"Daily Sales Goal"};
+    float target_revenue{100.0f};
+    int target_customers{5};
+};
+
 struct ShopMetricsComponent {
     int tracked_day{1};
     int customers_served_today{0};

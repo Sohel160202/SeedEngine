@@ -89,6 +89,26 @@ void RuntimeUI::draw(const GameplayHUDState& state, bool save_enabled) {
             ImGui::Text("Orders        %d waiting  ·  %d completed",
                 state.queued_orders,
                 state.completed_orders);
+            if (!state.goal_title.empty()) {
+                ImGui::SeparatorText("Daily Objective");
+                ImGui::TextWrapped("%s", state.goal_title.c_str());
+                if (state.goal_target_revenue > 0.0f) {
+                    ImGui::Text("Revenue       %.0f / %.0f",
+                        state.goal_revenue,
+                        state.goal_target_revenue);
+                }
+                if (state.goal_target_customers > 0) {
+                    ImGui::Text("Customers     %d / %d",
+                        state.goal_customers,
+                        state.goal_target_customers);
+                }
+                ImGui::TextColored(
+                    state.goal_completed
+                        ? ImVec4{0.35f, 0.95f, 0.55f, 1.0f}
+                        : ImVec4{1.0f, 0.82f, 0.35f, 1.0f},
+                    "%s",
+                    state.goal_completed ? "GOAL COMPLETE" : "Keep trading");
+            }
             ImGui::Separator();
         }
 

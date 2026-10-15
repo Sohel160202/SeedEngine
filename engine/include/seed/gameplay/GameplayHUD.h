@@ -40,6 +40,12 @@ struct GameplayHUDState {
     int active_customers{0};
     int queued_orders{0};
     int completed_orders{0};
+    std::string goal_title;
+    float goal_revenue{0.0f};
+    float goal_target_revenue{0.0f};
+    int goal_customers{0};
+    int goal_target_customers{0};
+    bool goal_completed{false};
 };
 
 class GameplayHUDSystem {
