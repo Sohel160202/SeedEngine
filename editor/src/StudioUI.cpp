@@ -1487,7 +1487,7 @@ void StudioUI::draw_viewport_frame(Scene& scene,const StudioDocumentInfo& docume
             const ImVec2 status_min{max.x-310.0f,max.y-150.0f};
             const ImVec2 status_max{max.x-16.0f,status_min.y+status_size.y+28.0f};
             dl->AddRectFilled(status_min,status_max,IM_COL32(4,10,7,210),6.0f);
-            dl->AddText({status_min.x+12.0f,status_min.y+8.0f},IM_COL32(235,245,237,245),document.gameplay_status.c_str(),nullptr,false,260.0f);
+            dl->AddText(ImGui::GetFont(),ImGui::GetFontSize(),{status_min.x+12.0f,status_min.y+8.0f},IM_COL32(235,245,237,245),document.gameplay_status.c_str(),nullptr,260.0f);
         }
     }
 }
