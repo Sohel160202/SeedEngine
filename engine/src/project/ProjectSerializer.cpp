@@ -30,6 +30,13 @@ bool ProjectSerializer::save(
             {"format_version", project.format_version},
             {"name", project.name},
             {"startup_scene", project.startup_scene.generic_string()},
+            {"window_width", project.window_width},
+            {"window_height", project.window_height},
+            {"window_resizable", project.window_resizable},
+            {"vsync", project.vsync},
+            {"window_icon", project.window_icon.generic_string()},
+            {"input_profile", project.input_profile},
+            {"build_profile", project.build_profile},
         };
 
         std::ofstream output(project_file, std::ios::binary | std::ios::trunc);
@@ -69,6 +76,13 @@ std::optional<ProjectDescriptor> ProjectSerializer::load(
         project.format_version = document.value("format_version", 1u);
         project.name = document.value("name", std::string{"Untitled Seed Project"});
         project.startup_scene = document.value("startup_scene", std::string{"Scenes/Main.seedscene"});
+        project.window_width = document.value("window_width", 1280u);
+        project.window_height = document.value("window_height", 720u);
+        project.window_resizable = document.value("window_resizable", true);
+        project.vsync = document.value("vsync", true);
+        project.window_icon = document.value("window_icon", std::string{});
+        project.input_profile = document.value("input_profile", std::string{"default"});
+        project.build_profile = document.value("build_profile", std::string{"Development"});
         return project;
     } catch (const std::exception& exception) {
         set_error(error, exception.what());
