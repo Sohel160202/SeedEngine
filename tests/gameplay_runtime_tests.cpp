@@ -235,6 +235,9 @@ int main() {
         const auto shop = scene.create_entity("Fresh Market");
         scene.add_component<seed::ShopInventoryComponent>(shop);
         scene.add_component<seed::WalletComponent>(shop);
+        seed::ShopMetricsComponent metrics;
+        metrics.daily_satisfaction = 100.0f;
+        scene.add_component<seed::ShopMetricsComponent>(shop, metrics);
 
         const auto customer_entity = scene.create_entity("Impatient Customer");
         auto& customer_transform = scene.add_component<seed::TransformComponent>(customer_entity);
@@ -258,6 +261,10 @@ int main() {
         assert(updated_customer != nullptr);
         assert(updated_customer->state == "leaving");
         assert(runtime.status_message().find("queue was too long") != std::string::npos);
+        const auto* updated_metrics = scene.get_component<seed::ShopMetricsComponent>(shop);
+        assert(updated_metrics != nullptr);
+        assert(nearly_equal(updated_metrics->daily_satisfaction, 85.0f));
+        assert(updated_metrics->satisfaction_samples == 1);
     }
 
     // Seed Physics v0: gravity/grounding, jump, and wall blocking.
