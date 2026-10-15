@@ -38,6 +38,11 @@ int main() {
     metrics.daily_revenue = 45.0f;
     metrics.orders_completed_today = 3;
     scene.add_component<seed::ShopMetricsComponent>(shop, metrics);
+    seed::ShopGoalComponent goal;
+    goal.title = "Reach today's target";
+    goal.target_revenue = 40.0f;
+    goal.target_customers = 2;
+    scene.add_component<seed::ShopGoalComponent>(shop, goal);
     seed::SimulationClockComponent clock;
     clock.day = 2;
     clock.hour = 10.5f;
@@ -75,6 +80,12 @@ int main() {
     assert(hud.active_customers == 1);
     assert(hud.queued_orders == 1);
     assert(hud.completed_orders == 3);
+    assert(hud.goal_title == "Reach today's target");
+    assert(hud.goal_revenue == 45.0f);
+    assert(hud.goal_target_revenue == 40.0f);
+    assert(hud.goal_customers == 0);
+    assert(hud.goal_target_customers == 2);
+    assert(!hud.goal_completed);
 
     runtime.stop();
     assert(!seed::GameplayHUDSystem::capture(scene, runtime).active);
