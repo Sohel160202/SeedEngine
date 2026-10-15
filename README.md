@@ -177,7 +177,7 @@ The simulation foundation currently includes:
 - shop inventory, stock quantities, capacity, and restocking
 - wallet, revenue, expense, and business metrics
 - shop hours, simulation clock, day progression, and demand growth
-- customer orders, fulfillment progress, arrivals, movement, and queue behavior
+- customer orders, fulfillment progress, arrivals, stock-aware demand, authored movement targets, queue behavior, and graceful closing
 - deterministic checkout queues with multi-counter capacity
 - reusable staff workers, roles, shifts, payroll, hiring, and upgrades
 - station staffing requirements and worker assignments
