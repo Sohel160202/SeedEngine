@@ -27,16 +27,23 @@ It is intentionally small: the goal is to prove that a beginner can create and r
 - Payment, inventory and business metrics.
 - Save and build preparation.
 
-## Deliberately postponed
+## Current dogfood status
 
-This first dogfood version does not try to be a commercial supermarket simulator. The next improvements should be driven by using it as a player:
+The reference project now has the engine-side foundations for a complete small shop loop:
 
-- customer movement that feels natural
-- product shelves and visual presentation
-- an in-game money and stock HUD
-- stronger feedback for successful and failed checkout
-- save/load of runtime progress
-- validation before export
-- a complete standalone package
+- customer movement, authored queue targets, and checkout behavior
+- simulation HUD with wallet, revenue, day/time, shop status, stock, customers, and orders
+- runtime save slots for progress
+- project validation before export
+- directly launchable standalone packages
+- starter shop assets and reusable shop prefabs
 
-Seed Grocery Store is a test game for the engine's product direction, not a separate engine branch or a one-off demo.
+The next dogfood pass should focus on player-facing completeness:
+
+- purchase/restock feedback that is obvious without opening the editor
+- a small daily objective and success state
+- polished shop presentation and custom imported assets
+- a simple pause/save/load menu
+- one finished balance pass for prices, demand, payroll, and upgrades
+
+Seed Grocery Store remains a reference game for proving that Seed can produce a complete simulation game, not a separate engine branch or a one-off demo.

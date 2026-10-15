@@ -74,7 +74,23 @@ void RuntimeUI::draw(const GameplayHUDState& state, bool save_enabled) {
         ImGuiWindowFlags_NoInputs;
 
     if (ImGui::Begin("Seed HUD", nullptr, flags)) {
-        ImGui::TextUnformatted("SEED ADVENTURE");
+        ImGui::TextUnformatted(state.simulation_visible ? "SEED SHOP" : "SEED ADVENTURE");
+
+        if (state.simulation_visible) {
+            ImGui::SeparatorText(state.shop_name.empty() ? "Shop" : state.shop_name.c_str());
+            ImGui::Text("Wallet        %.2f", state.wallet_balance);
+            ImGui::Text("Today         %.2f", state.daily_revenue);
+            ImGui::Text("Day %d  %05.2f  %s",
+                state.simulation_day,
+                state.simulation_hour,
+                state.shop_open ? "OPEN" : "CLOSED");
+            ImGui::Text("Stock         %d / %d", state.stock_quantity, state.stock_capacity);
+            ImGui::Text("Customers     %d", state.active_customers);
+            ImGui::Text("Orders        %d waiting  ·  %d completed",
+                state.queued_orders,
+                state.completed_orders);
+            ImGui::Separator();
+        }
 
         if (state.health_visible) {
             const float maximum = std::max(0.001f, state.health_maximum);
@@ -117,8 +133,10 @@ void RuntimeUI::draw(const GameplayHUDState& state, bool save_enabled) {
         }
 
         ImGui::Separator();
-        ImGui::TextDisabled("WASD Move   RMB Look   Space Jump");
-        ImGui::TextDisabled("F Attack   E Interact   Shift Sprint");
+        ImGui::TextDisabled(state.simulation_visible
+            ? "WASD Move   RMB Look   E Interact   F5 Save   F9 Load"
+            : "WASD Move   RMB Look   Space Jump");
+        if (!state.simulation_visible) ImGui::TextDisabled("F Attack   E Interact   Shift Sprint");
         if (save_enabled) ImGui::TextDisabled("F5 Save   F9 Load");
     }
     ImGui::End();

@@ -3,6 +3,7 @@
 #include "seed/gameplay/Components.h"
 #include "seed/gameplay/GameplayRuntime.h"
 #include "seed/scene/Scene.h"
+#include "seed/simulation/SimulationComponents.h"
 
 #include <algorithm>
 #include <string>
@@ -22,6 +23,37 @@ GameplayHUDState GameplayHUDSystem::capture(
     state.interaction_prompt = runtime.interaction_prompt();
     state.dialogue_visible = runtime.dialogue_active();
     state.status_message = runtime.status_message();
+
+    scene.for_each<ShopInventoryComponent>([&](EntityId shop_entity, const ShopInventoryComponent& inventory) {
+        if (state.simulation_visible) return;
+        state.simulation_visible = true;
+        state.shop_name = scene.entity_name(shop_entity);
+        for (const auto& product : inventory.products) {
+            state.stock_quantity += std::max(0, product.quantity);
+            state.stock_capacity += std::max(0, product.shelf_capacity);
+        }
+        if (const auto* wallet = scene.get_component<WalletComponent>(shop_entity)) {
+            state.wallet_balance = wallet->balance;
+        }
+        if (const auto* metrics = scene.get_component<ShopMetricsComponent>(shop_entity)) {
+            state.daily_revenue = metrics->daily_revenue;
+            state.completed_orders = metrics->orders_completed_today;
+        }
+        if (const auto* clock = scene.get_component<SimulationClockComponent>(shop_entity)) {
+            state.simulation_day = clock->day;
+            state.simulation_hour = clock->hour;
+        }
+        if (const auto* hours = scene.get_component<ShopHoursComponent>(shop_entity)) {
+            state.shop_open = state.simulation_hour >= hours->opening_hour &&
+                state.simulation_hour < hours->closing_hour;
+        }
+    });
+    scene.for_each<CustomerBehaviorComponent>([&](EntityId, const CustomerBehaviorComponent& customer) {
+        if (customer.enabled && customer.state != "leaving") ++state.active_customers;
+    });
+    scene.for_each<CustomerOrderComponent>([&](EntityId, const CustomerOrderComponent& order) {
+        if (!order.fulfilled) ++state.queued_orders;
+    });
 
     if (runtime.player_entity() == InvalidEntity ||
         !scene.is_alive(runtime.player_entity())) {
