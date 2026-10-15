@@ -58,7 +58,7 @@ int main() {
     require(captured.snapshot.format_version == seed::SeedSaveFormatVersion, "capture format version");
     require(captured.snapshot.slot == "slot_alpha", "capture slot");
     require(captured.snapshot.game_schema_version == 7, "capture game schema version");
-    require(captured.snapshot.entities.size() == 1, "capture only Persistent entities");
+    require(captured.snapshot.entities.size() == 2, "capture supported runtime entities");
     require(captured.snapshot.entities.front().persistent_id == "player-save-id", "capture stable entity ID");
     require(captured.snapshot.entities.front().transform.has_value(), "capture Transform");
     require(captured.snapshot.entities.front().health.has_value(), "capture Health");
@@ -83,7 +83,7 @@ int main() {
     require(error.empty(), "read .seedsave should not report error");
     require(loaded->slot == "slot_alpha", "round-trip slot");
     require(loaded->game_schema_version == 7, "round-trip game schema version");
-    require(loaded->entities.size() == 1, "round-trip entity count");
+    require(loaded->entities.size() == 2, "round-trip entity count");
 
     // Change authored balance and runtime state after the save. Restore should
     // apply progress semantically and clamp saved Health to the CURRENT authored
@@ -110,9 +110,9 @@ int main() {
     with_stale_entity.entities.push_back(stale);
 
     const seed::SaveApplyResult applied = seed::SaveGameSystem::apply(scene, with_stale_entity);
-    require(applied.entities_applied == 1, "restore one matching Persistent entity");
+    require(applied.entities_applied == 2, "restore matching runtime entities");
     require(applied.entities_skipped == 1, "skip one stale entity");
-    require(applied.properties_applied == 4, "restore Transform + Health + Inventory + Quest");
+    require(applied.properties_applied == 6, "restore runtime properties for both entities");
     require(!applied.warnings.empty(), "stale entity produces warning");
 
     require(near(runtime_transform->position.x, 4.0f), "restore Transform X");
@@ -143,17 +143,18 @@ int main() {
     require(persistent != nullptr, "Persistent marker survives scene round-trip");
     require(persistent->enabled, "Persistent enabled state survives scene round-trip");
 
-    // Removing the authored Persistent declaration prevents old save data from
-    // mutating this entity. Seed reports the mismatch instead of guessing.
+    // Simulation entities are saveable by their supported runtime state even
+    // without an authored Persistent marker. This keeps beginner-created shop
+    // objects from requiring hidden engine configuration.
     require(
         reloaded_scene.remove_component<seed::PersistentComponent>(reloaded_player),
         "remove Persistent marker"
     );
     const seed::SaveApplyResult no_longer_persistent =
         seed::SaveGameSystem::apply(reloaded_scene, *loaded);
-    require(no_longer_persistent.entities_applied == 0, "do not restore entity no longer marked Persistent");
-    require(no_longer_persistent.entities_skipped == 1, "count non-Persistent restore as skipped");
-    require(!no_longer_persistent.warnings.empty(), "non-Persistent restore produces warning");
+    require(no_longer_persistent.entities_applied == 2, "restore supported runtime entities without Persistent");
+    require(no_longer_persistent.entities_skipped == 0, "supported runtime entities are not skipped");
+    require(no_longer_persistent.warnings.empty(), "supported runtime entities produce no warning");
 
     std::filesystem::remove_all(root, cleanup_error);
     std::cout << "Seed Save Game semantic round-trip tests passed.\n";
