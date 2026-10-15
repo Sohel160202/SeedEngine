@@ -58,14 +58,8 @@ bool load_project_scene(
     seed::EntityId& player_entity
 ) {
     std::string error;
-    const auto project = seed::ProjectSerializer::load(project_file, &error);
-    if (!project.has_value()) {
-        std::cerr << "[SeedRuntime] " << error << '\n';
-        return false;
-    }
-
     const std::filesystem::path scene_file =
-        project_file.parent_path() / project->startup_scene;
+        project_file.parent_path() / project.startup_scene;
     if (!seed::SceneSerializer::load(scene, scene_file, &error)) {
         std::cerr << "[SeedRuntime] " << error << '\n';
         return false;
