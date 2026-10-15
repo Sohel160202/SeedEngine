@@ -342,6 +342,8 @@ bool SceneSerializer::save(
                     {"title", goal->title},
                     {"target_revenue", goal->target_revenue},
                     {"target_customers", goal->target_customers},
+                    {"revenue_growth_per_day", goal->revenue_growth_per_day},
+                    {"customer_growth_per_day", goal->customer_growth_per_day},
                 };
             }
             if (const auto* metrics = scene.get_component<ShopMetricsComponent>(entity)) {
@@ -931,6 +933,12 @@ bool SceneSerializer::load(
                 goal.title = value.value("title", std::string{"Daily Sales Goal"});
                 goal.target_revenue = std::max(0.0f, value.value("target_revenue", 100.0f));
                 goal.target_customers = std::max(0, value.value("target_customers", 5));
+                goal.revenue_growth_per_day = std::max(
+                    0.0f, value.value("revenue_growth_per_day", 25.0f)
+                );
+                goal.customer_growth_per_day = std::max(
+                    0, value.value("customer_growth_per_day", 1)
+                );
                 loaded_scene.add_component<ShopGoalComponent>(entity, std::move(goal));
             }
             if (components.contains("ShopMetrics")) {
