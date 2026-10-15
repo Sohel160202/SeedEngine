@@ -95,6 +95,7 @@ private:
     void draw_inspector(Scene& scene, const StudioDocumentInfo& document);
     void draw_assets_panel(Scene& scene, const StudioDocumentInfo& document);
     void draw_staff_panel(Scene& scene, const StudioDocumentInfo& document);
+    void draw_seed_doctor(Scene& scene, const StudioDocumentInfo& document);
     void draw_viewport_frame(Scene& scene, const StudioDocumentInfo& document, EntityId viewport_camera);
     void draw_viewport_toolbar(const StudioDocumentInfo& document);
     void begin_history_frame(Scene& scene, const StudioDocumentInfo& document);
@@ -120,6 +121,7 @@ private:
     bool m_show_semantic_merge_dialog{false};
     bool m_show_revision_dialog{false};
     bool m_show_beginner_guide_dialog{false};
+    bool m_show_seed_doctor{false};
     bool m_last_document_playing{false};
 
     GizmoTool m_gizmo_tool{GizmoTool::Move};
