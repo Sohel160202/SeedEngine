@@ -79,6 +79,9 @@ public:
     void begin_external_history_transaction();
     static StudioUI* active_instance() noexcept;
 
+    // Keep the startup hub useful across launches without coupling it to project data.
+    void remember_recent_project(const std::string& project_file, const std::string& project_name);
+
     ~StudioUI();
 
 private:
@@ -86,6 +89,7 @@ private:
 
     void queue_action(StudioAction action);
     void draw_main_menu(const StudioDocumentInfo& document);
+    void draw_project_hub(const StudioDocumentInfo& document);
     void draw_project_dialogs(const StudioDocumentInfo& document);
     void draw_world_panel(Scene& scene);
     void draw_inspector(Scene& scene, const StudioDocumentInfo& document);
@@ -133,6 +137,7 @@ private:
     std::string m_history_document_key;
     std::string m_history_structural_signature;
     std::string m_asset_preview_path;
+    std::vector<std::pair<std::string, std::string>> m_recent_projects;
 
     std::array<char,128> m_project_name_buffer{};
     std::array<char,512> m_project_folder_buffer{};
