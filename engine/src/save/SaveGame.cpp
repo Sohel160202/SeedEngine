@@ -277,6 +277,105 @@ SaveApplyResult SaveGameSystem::apply(Scene& scene, const SaveGameSnapshot& snap
                 );
             }
         }
+        if (saved.wallet.has_value()) {
+            if (auto* wallet = scene.get_component<WalletComponent>(entity)) {
+                wallet->balance = saved.wallet->balance;
+                wallet->lifetime_revenue = saved.wallet->lifetime_revenue;
+                wallet->lifetime_expenses = saved.wallet->lifetime_expenses;
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.shop_inventory.has_value()) {
+            if (auto* inventory = scene.get_component<ShopInventoryComponent>(entity)) {
+                inventory->products.clear();
+                for (const auto& product : saved.shop_inventory->products) {
+                    inventory->products.push_back({
+                        .product_id = product.product_id,
+                        .quantity = product.quantity,
+                        .shelf_capacity = product.shelf_capacity,
+                    });
+                }
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.shop_metrics.has_value()) {
+            if (auto* metrics = scene.get_component<ShopMetricsComponent>(entity)) {
+                metrics->tracked_day = saved.shop_metrics->tracked_day;
+                metrics->customers_served_today = saved.shop_metrics->customers_served_today;
+                metrics->orders_completed_today = saved.shop_metrics->orders_completed_today;
+                metrics->products_sold_today = saved.shop_metrics->products_sold_today;
+                metrics->daily_revenue = saved.shop_metrics->daily_revenue;
+                metrics->daily_satisfaction = saved.shop_metrics->daily_satisfaction;
+                metrics->satisfaction_samples = saved.shop_metrics->satisfaction_samples;
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.shop_clock.has_value()) {
+            if (auto* clock = scene.get_component<SimulationClockComponent>(entity)) {
+                clock->day = std::max(1, saved.shop_clock->day);
+                clock->hour = std::clamp(saved.shop_clock->hour, 0.0f, 24.0f);
+                clock->time_scale = std::max(0.0f, saved.shop_clock->time_scale);
+                clock->paused = saved.shop_clock->paused;
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.shop_hours.has_value()) {
+            if (auto* hours = scene.get_component<ShopHoursComponent>(entity)) {
+                hours->opening_hour = std::clamp(saved.shop_hours->opening_hour, 0.0f, 24.0f);
+                hours->closing_hour = std::clamp(saved.shop_hours->closing_hour, 0.0f, 24.0f);
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.shop_upgrade.has_value()) {
+            if (auto* upgrade = scene.get_component<ShopUpgradeComponent>(entity)) {
+                upgrade->level = std::clamp(saved.shop_upgrade->level, 1, upgrade->max_level);
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.staff.has_value()) {
+            if (auto* staff = scene.get_component<StaffWorkerComponent>(entity)) {
+                staff->employed = saved.staff->employed;
+                staff->last_paid_day = std::max(1, saved.staff->last_paid_day);
+                staff->skill_level = std::clamp(saved.staff->skill_level, 1, staff->max_skill_level);
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.customer_behavior.has_value()) {
+            if (auto* behavior = scene.get_component<CustomerBehaviorComponent>(entity)) {
+                behavior->enabled = saved.customer_behavior->enabled;
+                behavior->timer_seconds = std::max(0.0f, saved.customer_behavior->timer_seconds);
+                behavior->state = saved.customer_behavior->state;
+                behavior->order_sequence = std::max(1, saved.customer_behavior->order_sequence);
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.customer_order.has_value()) {
+            if (auto* order = scene.get_component<CustomerOrderComponent>(entity)) {
+                order->order_id = saved.customer_order->order_id;
+                order->customer_name = saved.customer_order->customer_name;
+                order->fulfilled = saved.customer_order->fulfilled;
+                order->delivered = saved.customer_order->delivered;
+                order->lines.clear();
+                for (const auto& line : saved.customer_order->lines) {
+                    order->lines.push_back({
+                        .product_id = line.product_id,
+                        .quantity = line.quantity,
+                        .fulfilled_quantity = line.fulfilled_quantity,
+                        .unit_price = line.unit_price,
+                    });
+                }
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
 
         if (applied_for_entity > 0) ++result.entities_applied;
         else ++result.entities_skipped;
