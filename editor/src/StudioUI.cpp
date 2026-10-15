@@ -141,7 +141,10 @@ void StudioUI::draw(Scene& scene, const StudioDocumentInfo& document, EntityId v
     if (!document.playing) begin_history_frame(scene, document);
 
     draw_main_menu(document);
-    if (!document.playing) draw_project_dialogs(document);
+    if (!document.playing) {
+        draw_project_dialogs(document);
+        draw_project_settings_dialog(document);
+    }
     if (!document.has_project && !document.playing) {
         draw_project_hub(document);
     } else {
@@ -277,6 +280,16 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
         }
         if (ImGui::MenuItem("Save","Ctrl+S")) { if (document.has_project) queue_action({.type=StudioActionType::Save}); else m_show_save_as_dialog=true; }
         if (ImGui::MenuItem("Save As...","Ctrl+Shift+S")) m_show_save_as_dialog=true;
+        if (ImGui::MenuItem("Project Settings...", nullptr, false, document.has_project)) {
+            m_project_window_width = document.window_width;
+            m_project_window_height = document.window_height;
+            m_project_window_resizable = document.window_resizable;
+            m_project_vsync = document.vsync;
+            copy_text(m_project_icon_buffer, document.window_icon);
+            copy_text(m_input_profile_buffer, document.input_profile);
+            copy_text(m_build_profile_buffer, document.build_profile);
+            m_show_project_settings_dialog = true;
+        }
         if (ImGui::MenuItem("Save Selected as Prefab...", nullptr, false, document.has_project && m_selected_entity != InvalidEntity)) { m_prefab_dialog_is_save = true; m_prefab_dialog_is_refresh = false; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; }
         if (ImGui::MenuItem("Instantiate Prefab...", nullptr, false, document.has_project)) { m_prefab_dialog_is_save = false; m_prefab_dialog_is_refresh = false; copy_text(m_prefab_file_buffer, "Prefabs/ReusableEntity.seedprefab"); m_show_prefab_dialog = true; }
         ImGui::Separator();
@@ -392,6 +405,45 @@ void StudioUI::draw_main_menu(const StudioDocumentInfo& document) {
     }
     std::string label=document.project_name+" — "+document.scene_name; if(document.dirty)label+=" *"; if(document.playing)label+="   [PLAY]";
     const float width=ImGui::CalcTextSize(label.c_str()).x; ImGui::SameLine(std::max(450.0f,ImGui::GetWindowWidth()-width-18.0f)); if(document.playing)ImGui::Text("%s",label.c_str());else ImGui::TextDisabled("%s",label.c_str()); ImGui::EndMainMenuBar();
+}
+
+void StudioUI::draw_project_settings_dialog(const StudioDocumentInfo& document) {
+    if (!m_show_project_settings_dialog) return;
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize;
+    center_next_dialog();
+    if (ImGui::Begin("Project Settings", &m_show_project_settings_dialog, flags)) {
+        ImGui::TextWrapped("These settings are saved with the project and used by exported games.");
+        ImGui::Separator();
+        ImGui::TextUnformatted("Window");
+        ImGui::InputInt("Width", &m_project_window_width);
+        ImGui::InputInt("Height", &m_project_window_height);
+        ImGui::Checkbox("Resizable", &m_project_window_resizable);
+        ImGui::Checkbox("VSync", &m_project_vsync);
+        ImGui::Separator();
+        ImGui::TextUnformatted("Project");
+        ImGui::InputText("Window Icon", m_project_icon_buffer.data(), m_project_icon_buffer.size());
+        ImGui::InputText("Input Profile", m_input_profile_buffer.data(), m_input_profile_buffer.size());
+        ImGui::InputText("Build Profile", m_build_profile_buffer.data(), m_build_profile_buffer.size());
+        ImGui::TextDisabled("Icon and input profiles are stored now and wired into later editor/export steps.");
+        if (ImGui::Button("Apply and Save")) {
+            StudioAction action;
+            action.type = StudioActionType::ProjectSettings;
+            action.project_name = document.project_name;
+            action.path = m_project_icon_buffer.data();
+            action.path2 = m_input_profile_buffer.data();
+            action.path3 = m_build_profile_buffer.data();
+            action.window_width = std::max(320, m_project_window_width);
+            action.window_height = std::max(240, m_project_window_height);
+            action.window_resizable = m_project_window_resizable;
+            action.vsync = m_project_vsync;
+            queue_action(std::move(action));
+            m_show_project_settings_dialog = false;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) m_show_project_settings_dialog = false;
+    }
+    ImGui::End();
 }
 
 void StudioUI::draw_project_dialogs(const StudioDocumentInfo& document) {
