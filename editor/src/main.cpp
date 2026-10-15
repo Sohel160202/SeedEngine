@@ -1130,6 +1130,8 @@ void build_project_template(
         goal.title = "Reach today's sales target and serve your customers.";
         goal.target_revenue = supermarket ? 100.0f : 120.0f;
         goal.target_customers = 5;
+        goal.revenue_growth_per_day = supermarket ? 25.0f : 30.0f;
+        goal.customer_growth_per_day = 1;
         scene.add_component<seed::ShopGoalComponent>(shop, goal);
         scene.add_component<seed::ShopHoursComponent>(shop);
         scene.add_component<seed::SimulationClockComponent>(shop);
