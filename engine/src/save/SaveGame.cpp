@@ -422,6 +422,85 @@ bool SaveGameSystem::write_file(
                     {"status", state.quest->status},
                 };
             }
+            if (state.wallet.has_value()) {
+                components["Wallet"] = {
+                    {"balance", state.wallet->balance},
+                    {"lifetime_revenue", state.wallet->lifetime_revenue},
+                    {"lifetime_expenses", state.wallet->lifetime_expenses},
+                };
+            }
+            if (state.shop_inventory.has_value()) {
+                nlohmann::json products = nlohmann::json::array();
+                for (const auto& product : state.shop_inventory->products) {
+                    products.push_back({
+                        {"product_id", product.product_id},
+                        {"quantity", product.quantity},
+                        {"shelf_capacity", product.shelf_capacity},
+                    });
+                }
+                components["ShopInventory"] = {{"products", std::move(products)}};
+            }
+            if (state.shop_metrics.has_value()) {
+                components["ShopMetrics"] = {
+                    {"tracked_day", state.shop_metrics->tracked_day},
+                    {"customers_served_today", state.shop_metrics->customers_served_today},
+                    {"orders_completed_today", state.shop_metrics->orders_completed_today},
+                    {"products_sold_today", state.shop_metrics->products_sold_today},
+                    {"daily_revenue", state.shop_metrics->daily_revenue},
+                    {"daily_satisfaction", state.shop_metrics->daily_satisfaction},
+                    {"satisfaction_samples", state.shop_metrics->satisfaction_samples},
+                };
+            }
+            if (state.shop_clock.has_value()) {
+                components["SimulationClock"] = {
+                    {"day", state.shop_clock->day},
+                    {"hour", state.shop_clock->hour},
+                    {"time_scale", state.shop_clock->time_scale},
+                    {"paused", state.shop_clock->paused},
+                };
+            }
+            if (state.shop_hours.has_value()) {
+                components["ShopHours"] = {
+                    {"opening_hour", state.shop_hours->opening_hour},
+                    {"closing_hour", state.shop_hours->closing_hour},
+                };
+            }
+            if (state.shop_upgrade.has_value()) {
+                components["ShopUpgrade"] = {{"level", state.shop_upgrade->level}};
+            }
+            if (state.staff.has_value()) {
+                components["Staff"] = {
+                    {"employed", state.staff->employed},
+                    {"last_paid_day", state.staff->last_paid_day},
+                    {"skill_level", state.staff->skill_level},
+                };
+            }
+            if (state.customer_behavior.has_value()) {
+                components["CustomerBehavior"] = {
+                    {"enabled", state.customer_behavior->enabled},
+                    {"timer_seconds", state.customer_behavior->timer_seconds},
+                    {"state", state.customer_behavior->state},
+                    {"order_sequence", state.customer_behavior->order_sequence},
+                };
+            }
+            if (state.customer_order.has_value()) {
+                nlohmann::json lines = nlohmann::json::array();
+                for (const auto& line : state.customer_order->lines) {
+                    lines.push_back({
+                        {"product_id", line.product_id},
+                        {"quantity", line.quantity},
+                        {"fulfilled_quantity", line.fulfilled_quantity},
+                        {"unit_price", line.unit_price},
+                    });
+                }
+                components["CustomerOrder"] = {
+                    {"order_id", state.customer_order->order_id},
+                    {"customer_name", state.customer_order->customer_name},
+                    {"lines", std::move(lines)},
+                    {"fulfilled", state.customer_order->fulfilled},
+                    {"delivered", state.customer_order->delivered},
+                };
+            }
 
             entities.push_back({
                 {"id", state.persistent_id},
