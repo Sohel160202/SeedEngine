@@ -124,6 +124,15 @@ RuntimeUIAction RuntimeUI::draw(const GameplayHUDState& state, bool save_enabled
             ImGui::SeparatorText(state.shop_name.empty() ? "Shop" : state.shop_name.c_str());
             ImGui::Text("Wallet        %.2f", state.wallet_balance);
             ImGui::Text("Today         %.2f", state.daily_revenue);
+            ImGui::Text("Lifetime      +%.0f  /  -%.0f",
+                state.lifetime_revenue,
+                state.lifetime_expenses);
+            ImGui::Text("Upgrade       Level %d", state.shop_upgrade_level);
+            ImGui::Text("Satisfaction  %.0f%%", state.daily_satisfaction);
+            ImGui::ProgressBar(
+                std::clamp(state.daily_satisfaction / 100.0f, 0.0f, 1.0f),
+                {-1.0f, 12.0f}
+            );
             ImGui::Text("Day %d  %05.2f  %s",
                 state.simulation_day,
                 state.simulation_hour,
