@@ -227,6 +227,42 @@ int main() {
         assert(!inventory->items.contains("VaultKey"));
     }
 
+    // Customers can browse at an authored point before joining checkout.
+    {
+        seed::Scene scene;
+        const auto player = add_player(scene);
+
+        const auto shop = scene.create_entity("Fresh Market");
+        scene.add_component<seed::ShopInventoryComponent>(shop);
+        scene.add_component<seed::WalletComponent>(shop);
+
+        const auto browse_point = scene.create_entity("Browse Point");
+        auto& browse_transform = scene.add_component<seed::TransformComponent>(browse_point);
+        browse_transform.position = {0.0f, 0.0f, 0.0f};
+        scene.add_component<seed::CustomerBrowsePointComponent>(browse_point);
+
+        const auto customer_entity = scene.create_entity("Browsing Customer");
+        auto& customer_transform = scene.add_component<seed::TransformComponent>(customer_entity);
+        customer_transform.position = {0.0f, 0.9f, 0.0f};
+        seed::CustomerBehaviorComponent customer;
+        customer.state = "browsing";
+        customer.timer_seconds = 0.0f;
+        scene.add_component<seed::CustomerBehaviorComponent>(customer_entity, customer);
+        seed::CustomerOrderComponent order;
+        order.customer_name = "Browsing Customer";
+        scene.add_component<seed::CustomerOrderComponent>(customer_entity, order);
+
+        seed::GameplayRuntime runtime;
+        assert(runtime.start(scene, player));
+        runtime.update(scene, 2.1);
+
+        const auto* updated_customer =
+            scene.get_component<seed::CustomerBehaviorComponent>(customer_entity);
+        assert(updated_customer != nullptr);
+        assert(updated_customer->state == "arriving");
+        assert(runtime.status_message().find("heading to checkout") != std::string::npos);
+    }
+
     // Customers leave when a checkout queue exceeds their patience.
     {
         seed::Scene scene;
