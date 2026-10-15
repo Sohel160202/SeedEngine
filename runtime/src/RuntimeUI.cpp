@@ -186,8 +186,31 @@ RuntimeUIAction RuntimeUI::draw(const GameplayHUDState& state, bool save_enabled
         }
 
         if (!state.status_message.empty()) {
-            ImGui::SeparatorText(state.dialogue_visible ? "Dialogue" : "Status");
-            ImGui::TextWrapped("%s", state.status_message.c_str());
+            if (state.dialogue_visible) {
+                ImGui::SeparatorText("Dialogue");
+                ImGui::TextWrapped("%s", state.status_message.c_str());
+            } else {
+                const char* status_title = "Status";
+                ImVec4 status_color{0.78f, 0.84f, 0.80f, 1.0f};
+                switch (state.status_tone) {
+                case seed::GameplayStatusTone::Success:
+                    status_title = "Success";
+                    status_color = {0.35f, 0.95f, 0.55f, 1.0f};
+                    break;
+                case seed::GameplayStatusTone::Warning:
+                    status_title = "Attention";
+                    status_color = {1.0f, 0.82f, 0.35f, 1.0f};
+                    break;
+                case seed::GameplayStatusTone::Error:
+                    status_title = "Action needed";
+                    status_color = {1.0f, 0.42f, 0.36f, 1.0f};
+                    break;
+                case seed::GameplayStatusTone::Neutral:
+                    break;
+                }
+                ImGui::SeparatorText(status_title);
+                ImGui::TextColored(status_color, "%s", state.status_message.c_str());
+            }
         }
         if (state.interaction_visible) {
             ImGui::Separator();

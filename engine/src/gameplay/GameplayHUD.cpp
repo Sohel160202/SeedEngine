@@ -6,9 +6,48 @@
 #include "seed/simulation/SimulationComponents.h"
 
 #include <algorithm>
+#include <cctype>
 #include <string>
 
 namespace seed {
+namespace {
+
+GameplayStatusTone status_tone_for(const std::string& message) {
+    if (message.empty()) return GameplayStatusTone::Neutral;
+
+    std::string lower = message;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+        [](unsigned char character) {
+            return static_cast<char>(std::tolower(character));
+        });
+
+    const auto contains = [&](const char* phrase) {
+        return lower.find(phrase) != std::string::npos;
+    };
+
+    if (contains("could not") || contains("not connected") ||
+        contains("disabled") || contains("invalid") ||
+        contains("cannot") || contains("failed") || contains("defeated") ||
+        contains("requires")) {
+        return GameplayStatusTone::Error;
+    }
+    if (contains("closed") || contains("no customer") ||
+        contains("no products") || contains("waiting for stock") ||
+        contains("already fully") || contains("nothing") ||
+        contains("not enough") || contains("keep serving")) {
+        return GameplayStatusTone::Warning;
+    }
+    if (contains("complete") || contains("sold ") || contains("restocked") ||
+        contains("upgraded") || contains("hired") || contains("picked up") ||
+        contains("opened") || contains("started") || contains("win") ||
+        contains("reward") || contains("paid")) {
+        return GameplayStatusTone::Success;
+    }
+    return GameplayStatusTone::Neutral;
+}
+
+} // namespace
+
 
 GameplayHUDState GameplayHUDSystem::capture(
     const Scene& scene,
@@ -23,6 +62,7 @@ GameplayHUDState GameplayHUDSystem::capture(
     state.interaction_prompt = runtime.interaction_prompt();
     state.dialogue_visible = runtime.dialogue_active();
     state.status_message = runtime.status_message();
+    state.status_tone = status_tone_for(state.status_message);
 
     scene.for_each<ShopInventoryComponent>([&](EntityId shop_entity, const ShopInventoryComponent& inventory) {
         if (state.simulation_visible) return;
