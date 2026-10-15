@@ -37,6 +37,8 @@ struct ShopGoalComponent {
     std::string title{"Daily Sales Goal"};
     float target_revenue{100.0f};
     int target_customers{5};
+    float revenue_growth_per_day{25.0f};
+    int customer_growth_per_day{1};
 };
 
 struct ShopMetricsComponent {
