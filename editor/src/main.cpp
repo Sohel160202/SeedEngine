@@ -1126,6 +1126,11 @@ void build_project_template(
         staff_manager.default_skill_upgrade_cost = 75.0f;
         scene.add_component<seed::StaffManagerComponent>(shop, staff_manager);
         scene.add_component<seed::ShopMetricsComponent>(shop);
+        seed::ShopGoalComponent goal;
+        goal.title = "Reach today's sales target and serve your customers.";
+        goal.target_revenue = supermarket ? 100.0f : 120.0f;
+        goal.target_customers = 5;
+        scene.add_component<seed::ShopGoalComponent>(shop, goal);
         scene.add_component<seed::ShopHoursComponent>(shop);
         scene.add_component<seed::SimulationClockComponent>(shop);
         scene.add_component<seed::InteractableComponent>(shop, "Restock Shop", true);
