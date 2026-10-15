@@ -48,8 +48,24 @@ SaveCaptureResult SaveGameSystem::capture(
     result.snapshot.slot = slot.empty() ? "slot_1" : std::move(slot);
     result.snapshot.game_schema_version = std::max(1, game_schema_version);
 
-    scene.for_each<PersistentComponent>([&](EntityId entity, const PersistentComponent& persistent) {
-        if (!persistent.enabled || !scene.is_alive(entity)) return;
+    scene.for_each_entity([&](EntityId entity, const std::string&) {
+        if (!scene.is_alive(entity)) return;
+        const auto* persistent = scene.get_component<PersistentComponent>(entity);
+        const bool has_runtime_state =
+            scene.has_component<TransformComponent>(entity) ||
+            scene.has_component<HealthComponent>(entity) ||
+            scene.has_component<InventoryComponent>(entity) ||
+            scene.has_component<QuestComponent>(entity) ||
+            scene.has_component<WalletComponent>(entity) ||
+            scene.has_component<ShopInventoryComponent>(entity) ||
+            scene.has_component<ShopMetricsComponent>(entity) ||
+            scene.has_component<SimulationClockComponent>(entity) ||
+            scene.has_component<ShopHoursComponent>(entity) ||
+            scene.has_component<ShopUpgradeComponent>(entity) ||
+            scene.has_component<StaffWorkerComponent>(entity) ||
+            scene.has_component<CustomerBehaviorComponent>(entity) ||
+            scene.has_component<CustomerOrderComponent>(entity);
+        if ((persistent == nullptr || !persistent->enabled) && !has_runtime_state) return;
 
         SaveEntityState state;
         state.persistent_id = scene.entity_persistent_id(entity);
@@ -210,10 +226,10 @@ SaveApplyResult SaveGameSystem::apply(Scene& scene, const SaveGameSnapshot& snap
         }
 
         const auto* persistent = scene.get_component<PersistentComponent>(entity);
-        if (persistent == nullptr || !persistent->enabled) {
+        if (persistent != nullptr && !persistent->enabled) {
             ++result.entities_skipped;
             result.warnings.push_back(
-                "Saved entity is no longer marked Persistent and was not restored: " +
+                "Saved entity is disabled for persistence and was not restored: " +
                 entity_label(scene, entity)
             );
             continue;
