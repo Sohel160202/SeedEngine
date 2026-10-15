@@ -2,6 +2,7 @@
 
 #include "seed/gameplay/Components.h"
 #include "seed/save/PersistenceComponents.h"
+#include "seed/simulation/SimulationComponents.h"
 #include "seed/scene/Scene.h"
 
 #include <nlohmann/json.hpp>
@@ -47,8 +48,24 @@ SaveCaptureResult SaveGameSystem::capture(
     result.snapshot.slot = slot.empty() ? "slot_1" : std::move(slot);
     result.snapshot.game_schema_version = std::max(1, game_schema_version);
 
-    scene.for_each<PersistentComponent>([&](EntityId entity, const PersistentComponent& persistent) {
-        if (!persistent.enabled || !scene.is_alive(entity)) return;
+    scene.for_each_entity([&](EntityId entity, const std::string&) {
+        if (!scene.is_alive(entity)) return;
+        const auto* persistent = scene.get_component<PersistentComponent>(entity);
+        const bool has_runtime_state =
+            scene.has_component<TransformComponent>(entity) ||
+            scene.has_component<HealthComponent>(entity) ||
+            scene.has_component<InventoryComponent>(entity) ||
+            scene.has_component<QuestComponent>(entity) ||
+            scene.has_component<WalletComponent>(entity) ||
+            scene.has_component<ShopInventoryComponent>(entity) ||
+            scene.has_component<ShopMetricsComponent>(entity) ||
+            scene.has_component<SimulationClockComponent>(entity) ||
+            scene.has_component<ShopHoursComponent>(entity) ||
+            scene.has_component<ShopUpgradeComponent>(entity) ||
+            scene.has_component<StaffWorkerComponent>(entity) ||
+            scene.has_component<CustomerBehaviorComponent>(entity) ||
+            scene.has_component<CustomerOrderComponent>(entity);
+        if ((persistent == nullptr || !persistent->enabled) && !has_runtime_state) return;
 
         SaveEntityState state;
         state.persistent_id = scene.entity_persistent_id(entity);
@@ -81,9 +98,91 @@ SaveCaptureResult SaveGameSystem::capture(
                 .status = static_cast<int>(quest->status),
             };
         }
+        if (const auto* wallet = scene.get_component<WalletComponent>(entity)) {
+            state.wallet = SaveWalletState{
+                .balance = wallet->balance,
+                .lifetime_revenue = wallet->lifetime_revenue,
+                .lifetime_expenses = wallet->lifetime_expenses,
+            };
+        }
+        if (const auto* inventory = scene.get_component<ShopInventoryComponent>(entity)) {
+            SaveShopInventoryState saved_inventory;
+            for (const auto& product : inventory->products) {
+                saved_inventory.products.push_back({
+                    .product_id = product.product_id,
+                    .quantity = product.quantity,
+                    .shelf_capacity = product.shelf_capacity,
+                });
+            }
+            state.shop_inventory = std::move(saved_inventory);
+        }
+        if (const auto* metrics = scene.get_component<ShopMetricsComponent>(entity)) {
+            state.shop_metrics = SaveShopMetricsState{
+                .tracked_day = metrics->tracked_day,
+                .customers_served_today = metrics->customers_served_today,
+                .orders_completed_today = metrics->orders_completed_today,
+                .products_sold_today = metrics->products_sold_today,
+                .daily_revenue = metrics->daily_revenue,
+                .daily_satisfaction = metrics->daily_satisfaction,
+                .satisfaction_samples = metrics->satisfaction_samples,
+            };
+        }
+        if (const auto* clock = scene.get_component<SimulationClockComponent>(entity)) {
+            state.shop_clock = SaveShopClockState{
+                .day = clock->day,
+                .hour = clock->hour,
+                .time_scale = clock->time_scale,
+                .paused = clock->paused,
+            };
+        }
+        if (const auto* hours = scene.get_component<ShopHoursComponent>(entity)) {
+            state.shop_hours = SaveShopHoursState{
+                .opening_hour = hours->opening_hour,
+                .closing_hour = hours->closing_hour,
+            };
+        }
+        if (const auto* upgrade = scene.get_component<ShopUpgradeComponent>(entity)) {
+            state.shop_upgrade = SaveShopUpgradeState{.level = upgrade->level};
+        }
+        if (const auto* staff = scene.get_component<StaffWorkerComponent>(entity)) {
+            state.staff = SaveStaffState{
+                .employed = staff->employed,
+                .last_paid_day = staff->last_paid_day,
+                .skill_level = staff->skill_level,
+            };
+        }
+        if (const auto* behavior = scene.get_component<CustomerBehaviorComponent>(entity)) {
+            state.customer_behavior = SaveCustomerBehaviorState{
+                .enabled = behavior->enabled,
+                .timer_seconds = behavior->timer_seconds,
+                .state = behavior->state,
+                .order_sequence = behavior->order_sequence,
+            };
+        }
+        if (const auto* order = scene.get_component<CustomerOrderComponent>(entity)) {
+            SaveCustomerOrderState saved_order;
+            saved_order.order_id = order->order_id;
+            saved_order.customer_name = order->customer_name;
+            saved_order.fulfilled = order->fulfilled;
+            saved_order.delivered = order->delivered;
+            for (const auto& line : order->lines) {
+                saved_order.lines.push_back({
+                    .product_id = line.product_id,
+                    .quantity = line.quantity,
+                    .fulfilled_quantity = line.fulfilled_quantity,
+                    .unit_price = line.unit_price,
+                });
+            }
+            state.customer_order = std::move(saved_order);
+        }
 
         if (!state.transform.has_value() && !state.health.has_value() &&
-            !state.inventory.has_value() && !state.quest.has_value()) {
+            !state.inventory.has_value() && !state.quest.has_value() &&
+            !state.wallet.has_value() && !state.shop_inventory.has_value() &&
+            !state.shop_metrics.has_value() && !state.shop_clock.has_value() &&
+            !state.shop_hours.has_value() && !state.shop_upgrade.has_value() &&
+            !state.staff.has_value() && !state.customer_behavior.has_value() &&
+            !state.customer_order.has_value()) {
             result.warnings.push_back(
                 "Persistent entity has no Save Game v0 state yet: " + entity_label(scene, entity)
             );
@@ -127,10 +226,10 @@ SaveApplyResult SaveGameSystem::apply(Scene& scene, const SaveGameSnapshot& snap
         }
 
         const auto* persistent = scene.get_component<PersistentComponent>(entity);
-        if (persistent == nullptr || !persistent->enabled) {
+        if (persistent != nullptr && !persistent->enabled) {
             ++result.entities_skipped;
             result.warnings.push_back(
-                "Saved entity is no longer marked Persistent and was not restored: " +
+                "Saved entity is disabled for persistence and was not restored: " +
                 entity_label(scene, entity)
             );
             continue;
@@ -194,6 +293,105 @@ SaveApplyResult SaveGameSystem::apply(Scene& scene, const SaveGameSnapshot& snap
                 );
             }
         }
+        if (saved.wallet.has_value()) {
+            if (auto* wallet = scene.get_component<WalletComponent>(entity)) {
+                wallet->balance = saved.wallet->balance;
+                wallet->lifetime_revenue = saved.wallet->lifetime_revenue;
+                wallet->lifetime_expenses = saved.wallet->lifetime_expenses;
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.shop_inventory.has_value()) {
+            if (auto* inventory = scene.get_component<ShopInventoryComponent>(entity)) {
+                inventory->products.clear();
+                for (const auto& product : saved.shop_inventory->products) {
+                    inventory->products.push_back({
+                        .product_id = product.product_id,
+                        .quantity = product.quantity,
+                        .shelf_capacity = product.shelf_capacity,
+                    });
+                }
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.shop_metrics.has_value()) {
+            if (auto* metrics = scene.get_component<ShopMetricsComponent>(entity)) {
+                metrics->tracked_day = saved.shop_metrics->tracked_day;
+                metrics->customers_served_today = saved.shop_metrics->customers_served_today;
+                metrics->orders_completed_today = saved.shop_metrics->orders_completed_today;
+                metrics->products_sold_today = saved.shop_metrics->products_sold_today;
+                metrics->daily_revenue = saved.shop_metrics->daily_revenue;
+                metrics->daily_satisfaction = saved.shop_metrics->daily_satisfaction;
+                metrics->satisfaction_samples = saved.shop_metrics->satisfaction_samples;
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.shop_clock.has_value()) {
+            if (auto* clock = scene.get_component<SimulationClockComponent>(entity)) {
+                clock->day = std::max(1, saved.shop_clock->day);
+                clock->hour = std::clamp(saved.shop_clock->hour, 0.0f, 24.0f);
+                clock->time_scale = std::max(0.0f, saved.shop_clock->time_scale);
+                clock->paused = saved.shop_clock->paused;
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.shop_hours.has_value()) {
+            if (auto* hours = scene.get_component<ShopHoursComponent>(entity)) {
+                hours->opening_hour = std::clamp(saved.shop_hours->opening_hour, 0.0f, 24.0f);
+                hours->closing_hour = std::clamp(saved.shop_hours->closing_hour, 0.0f, 24.0f);
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.shop_upgrade.has_value()) {
+            if (auto* upgrade = scene.get_component<ShopUpgradeComponent>(entity)) {
+                upgrade->level = std::clamp(saved.shop_upgrade->level, 1, upgrade->max_level);
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.staff.has_value()) {
+            if (auto* staff = scene.get_component<StaffWorkerComponent>(entity)) {
+                staff->employed = saved.staff->employed;
+                staff->last_paid_day = std::max(1, saved.staff->last_paid_day);
+                staff->skill_level = std::clamp(saved.staff->skill_level, 1, staff->max_skill_level);
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.customer_behavior.has_value()) {
+            if (auto* behavior = scene.get_component<CustomerBehaviorComponent>(entity)) {
+                behavior->enabled = saved.customer_behavior->enabled;
+                behavior->timer_seconds = std::max(0.0f, saved.customer_behavior->timer_seconds);
+                behavior->state = saved.customer_behavior->state;
+                behavior->order_sequence = std::max(1, saved.customer_behavior->order_sequence);
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
+        if (saved.customer_order.has_value()) {
+            if (auto* order = scene.get_component<CustomerOrderComponent>(entity)) {
+                order->order_id = saved.customer_order->order_id;
+                order->customer_name = saved.customer_order->customer_name;
+                order->fulfilled = saved.customer_order->fulfilled;
+                order->delivered = saved.customer_order->delivered;
+                order->lines.clear();
+                for (const auto& line : saved.customer_order->lines) {
+                    order->lines.push_back({
+                        .product_id = line.product_id,
+                        .quantity = line.quantity,
+                        .fulfilled_quantity = line.fulfilled_quantity,
+                        .unit_price = line.unit_price,
+                    });
+                }
+                ++result.properties_applied;
+                ++applied_for_entity;
+            }
+        }
 
         if (applied_for_entity > 0) ++result.entities_applied;
         else ++result.entities_skipped;
@@ -238,6 +436,85 @@ bool SaveGameSystem::write_file(
                 components["Quest"] = {
                     {"quest_id", state.quest->quest_id},
                     {"status", state.quest->status},
+                };
+            }
+            if (state.wallet.has_value()) {
+                components["Wallet"] = {
+                    {"balance", state.wallet->balance},
+                    {"lifetime_revenue", state.wallet->lifetime_revenue},
+                    {"lifetime_expenses", state.wallet->lifetime_expenses},
+                };
+            }
+            if (state.shop_inventory.has_value()) {
+                nlohmann::json products = nlohmann::json::array();
+                for (const auto& product : state.shop_inventory->products) {
+                    products.push_back({
+                        {"product_id", product.product_id},
+                        {"quantity", product.quantity},
+                        {"shelf_capacity", product.shelf_capacity},
+                    });
+                }
+                components["ShopInventory"] = {{"products", std::move(products)}};
+            }
+            if (state.shop_metrics.has_value()) {
+                components["ShopMetrics"] = {
+                    {"tracked_day", state.shop_metrics->tracked_day},
+                    {"customers_served_today", state.shop_metrics->customers_served_today},
+                    {"orders_completed_today", state.shop_metrics->orders_completed_today},
+                    {"products_sold_today", state.shop_metrics->products_sold_today},
+                    {"daily_revenue", state.shop_metrics->daily_revenue},
+                    {"daily_satisfaction", state.shop_metrics->daily_satisfaction},
+                    {"satisfaction_samples", state.shop_metrics->satisfaction_samples},
+                };
+            }
+            if (state.shop_clock.has_value()) {
+                components["SimulationClock"] = {
+                    {"day", state.shop_clock->day},
+                    {"hour", state.shop_clock->hour},
+                    {"time_scale", state.shop_clock->time_scale},
+                    {"paused", state.shop_clock->paused},
+                };
+            }
+            if (state.shop_hours.has_value()) {
+                components["ShopHours"] = {
+                    {"opening_hour", state.shop_hours->opening_hour},
+                    {"closing_hour", state.shop_hours->closing_hour},
+                };
+            }
+            if (state.shop_upgrade.has_value()) {
+                components["ShopUpgrade"] = {{"level", state.shop_upgrade->level}};
+            }
+            if (state.staff.has_value()) {
+                components["Staff"] = {
+                    {"employed", state.staff->employed},
+                    {"last_paid_day", state.staff->last_paid_day},
+                    {"skill_level", state.staff->skill_level},
+                };
+            }
+            if (state.customer_behavior.has_value()) {
+                components["CustomerBehavior"] = {
+                    {"enabled", state.customer_behavior->enabled},
+                    {"timer_seconds", state.customer_behavior->timer_seconds},
+                    {"state", state.customer_behavior->state},
+                    {"order_sequence", state.customer_behavior->order_sequence},
+                };
+            }
+            if (state.customer_order.has_value()) {
+                nlohmann::json lines = nlohmann::json::array();
+                for (const auto& line : state.customer_order->lines) {
+                    lines.push_back({
+                        {"product_id", line.product_id},
+                        {"quantity", line.quantity},
+                        {"fulfilled_quantity", line.fulfilled_quantity},
+                        {"unit_price", line.unit_price},
+                    });
+                }
+                components["CustomerOrder"] = {
+                    {"order_id", state.customer_order->order_id},
+                    {"customer_name", state.customer_order->customer_name},
+                    {"lines", std::move(lines)},
+                    {"fulfilled", state.customer_order->fulfilled},
+                    {"delivered", state.customer_order->delivered},
                 };
             }
 
@@ -336,6 +613,92 @@ std::optional<SaveGameSnapshot> SaveGameSystem::read_file(
                 quest.quest_id = value.value("quest_id", std::string{});
                 quest.status = value.value("status", 0);
                 state.quest = std::move(quest);
+            }
+            if (components.contains("Wallet")) {
+                const auto& value = components.at("Wallet");
+                state.wallet = SaveWalletState{
+                    .balance = value.value("balance", 0.0f),
+                    .lifetime_revenue = value.value("lifetime_revenue", 0.0f),
+                    .lifetime_expenses = value.value("lifetime_expenses", 0.0f),
+                };
+            }
+            if (components.contains("ShopInventory")) {
+                SaveShopInventoryState inventory;
+                for (const auto& product : components.at("ShopInventory").value("products", nlohmann::json::array())) {
+                    inventory.products.push_back({
+                        .product_id = product.value("product_id", std::string{}),
+                        .quantity = product.value("quantity", 0),
+                        .shelf_capacity = product.value("shelf_capacity", 0),
+                    });
+                }
+                state.shop_inventory = std::move(inventory);
+            }
+            if (components.contains("ShopMetrics")) {
+                const auto& value = components.at("ShopMetrics");
+                state.shop_metrics = SaveShopMetricsState{
+                    .tracked_day = value.value("tracked_day", 1),
+                    .customers_served_today = value.value("customers_served_today", 0),
+                    .orders_completed_today = value.value("orders_completed_today", 0),
+                    .products_sold_today = value.value("products_sold_today", 0),
+                    .daily_revenue = value.value("daily_revenue", 0.0f),
+                    .daily_satisfaction = value.value("daily_satisfaction", 100.0f),
+                    .satisfaction_samples = value.value("satisfaction_samples", 0),
+                };
+            }
+            if (components.contains("SimulationClock")) {
+                const auto& value = components.at("SimulationClock");
+                state.shop_clock = SaveShopClockState{
+                    .day = value.value("day", 1),
+                    .hour = value.value("hour", 8.0f),
+                    .time_scale = value.value("time_scale", 1.0f),
+                    .paused = value.value("paused", false),
+                };
+            }
+            if (components.contains("ShopHours")) {
+                const auto& value = components.at("ShopHours");
+                state.shop_hours = SaveShopHoursState{
+                    .opening_hour = value.value("opening_hour", 8.0f),
+                    .closing_hour = value.value("closing_hour", 20.0f),
+                };
+            }
+            if (components.contains("ShopUpgrade")) {
+                state.shop_upgrade = SaveShopUpgradeState{
+                    .level = components.at("ShopUpgrade").value("level", 1),
+                };
+            }
+            if (components.contains("Staff")) {
+                const auto& value = components.at("Staff");
+                state.staff = SaveStaffState{
+                    .employed = value.value("employed", true),
+                    .last_paid_day = value.value("last_paid_day", 1),
+                    .skill_level = value.value("skill_level", 1),
+                };
+            }
+            if (components.contains("CustomerBehavior")) {
+                const auto& value = components.at("CustomerBehavior");
+                state.customer_behavior = SaveCustomerBehaviorState{
+                    .enabled = value.value("enabled", true),
+                    .timer_seconds = value.value("timer_seconds", 0.0f),
+                    .state = value.value("state", std::string{"waiting"}),
+                    .order_sequence = value.value("order_sequence", 1),
+                };
+            }
+            if (components.contains("CustomerOrder")) {
+                const auto& value = components.at("CustomerOrder");
+                SaveCustomerOrderState order;
+                order.order_id = value.value("order_id", std::string{});
+                order.customer_name = value.value("customer_name", std::string{"Customer"});
+                order.fulfilled = value.value("fulfilled", false);
+                order.delivered = value.value("delivered", false);
+                for (const auto& line : value.value("lines", nlohmann::json::array())) {
+                    order.lines.push_back({
+                        .product_id = line.value("product_id", std::string{}),
+                        .quantity = line.value("quantity", 0),
+                        .fulfilled_quantity = line.value("fulfilled_quantity", 0),
+                        .unit_price = line.value("unit_price", 0.0f),
+                    });
+                }
+                state.customer_order = std::move(order);
             }
 
             snapshot.entities.push_back(std::move(state));

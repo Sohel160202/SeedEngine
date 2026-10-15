@@ -33,12 +33,91 @@ struct SaveQuestState {
     int status{0};
 };
 
+struct SaveWalletState {
+    float balance{0.0f};
+    float lifetime_revenue{0.0f};
+    float lifetime_expenses{0.0f};
+};
+
+struct SaveProductStockState {
+    std::string product_id;
+    int quantity{0};
+    int shelf_capacity{0};
+};
+
+struct SaveShopInventoryState {
+    std::vector<SaveProductStockState> products;
+};
+
+struct SaveShopMetricsState {
+    int tracked_day{1};
+    int customers_served_today{0};
+    int orders_completed_today{0};
+    int products_sold_today{0};
+    float daily_revenue{0.0f};
+    float daily_satisfaction{100.0f};
+    int satisfaction_samples{0};
+};
+
+struct SaveShopClockState {
+    int day{1};
+    float hour{8.0f};
+    float time_scale{1.0f};
+    bool paused{false};
+};
+
+struct SaveShopHoursState {
+    float opening_hour{8.0f};
+    float closing_hour{20.0f};
+};
+
+struct SaveShopUpgradeState {
+    int level{1};
+};
+
+struct SaveStaffState {
+    bool employed{true};
+    int last_paid_day{1};
+    int skill_level{1};
+};
+
+struct SaveCustomerBehaviorState {
+    bool enabled{true};
+    float timer_seconds{0.0f};
+    std::string state{"waiting"};
+    int order_sequence{1};
+};
+
+struct SaveOrderLineState {
+    std::string product_id;
+    int quantity{0};
+    int fulfilled_quantity{0};
+    float unit_price{0.0f};
+};
+
+struct SaveCustomerOrderState {
+    std::string order_id;
+    std::string customer_name;
+    std::vector<SaveOrderLineState> lines;
+    bool fulfilled{false};
+    bool delivered{false};
+};
+
 struct SaveEntityState {
     std::string persistent_id;
     std::optional<SaveTransformState> transform;
     std::optional<SaveHealthState> health;
     std::optional<SaveInventoryState> inventory;
     std::optional<SaveQuestState> quest;
+    std::optional<SaveWalletState> wallet;
+    std::optional<SaveShopInventoryState> shop_inventory;
+    std::optional<SaveShopMetricsState> shop_metrics;
+    std::optional<SaveShopClockState> shop_clock;
+    std::optional<SaveShopHoursState> shop_hours;
+    std::optional<SaveShopUpgradeState> shop_upgrade;
+    std::optional<SaveStaffState> staff;
+    std::optional<SaveCustomerBehaviorState> customer_behavior;
+    std::optional<SaveCustomerOrderState> customer_order;
 };
 
 struct SaveGameSnapshot {
