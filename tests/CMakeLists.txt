@@ -14,6 +14,11 @@ target_link_libraries(SeedSimulationSystemTests PRIVATE SeedEngine)
 target_compile_features(SeedSimulationSystemTests PRIVATE cxx_std_20)
 add_test(NAME SeedSimulationSystemTests COMMAND SeedSimulationSystemTests)
 
+add_executable(SeedProjectSerializerTests project_serializer_tests.cpp)
+target_link_libraries(SeedProjectSerializerTests PRIVATE SeedEngine)
+target_compile_features(SeedProjectSerializerTests PRIVATE cxx_std_20)
+add_test(NAME SeedProjectSerializerTests COMMAND SeedProjectSerializerTests)
+
 add_executable(SeedPrefabSerializerTests prefab_serializer_tests.cpp)
 target_link_libraries(SeedPrefabSerializerTests PRIVATE SeedEngine)
 target_compile_features(SeedPrefabSerializerTests PRIVATE cxx_std_20)
