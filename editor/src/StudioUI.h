@@ -5,6 +5,7 @@
 #include "seed/scene/Scene.h"
 
 #include <array>
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -12,7 +13,7 @@
 namespace seed::studio {
 
 enum class StudioActionType {
-    None, NewProject, OpenProject, Save, SaveAs, NewScene, ImportModel,
+    None, NewProject, OpenProject, Save, SaveAs, ProjectSettings, NewScene, ImportModel,
     CreateEmptyEntity, CreateCube, CreateDirectionalLight, CreateAmbientLight,
     CreateSky, CreateFirstPersonPlayer, CreateThirdPersonPlayer, CreateBeginnerPreset, BuildGame, OpenExample, DuplicateSelected, DeleteSelected,
     FocusSelected, Undo, Redo, Play, Stop, OpenSemanticMerge, SaveRevision, LoadRevision,
@@ -25,11 +26,22 @@ struct StudioAction {
     std::string project_name;
     std::string path2;
     std::string path3;
+    std::int32_t window_width{1280};
+    std::int32_t window_height{720};
+    bool window_resizable{true};
+    bool vsync{true};
 };
 
 struct StudioDocumentInfo {
     std::string project_name{"Untitled"};
     std::string scene_name{"Main.seedscene"};
+    std::int32_t window_width{1280};
+    std::int32_t window_height{720};
+    bool window_resizable{true};
+    bool vsync{true};
+    std::string window_icon;
+    std::string input_profile{"default"};
+    std::string build_profile{"Development"};
     std::string status_message;
     std::string gameplay_prompt;
     std::string gameplay_status;
@@ -91,6 +103,7 @@ private:
     void draw_main_menu(const StudioDocumentInfo& document);
     void draw_project_hub(const StudioDocumentInfo& document);
     void draw_project_dialogs(const StudioDocumentInfo& document);
+    void draw_project_settings_dialog(const StudioDocumentInfo& document);
     void draw_world_panel(Scene& scene);
     void draw_inspector(Scene& scene, const StudioDocumentInfo& document);
     void draw_assets_panel(Scene& scene, const StudioDocumentInfo& document);
@@ -111,6 +124,7 @@ private:
     StudioAction m_pending_action{};
     bool m_scene_edited{false};
     bool m_initialized{false};
+    bool m_show_project_settings_dialog{false};
     bool m_show_new_project_dialog{false};
     bool m_show_open_project_dialog{false};
     bool m_show_save_as_dialog{false};
@@ -144,12 +158,19 @@ private:
     std::array<char,128> m_project_name_buffer{};
     std::array<char,512> m_project_folder_buffer{};
     std::array<char,512> m_project_file_buffer{};
+    std::array<char,512> m_project_icon_buffer{};
+    std::array<char,128> m_input_profile_buffer{};
+    std::array<char,128> m_build_profile_buffer{};
     std::array<char,512> m_import_model_file_buffer{};
     std::array<char,512> m_prefab_file_buffer{};
     std::array<char,512> m_merge_base_file_buffer{};
     std::array<char,512> m_merge_ours_file_buffer{};
     std::array<char,512> m_merge_theirs_file_buffer{};
     int m_project_template_index{1};
+    int m_project_window_width{1280};
+    int m_project_window_height{720};
+    bool m_project_window_resizable{true};
+    bool m_project_vsync{true};
     int m_beginner_tutorial_step{0};
     int m_management_panel_tab{0};
     int m_prefab_category_filter{0};

@@ -2007,6 +2007,13 @@ seed::studio::StudioDocumentInfo document_info(
     info.scene_name = workspace.scene_file.empty()
         ? "Main.seedscene"
         : workspace.scene_file.filename().string();
+    info.window_width = static_cast<std::int32_t>(workspace.project.window_width);
+    info.window_height = static_cast<std::int32_t>(workspace.project.window_height);
+    info.window_resizable = workspace.project.window_resizable;
+    info.vsync = workspace.project.vsync;
+    info.window_icon = workspace.project.window_icon.generic_string();
+    info.input_profile = workspace.project.input_profile;
+    info.build_profile = workspace.project.build_profile;
     info.status_message = workspace.status_message;
     info.dirty = workspace.dirty;
     info.has_project = !workspace.project_file.empty();
@@ -2839,6 +2846,19 @@ int main(int argc, char** argv) {
                     : "Instantiated prefab, but asset rebind reported: " + rebind_error;
                 break;
             }
+            case seed::studio::StudioActionType::ProjectSettings:
+                if (has_pending_play_changes || workspace.project_file.empty()) break;
+                workspace.project.window_width = static_cast<std::uint32_t>(std::max(320, action.window_width));
+                workspace.project.window_height = static_cast<std::uint32_t>(std::max(240, action.window_height));
+                workspace.project.window_resizable = action.window_resizable;
+                workspace.project.vsync = action.vsync;
+                workspace.project.window_icon = action.path;
+                workspace.project.input_profile = action.path2.empty() ? "default" : action.path2;
+                workspace.project.build_profile = action.path3.empty() ? "Development" : action.path3;
+                if (save_workspace(workspace, scene)) {
+                    workspace.status_message = "Project settings saved.";
+                }
+                break;
             case seed::studio::StudioActionType::Save:
                 if (!has_pending_play_changes) save_workspace(workspace, scene);
                 break;
