@@ -77,6 +77,13 @@ struct CustomerSpawnerComponent {
     std::string customer_name_prefix{"Customer"};
 };
 
+// Optional authored destination that makes customers browse before checkout.
+struct CustomerBrowsePointComponent {
+    bool enabled{true};
+    float dwell_seconds{2.0f};
+    int priority{0};
+};
+
 struct ShopHoursComponent {
     float opening_hour{8.0f};
     float closing_hour{20.0f};
