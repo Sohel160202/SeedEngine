@@ -2,6 +2,7 @@
 
 #include "seed/gameplay/Components.h"
 #include "seed/save/PersistenceComponents.h"
+#include "seed/simulation/SimulationComponents.h"
 #include "seed/scene/Scene.h"
 
 #include <nlohmann/json.hpp>
@@ -81,9 +82,91 @@ SaveCaptureResult SaveGameSystem::capture(
                 .status = static_cast<int>(quest->status),
             };
         }
+        if (const auto* wallet = scene.get_component<WalletComponent>(entity)) {
+            state.wallet = SaveWalletState{
+                .balance = wallet->balance,
+                .lifetime_revenue = wallet->lifetime_revenue,
+                .lifetime_expenses = wallet->lifetime_expenses,
+            };
+        }
+        if (const auto* inventory = scene.get_component<ShopInventoryComponent>(entity)) {
+            SaveShopInventoryState saved_inventory;
+            for (const auto& product : inventory->products) {
+                saved_inventory.products.push_back({
+                    .product_id = product.product_id,
+                    .quantity = product.quantity,
+                    .shelf_capacity = product.shelf_capacity,
+                });
+            }
+            state.shop_inventory = std::move(saved_inventory);
+        }
+        if (const auto* metrics = scene.get_component<ShopMetricsComponent>(entity)) {
+            state.shop_metrics = SaveShopMetricsState{
+                .tracked_day = metrics->tracked_day,
+                .customers_served_today = metrics->customers_served_today,
+                .orders_completed_today = metrics->orders_completed_today,
+                .products_sold_today = metrics->products_sold_today,
+                .daily_revenue = metrics->daily_revenue,
+                .daily_satisfaction = metrics->daily_satisfaction,
+                .satisfaction_samples = metrics->satisfaction_samples,
+            };
+        }
+        if (const auto* clock = scene.get_component<SimulationClockComponent>(entity)) {
+            state.shop_clock = SaveShopClockState{
+                .day = clock->day,
+                .hour = clock->hour,
+                .time_scale = clock->time_scale,
+                .paused = clock->paused,
+            };
+        }
+        if (const auto* hours = scene.get_component<ShopHoursComponent>(entity)) {
+            state.shop_hours = SaveShopHoursState{
+                .opening_hour = hours->opening_hour,
+                .closing_hour = hours->closing_hour,
+            };
+        }
+        if (const auto* upgrade = scene.get_component<ShopUpgradeComponent>(entity)) {
+            state.shop_upgrade = SaveShopUpgradeState{.level = upgrade->level};
+        }
+        if (const auto* staff = scene.get_component<StaffWorkerComponent>(entity)) {
+            state.staff = SaveStaffState{
+                .employed = staff->employed,
+                .last_paid_day = staff->last_paid_day,
+                .skill_level = staff->skill_level,
+            };
+        }
+        if (const auto* behavior = scene.get_component<CustomerBehaviorComponent>(entity)) {
+            state.customer_behavior = SaveCustomerBehaviorState{
+                .enabled = behavior->enabled,
+                .timer_seconds = behavior->timer_seconds,
+                .state = behavior->state,
+                .order_sequence = behavior->order_sequence,
+            };
+        }
+        if (const auto* order = scene.get_component<CustomerOrderComponent>(entity)) {
+            SaveCustomerOrderState saved_order;
+            saved_order.order_id = order->order_id;
+            saved_order.customer_name = order->customer_name;
+            saved_order.fulfilled = order->fulfilled;
+            saved_order.delivered = order->delivered;
+            for (const auto& line : order->lines) {
+                saved_order.lines.push_back({
+                    .product_id = line.product_id,
+                    .quantity = line.quantity,
+                    .fulfilled_quantity = line.fulfilled_quantity,
+                    .unit_price = line.unit_price,
+                });
+            }
+            state.customer_order = std::move(saved_order);
+        }
 
         if (!state.transform.has_value() && !state.health.has_value() &&
-            !state.inventory.has_value() && !state.quest.has_value()) {
+            !state.inventory.has_value() && !state.quest.has_value() &&
+            !state.wallet.has_value() && !state.shop_inventory.has_value() &&
+            !state.shop_metrics.has_value() && !state.shop_clock.has_value() &&
+            !state.shop_hours.has_value() && !state.shop_upgrade.has_value() &&
+            !state.staff.has_value() && !state.customer_behavior.has_value() &&
+            !state.customer_order.has_value()) {
             result.warnings.push_back(
                 "Persistent entity has no Save Game v0 state yet: " + entity_label(scene, entity)
             );
