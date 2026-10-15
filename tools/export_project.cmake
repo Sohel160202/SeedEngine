@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-if(NOT DEFINED ${SEED_BUILD_DIR} OR NOT DEFINED ${SEED_EXPORT_DIR})
+if(NOT DEFINED SEED_BUILD_DIR OR NOT DEFINED SEED_EXPORT_DIR)
     message(FATAL_ERROR
         "Usage: cmake -DSEED_BUILD_DIR=<build> -DSEED_EXPORT_DIR=<dist> "
         "[-DSEED_PROJECT_DIR=<project>] [-DSEED_CONFIG=Release] "
