@@ -144,6 +144,7 @@ struct CustomerBehaviorComponent {
     float shopping_duration_seconds{4.0f};
     float leave_duration_seconds{5.0f};
     float queue_patience_seconds{30.0f};
+    float queue_abandon_satisfaction_penalty{15.0f};
     float timer_seconds{0.0f};
     std::string state{"waiting"};
     int order_sequence{1};
