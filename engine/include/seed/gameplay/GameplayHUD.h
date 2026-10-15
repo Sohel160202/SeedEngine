@@ -27,6 +27,19 @@ struct GameplayHUDState {
     std::string status_message;
     std::vector<std::string> active_objectives;
     std::unordered_map<std::string, int> inventory;
+
+    bool simulation_visible{false};
+    std::string shop_name;
+    float wallet_balance{0.0f};
+    float daily_revenue{0.0f};
+    int simulation_day{1};
+    float simulation_hour{8.0f};
+    bool shop_open{false};
+    int stock_quantity{0};
+    int stock_capacity{0};
+    int active_customers{0};
+    int queued_orders{0};
+    int completed_orders{0};
 };
 
 class GameplayHUDSystem {
