@@ -598,6 +598,92 @@ std::optional<SaveGameSnapshot> SaveGameSystem::read_file(
                 quest.status = value.value("status", 0);
                 state.quest = std::move(quest);
             }
+            if (components.contains("Wallet")) {
+                const auto& value = components.at("Wallet");
+                state.wallet = SaveWalletState{
+                    .balance = value.value("balance", 0.0f),
+                    .lifetime_revenue = value.value("lifetime_revenue", 0.0f),
+                    .lifetime_expenses = value.value("lifetime_expenses", 0.0f),
+                };
+            }
+            if (components.contains("ShopInventory")) {
+                SaveShopInventoryState inventory;
+                for (const auto& product : components.at("ShopInventory").value("products", nlohmann::json::array())) {
+                    inventory.products.push_back({
+                        .product_id = product.value("product_id", std::string{}),
+                        .quantity = product.value("quantity", 0),
+                        .shelf_capacity = product.value("shelf_capacity", 0),
+                    });
+                }
+                state.shop_inventory = std::move(inventory);
+            }
+            if (components.contains("ShopMetrics")) {
+                const auto& value = components.at("ShopMetrics");
+                state.shop_metrics = SaveShopMetricsState{
+                    .tracked_day = value.value("tracked_day", 1),
+                    .customers_served_today = value.value("customers_served_today", 0),
+                    .orders_completed_today = value.value("orders_completed_today", 0),
+                    .products_sold_today = value.value("products_sold_today", 0),
+                    .daily_revenue = value.value("daily_revenue", 0.0f),
+                    .daily_satisfaction = value.value("daily_satisfaction", 100.0f),
+                    .satisfaction_samples = value.value("satisfaction_samples", 0),
+                };
+            }
+            if (components.contains("SimulationClock")) {
+                const auto& value = components.at("SimulationClock");
+                state.shop_clock = SaveShopClockState{
+                    .day = value.value("day", 1),
+                    .hour = value.value("hour", 8.0f),
+                    .time_scale = value.value("time_scale", 1.0f),
+                    .paused = value.value("paused", false),
+                };
+            }
+            if (components.contains("ShopHours")) {
+                const auto& value = components.at("ShopHours");
+                state.shop_hours = SaveShopHoursState{
+                    .opening_hour = value.value("opening_hour", 8.0f),
+                    .closing_hour = value.value("closing_hour", 20.0f),
+                };
+            }
+            if (components.contains("ShopUpgrade")) {
+                state.shop_upgrade = SaveShopUpgradeState{
+                    .level = components.at("ShopUpgrade").value("level", 1),
+                };
+            }
+            if (components.contains("Staff")) {
+                const auto& value = components.at("Staff");
+                state.staff = SaveStaffState{
+                    .employed = value.value("employed", true),
+                    .last_paid_day = value.value("last_paid_day", 1),
+                    .skill_level = value.value("skill_level", 1),
+                };
+            }
+            if (components.contains("CustomerBehavior")) {
+                const auto& value = components.at("CustomerBehavior");
+                state.customer_behavior = SaveCustomerBehaviorState{
+                    .enabled = value.value("enabled", true),
+                    .timer_seconds = value.value("timer_seconds", 0.0f),
+                    .state = value.value("state", std::string{"waiting"}),
+                    .order_sequence = value.value("order_sequence", 1),
+                };
+            }
+            if (components.contains("CustomerOrder")) {
+                const auto& value = components.at("CustomerOrder");
+                SaveCustomerOrderState order;
+                order.order_id = value.value("order_id", std::string{});
+                order.customer_name = value.value("customer_name", std::string{"Customer"});
+                order.fulfilled = value.value("fulfilled", false);
+                order.delivered = value.value("delivered", false);
+                for (const auto& line : value.value("lines", nlohmann::json::array())) {
+                    order.lines.push_back({
+                        .product_id = line.value("product_id", std::string{}),
+                        .quantity = line.value("quantity", 0),
+                        .fulfilled_quantity = line.value("fulfilled_quantity", 0),
+                        .unit_price = line.value("unit_price", 0.0f),
+                    });
+                }
+                state.customer_order = std::move(order);
+            }
 
             snapshot.entities.push_back(std::move(state));
         }
