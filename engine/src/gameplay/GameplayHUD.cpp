@@ -34,10 +34,16 @@ GameplayHUDState GameplayHUDSystem::capture(
         }
         if (const auto* wallet = scene.get_component<WalletComponent>(shop_entity)) {
             state.wallet_balance = wallet->balance;
+            state.lifetime_revenue = wallet->lifetime_revenue;
+            state.lifetime_expenses = wallet->lifetime_expenses;
         }
         if (const auto* metrics = scene.get_component<ShopMetricsComponent>(shop_entity)) {
             state.daily_revenue = metrics->daily_revenue;
+            state.daily_satisfaction = std::clamp(metrics->daily_satisfaction, 0.0f, 100.0f);
             state.completed_orders = metrics->orders_completed_today;
+        }
+        if (const auto* upgrade = scene.get_component<ShopUpgradeComponent>(shop_entity)) {
+            state.shop_upgrade_level = std::max(1, upgrade->level);
         }
         if (const auto* goal = scene.get_component<ShopGoalComponent>(shop_entity)) {
             state.goal_title = goal->title;
