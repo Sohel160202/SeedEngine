@@ -805,10 +805,10 @@ void StudioUI::draw_seed_doctor(Scene& scene, const StudioDocumentInfo& document
             if (ImGui::Button(label.c_str())) {
                 const DoctorFixResult result = SeedDoctor::apply_safe_fix(scene, finding);
                 if (result.applied) m_scene_edited = true;
-            }
-            if (!result.message.empty()) {
-                ImGui::SameLine();
-                ImGui::TextDisabled("%s", result.message.c_str());
+                if (!result.message.empty()) {
+                    ImGui::SameLine();
+                    ImGui::TextDisabled("%s", result.message.c_str());
+                }
             }
         }
         ImGui::Separator();
