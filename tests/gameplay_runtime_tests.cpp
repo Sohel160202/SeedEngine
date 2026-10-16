@@ -236,10 +236,21 @@ int main() {
         scene.add_component<seed::ShopInventoryComponent>(shop);
         scene.add_component<seed::WalletComponent>(shop);
 
-        const auto browse_point = scene.create_entity("Browse Point");
+        const auto browse_point = scene.create_entity("Generic Browse Point");
         auto& browse_transform = scene.add_component<seed::TransformComponent>(browse_point);
-        browse_transform.position = {0.0f, 0.0f, 0.0f};
+        browse_transform.position = {2.0f, 0.0f, 0.0f};
         scene.add_component<seed::CustomerBrowsePointComponent>(browse_point);
+
+        const auto product_browse_point = scene.create_entity("Milk Shelf Browse Point");
+        auto& product_browse_transform =
+            scene.add_component<seed::TransformComponent>(product_browse_point);
+        product_browse_transform.position = {0.0f, 0.0f, -3.0f};
+        seed::CustomerBrowsePointComponent product_browse;
+        product_browse.product_id = "milk";
+        scene.add_component<seed::CustomerBrowsePointComponent>(
+            product_browse_point,
+            product_browse
+        );
 
         const auto customer_entity = scene.create_entity("Browsing Customer");
         auto& customer_transform = scene.add_component<seed::TransformComponent>(customer_entity);
@@ -250,11 +261,19 @@ int main() {
         scene.add_component<seed::CustomerBehaviorComponent>(customer_entity, customer);
         seed::CustomerOrderComponent order;
         order.customer_name = "Browsing Customer";
+        order.lines.push_back({"milk", 1, 0, 5.0f});
         scene.add_component<seed::CustomerOrderComponent>(customer_entity, order);
 
         seed::GameplayRuntime runtime;
         assert(runtime.start(scene, player));
-        runtime.update(scene, 2.1);
+        runtime.update(scene, 0.5);
+
+        const auto* browsing_transform =
+            scene.get_component<seed::TransformComponent>(customer_entity);
+        assert(browsing_transform != nullptr);
+        assert(browsing_transform->position.z < -0.1f);
+
+        runtime.update(scene, 2.0);
 
         const auto* updated_customer =
             scene.get_component<seed::CustomerBehaviorComponent>(customer_entity);
