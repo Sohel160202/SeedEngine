@@ -82,6 +82,7 @@ struct CustomerBrowsePointComponent {
     bool enabled{true};
     float dwell_seconds{2.0f};
     int priority{0};
+    std::string product_id{}; // Empty means this point is a generic fallback.
 };
 
 struct ShopHoursComponent {

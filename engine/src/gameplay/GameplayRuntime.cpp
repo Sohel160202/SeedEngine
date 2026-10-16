@@ -171,6 +171,7 @@ void update_customers(
         Vec3 position{};
         float dwell_seconds{2.0f};
         int priority{0};
+        std::string product_id{};
     };
     std::vector<BrowseTarget> browse_targets;
     scene.for_each<TransformComponent, CustomerBrowsePointComponent>(
@@ -179,7 +180,8 @@ void update_customers(
             browse_targets.push_back({
                 transform.position + Vec3{0.0f, 0.45f, 0.0f},
                 std::max(0.1f, browse_point.dwell_seconds),
-                browse_point.priority
+                browse_point.priority,
+                browse_point.product_id
             });
         }
     );
@@ -402,7 +404,14 @@ void update_customers(
                     return true;
                 }
                 const Vec3 direction = normalize(offset);
-                transform->position += direction * std::min(distance, dt * 2.5f);
+                const float step = dt * 2.5f;
+                if (step >= distance) {
+                    transform->position += direction * distance;
+                    transform->position.y = target.y;
+                    transform->rotation_degrees.y = yaw_from_direction(direction);
+                    return true;
+                }
+                transform->position += direction * step;
                 transform->rotation_degrees.y = yaw_from_direction(direction);
                 return false;
             };
@@ -557,13 +566,39 @@ void update_customers(
                     customer.timer_seconds = 0.0f;
                     return;
                 }
-                const std::size_t browse_index =
-                    (static_cast<std::size_t>(customer_entity) +
-                     static_cast<std::size_t>(std::max(0, customer.order_sequence - 1))) %
-                    browse_targets.size();
-                const BrowseTarget& browse_target = browse_targets[browse_index];
-                if (!move_customer_toward(browse_target.position)) return;
-                if (customer.timer_seconds < browse_target.dwell_seconds) return;
+                const BrowseTarget* browse_target = nullptr;
+                if (!order.lines.empty()) {
+                    for (const auto& candidate : browse_targets) {
+                        if (!candidate.product_id.empty() &&
+                            candidate.product_id == order.lines.front().product_id) {
+                            browse_target = &candidate;
+                            break;
+                        }
+                    }
+                }
+                if (browse_target == nullptr) {
+                    std::vector<const BrowseTarget*> generic_targets;
+                    for (const auto& candidate : browse_targets) {
+                        if (candidate.product_id.empty()) {
+                            generic_targets.push_back(&candidate);
+                        }
+                    }
+                    if (!generic_targets.empty()) {
+                        const std::size_t browse_index =
+                            (static_cast<std::size_t>(customer_entity) +
+                             static_cast<std::size_t>(std::max(0, customer.order_sequence - 1))) %
+                            generic_targets.size();
+                        browse_target = generic_targets[browse_index];
+                    } else {
+                        browse_target = &browse_targets[
+                            (static_cast<std::size_t>(customer_entity) +
+                             static_cast<std::size_t>(std::max(0, customer.order_sequence - 1))) %
+                            browse_targets.size()
+                        ];
+                    }
+                }
+                if (!move_customer_toward(browse_target->position)) return;
+                if (customer.timer_seconds < browse_target->dwell_seconds) return;
                 customer.state = "arriving";
                 customer.timer_seconds = 0.0f;
                 status_message = order.customer_name + " is heading to checkout.";

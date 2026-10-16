@@ -390,6 +390,7 @@ bool SceneSerializer::save(
                     {"enabled", browse_point->enabled},
                     {"dwell_seconds", browse_point->dwell_seconds},
                     {"priority", browse_point->priority},
+                    {"product_id", browse_point->product_id},
                 };
             }
             if (const auto* hours = scene.get_component<ShopHoursComponent>(entity)) {
@@ -1042,6 +1043,7 @@ bool SceneSerializer::load(
                     0.1f, value.value("dwell_seconds", 2.0f)
                 );
                 browse_point.priority = value.value("priority", 0);
+                browse_point.product_id = value.value("product_id", std::string{});
                 loaded_scene.add_component<CustomerBrowsePointComponent>(entity, browse_point);
             }
             if (components.contains("ShopHours")) {
