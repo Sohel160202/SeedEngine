@@ -404,7 +404,14 @@ void update_customers(
                     return true;
                 }
                 const Vec3 direction = normalize(offset);
-                transform->position += direction * std::min(distance, dt * 2.5f);
+                const float step = dt * 2.5f;
+                if (step >= distance) {
+                    transform->position += direction * distance;
+                    transform->position.y = target.y;
+                    transform->rotation_degrees.y = yaw_from_direction(direction);
+                    return true;
+                }
+                transform->position += direction * step;
                 transform->rotation_degrees.y = yaw_from_direction(direction);
                 return false;
             };
